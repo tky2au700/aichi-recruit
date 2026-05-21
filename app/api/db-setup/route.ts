@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getConnection } from '@/lib/db'
+import { query, getPool } from '@/lib/db'
 
 // テスト用テーブルを作成してサンプルデータを挿入する
 export async function POST() {
-  let connection
   try {
-    connection = await getConnection()
+    const db = getPool()
 
     // テスト用テーブル作成
-    await connection.query(`
+    await db.execute(`
       CREATE TABLE IF NOT EXISTS test_companies (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -21,7 +20,7 @@ export async function POST() {
     `)
 
     // サンプルデータ挿入（重複しない）
-    await connection.query(`
+    await db.execute(`
       INSERT IGNORE INTO test_companies (id, name, industry, location, salary_min, salary_max) VALUES
         (1, '株式会社テックジャパン', 'IT・ソフトウェア', '東京都渋谷区', 400, 800),
         (2, '合同会社クリエイト愛知', 'デザイン・クリエイティブ', '愛知県名古屋市', 350, 600),
@@ -31,13 +30,13 @@ export async function POST() {
     `)
 
     // データ確認
-    const [rows] = await connection.query('SELECT * FROM test_companies ORDER BY id')
+    const rows = await query('SELECT * FROM test_companies ORDER BY id')
 
     return NextResponse.json({
       success: true,
       message: 'テーブル作成・サンプルデータ挿入完了',
       data: rows,
-      count: (rows as any[]).length,
+      count: rows.length,
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -49,23 +48,16 @@ export async function POST() {
       },
       { status: 500 }
     )
-  } finally {
-    if (connection) await connection.end()
   }
 }
 
 // テーブルデータを取得する
 export async function GET() {
-  let connection
   try {
-    connection = await getConnection()
-
     // テーブル存在確認
-    const [tables] = await connection.query(
-      "SHOW TABLES LIKE 'test_companies'"
-    )
+    const tables = await query("SHOW TABLES LIKE 'test_companies'")
 
-    if ((tables as any[]).length === 0) {
+    if (tables.length === 0) {
       return NextResponse.json({
         success: false,
         message: 'test_companiesテーブルが存在しません。先にセットアップを実行してください。',
@@ -73,13 +65,13 @@ export async function GET() {
       })
     }
 
-    const [rows] = await connection.query('SELECT * FROM test_companies ORDER BY id')
+    const rows = await query('SELECT * FROM test_companies ORDER BY id')
 
     return NextResponse.json({
       success: true,
       message: 'データ取得成功',
       data: rows,
-      count: (rows as any[]).length,
+      count: rows.length,
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -91,7 +83,5 @@ export async function GET() {
       },
       { status: 500 }
     )
-  } finally {
-    if (connection) await connection.end()
   }
 }

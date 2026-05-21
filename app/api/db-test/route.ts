@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getConnection } from '@/lib/db'
+import { query } from '@/lib/db'
 
 export async function GET() {
-  let connection
   try {
-    connection = await getConnection()
-
     // 接続確認
-    const [pingResult] = await connection.query('SELECT 1 + 1 AS result')
+    const ping = await query('SELECT 1 + 1 AS result')
 
     // データベース情報取得
-    const [dbResult] = await connection.query('SELECT DATABASE() AS current_db, VERSION() AS version, NOW() AS server_time')
+    const dbInfo = await query('SELECT DATABASE() AS current_db, VERSION() AS version, NOW() AS server_time')
 
     // テーブル一覧取得
-    const [tables] = await connection.query('SHOW TABLES')
+    const tables = await query('SHOW TABLES')
 
     return NextResponse.json({
       success: true,
@@ -24,10 +21,10 @@ export async function GET() {
         database: process.env.MYSQL_DATABASE,
         user: process.env.MYSQL_USER,
       },
-      server: (dbResult as any[])[0],
-      ping: (pingResult as any[])[0],
-      tables: tables,
-      tableCount: (tables as any[]).length,
+      server: dbInfo[0],
+      ping: ping[0],
+      tables,
+      tableCount: tables.length,
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -45,7 +42,5 @@ export async function GET() {
       },
       { status: 500 }
     )
-  } finally {
-    if (connection) await connection.end()
   }
 }
