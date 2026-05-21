@@ -173,7 +173,7 @@ export default function HomePage() {
                 <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
                   <Briefcase className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-base font-bold text-background">JobBase</span>
+                <span className="text-base font-bold text-background">AIリクルート</span>
               </div>
               <p className="text-xs leading-relaxed">日本最大級の転職データベース。あなたの理想のキャリアを実現します。</p>
             </div>
@@ -195,7 +195,7 @@ export default function HomePage() {
             ))}
           </div>
           <div className="border-t border-background/10 pt-6 text-center text-xs">
-            &copy; 2026 JobBase, Inc. All rights reserved.
+            &copy; 2026 AIリクルート, Inc. All rights reserved.
           </div>
         </div>
       </footer>

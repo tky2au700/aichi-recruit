@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'JobBase | 転職データベース',
+  title: 'AIリクルート | 転職データベース',
   description: '最新の求人情報を検索・比較。あなたのキャリアに最適な転職先を見つけよう。',
   keywords: '転職, 求人, キャリア, 就職, 求人情報',
 }
