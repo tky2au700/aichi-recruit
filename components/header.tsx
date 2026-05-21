@@ -40,7 +40,7 @@ export function Header() {
               <Briefcase className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold text-primary tracking-tight">
-              JobBase
+              AIリクルート
             </span>
           </Link>
 
