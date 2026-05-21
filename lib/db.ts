@@ -1,23 +1,27 @@
 import mysql from "mysql2/promise";
 
-// MySQL 接続プール（シングルトン）
-let pool: mysql.Pool | null = null;
+// 接続設定
+const dbConfig: mysql.ConnectionOptions = {
+  host: process.env.MYSQL_HOST || "162.43.24.67",
+  port: Number(process.env.MYSQL_PORT || "3306"),
+  user: process.env.MYSQL_USER || "emoji_user",
+  password: process.env.MYSQL_PASSWORD || "emoji-luft-700",
+  database: process.env.MYSQL_DATABASE || "recruit_db",
+  timezone: "+00:00",
+  ssl: false,
+  connectTimeout: 10000,
+};
 
-function getPool(): mysql.Pool {
-  if (!pool) {
-    pool = mysql.createPool({
-      host: process.env.MYSQL_HOST || "162.43.24.67",
-      port: Number(process.env.MYSQL_PORT || "3306"),
-      user: process.env.MYSQL_USER || "emoji_user",
-      password: process.env.MYSQL_PASSWORD || "emoji-luft-700",
-      database: process.env.MYSQL_DATABASE || "recruit_db",
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-      timezone: "+00:00",
-    });
-  }
-  return pool;
+// サーバーレス環境向け：毎回新規接続を作成して使い捨てる
+async function getConnection(): Promise<mysql.Connection> {
+  return mysql.createConnection(dbConfig);
+}
+
+// 後方互換のため getPool は getConnection ラッパーとして維持
+// ただし実態はプールではなく単一接続
+function getPool() {
+  // 使用箇所が残っている場合の互換用（非推奨）
+  return mysql.createPool({ ...dbConfig, connectionLimit: 1 });
 }
 
 /**
@@ -33,28 +37,32 @@ export async function sql(
   ...values: unknown[]
 ): Promise<mysql.RowDataPacket[]> {
   // テンプレートリテラルを ? プレースホルダーに変換
-  let query = "";
+  let q = "";
   const params: unknown[] = [];
 
   for (let i = 0; i < strings.length; i++) {
-    query += strings[i];
+    q += strings[i];
     if (i < values.length) {
       const val = values[i];
       // sql`` で別の sql`` 断片を埋め込むケース（条件付きクエリ）
       if (isSqlFragment(val)) {
-        query += val.query;
+        q += val.query;
         params.push(...val.params);
       } else {
-        query += "?";
+        q += "?";
         params.push(val);
       }
     }
   }
 
-  const db = getPool();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [rows] = await db.execute<mysql.RowDataPacket[]>(query, params as any);
-  return rows;
+  const conn = await getConnection();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [rows] = await conn.execute<mysql.RowDataPacket[]>(q, params as any);
+    return rows;
+  } finally {
+    await conn.end();
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -105,18 +113,22 @@ sql.empty = { __isSqlFragment: true, query: "", params: [] } as SqlFragment;
  */
 export async function insertAndReturn<T = mysql.RowDataPacket>(
   table: string,
-  query: string,
+  insertQuery: string,
   params: unknown[]
 ): Promise<T> {
-  const db = getPool();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [result] = await db.execute<mysql.OkPacket>(query, params as any);
-  const insertId = result.insertId;
-  const [rows] = await db.execute<mysql.RowDataPacket[]>(
-    `SELECT * FROM \`${table}\` WHERE id = ?`,
-    [insertId]
-  );
-  return rows[0] as T;
+  const conn = await getConnection();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [result] = await conn.execute<mysql.OkPacket>(insertQuery, params as any);
+    const insertId = result.insertId;
+    const [rows] = await conn.execute<mysql.RowDataPacket[]>(
+      `SELECT * FROM \`${table}\` WHERE id = ?`,
+      [insertId]
+    );
+    return rows[0] as T;
+  } finally {
+    await conn.end();
+  }
 }
 
 /**
@@ -126,10 +138,14 @@ export async function query<T extends object = mysql.RowDataPacket>(
   q: string,
   params: unknown[] = []
 ): Promise<T[]> {
-  const db = getPool();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [rows] = await db.execute<mysql.RowDataPacket[]>(q, params as any);
-  return rows as T[];
+  const conn = await getConnection();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [rows] = await conn.execute<mysql.RowDataPacket[]>(q, params as any);
+    return rows as T[];
+  } finally {
+    await conn.end();
+  }
 }
 
 export { getPool };
