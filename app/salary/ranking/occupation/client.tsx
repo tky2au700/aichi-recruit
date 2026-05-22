@@ -105,6 +105,7 @@ export function OccupationRankingClient() {
       if (_year) params.set('survey_year', String(_year))
       const res  = await fetch(`/api/salary/ranking/occupation?${params}`)
       const json: ApiResponse = await res.json()
+      console.log('[v0] ranking API response:', { success: json.success, dataLen: json.data?.length, years: json.years?.length, meta: json.meta, message: json.message })
       if (!json.success) { setError(json.message ?? 'エラー'); return }
       setData(json.data)
       setMeta(json.meta)
