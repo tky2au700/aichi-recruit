@@ -1,31 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseOccupationWageCsv } from '@/lib/csv-parser'
+import { parseOccupationWageCsv, DEFAULT_CSV_RULE, type CsvParseRule } from '@/lib/csv-parser'
 import { query } from '@/lib/db'
 import iconv from 'iconv-lite'
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
-    const file = formData.get('file') as File | null
+    const file      = formData.get('file') as File | null
     const datasetId = formData.get('dataset_id') as string | null
 
-    if (!file) {
-      return NextResponse.json({ success: false, message: 'ファイルが見つかりません' }, { status: 400 })
-    }
-    if (!datasetId) {
-      return NextResponse.json({ success: false, message: 'dataset_idが必要です' }, { status: 400 })
+    if (!file)      return NextResponse.json({ success: false, message: 'ファイルが見つかりません' }, { status: 400 })
+    if (!datasetId) return NextResponse.json({ success: false, message: 'dataset_id が必要です' }, { status: 400 })
+
+    // データセット + 親グループのCSVルールを取得
+    const dsRows = await query(
+      `SELECT d.*, g.data_start_row, g.name_col_index,
+              g.size1_col_start, g.size2_col_start, g.size3_col_start, g.size4_col_start
+       FROM datasets d
+       JOIN dataset_groups g ON g.id = d.group_id
+       WHERE d.id = ?`,
+      [datasetId]
+    ) as any[]
+
+    if (dsRows.length === 0) {
+      return NextResponse.json({ success: false, message: '指定されたデータセットが存在しません' }, { status: 404 })
     }
 
-    // データセット存在確認
-    const datasets = await query('SELECT id FROM datasets WHERE id = ?', [datasetId])
-    if (datasets.length === 0) {
-      return NextResponse.json({ success: false, message: '指定されたデータセットが存在しません' }, { status: 404 })
+    const ds = dsRows[0]
+    const rule: CsvParseRule = {
+      data_start_row:  ds.data_start_row,
+      name_col_index:  ds.name_col_index,
+      size1_col_start: ds.size1_col_start,
+      size2_col_start: ds.size2_col_start,
+      size3_col_start: ds.size3_col_start,
+      size4_col_start: ds.size4_col_start,
     }
 
     const buffer = await file.arrayBuffer()
     const nodeBuffer = Buffer.from(buffer)
 
-    // iconv-liteでCP932(Shift-JIS)デコード
     let text: string
     if (nodeBuffer[0] === 0xef && nodeBuffer[1] === 0xbb && nodeBuffer[2] === 0xbf) {
       text = nodeBuffer.slice(3).toString('utf-8')
@@ -33,7 +46,7 @@ export async function POST(req: NextRequest) {
       text = iconv.decode(nodeBuffer, 'CP932')
     }
 
-    const rows = parseOccupationWageCsv(text)
+    const rows = parseOccupationWageCsv(text, rule)
 
     if (rows.length === 0) {
       return NextResponse.json(

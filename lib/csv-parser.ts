@@ -17,6 +17,25 @@
  *    ファイル全体を「RFC4180準拠の全体パーサー」で論理行に変換してから処理する。
  */
 
+// グループごとに保存するCSVパースルール
+export interface CsvParseRule {
+  data_start_row: number   // データ開始論理行（0-indexed）
+  name_col_index: number   // 職種名列インデックス
+  size1_col_start: number  // 企業規模計 開始列
+  size2_col_start: number  // 1000人以上 開始列
+  size3_col_start: number  // 100～999人 開始列
+  size4_col_start: number  // 10～99人 開始列
+}
+
+export const DEFAULT_CSV_RULE: CsvParseRule = {
+  data_start_row: 10,
+  name_col_index: 1,
+  size1_col_start: 3,
+  size2_col_start: 11,
+  size3_col_start: 19,
+  size4_col_start: 27,
+}
+
 export interface OccupationWageRow {
   occupation_name: string
   sex: '計' | '男' | '女'
@@ -158,36 +177,35 @@ function parseFullCsv(csvText: string): string[][] {
 }
 
 // CSVテキスト全体をパースしてOccupationWageRow[]を返す
-export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
-  // ファイル全体を論理行に変換（改行入りセルを正しく処理）
+// rule を省略した場合は DEFAULT_CSV_RULE を使用
+export function parseOccupationWageCsv(
+  csvText: string,
+  rule: CsvParseRule = DEFAULT_CSV_RULE
+): OccupationWageRow[] {
   const allRows = parseFullCsv(csvText)
-
   const results: OccupationWageRow[] = []
 
-  // ヘッダー行数: 論理行の先頭10行をスキップ（行0-9がヘッダー、行10から職種データ）
-  // Excelの結合セルにより「　男女計\n\n管理的職業従事者」が行10に来る
-  const DATA_START = 10
+  const DATA_START   = rule.data_start_row
+  const NAME_COL     = rule.name_col_index
 
-  // 現在の性別状態
   let currentSex: '計' | '男' | '女' = '計'
 
   const ENTERPRISE_SIZES: Array<{
     label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
     start: number
   }> = [
-    { label: '企業規模計', start: 3 },
-    { label: '1000人以上', start: 11 },
-    { label: '100～999人', start: 19 },
-    { label: '10～99人', start: 27 },
+    { label: '企業規模計', start: rule.size1_col_start },
+    { label: '1000人以上', start: rule.size2_col_start },
+    { label: '100～999人', start: rule.size3_col_start },
+    { label: '10～99人',   start: rule.size4_col_start },
   ]
 
   for (let i = DATA_START; i < allRows.length; i++) {
     const cols = allRows[i]
     if (!cols || cols.length < 4) continue
 
-    // 職種名セル（列インデックス1）
-    // 改行を含む場合: "　男女計\n\n管理的職業従事者" や "女\n\n看護助手" など
-    const rawNameCell = cols[1] || ''
+    // 職種名セル（ルールで指定された列インデックス）
+    const rawNameCell = cols[NAME_COL] || ''
 
     // 改行で分割して性別ラベルと職種名を取得
     // 例: "　男女計\n\n管理的職業従事者" → parts = ["　男女計", "", "管理的職業従事者"]
@@ -219,7 +237,7 @@ export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
 
     if (!occupationName) continue
 
-    // 数値データがあるかチェック（企業規模計の年齢列）
+    // 数値データがあるかチェッ��（企業規模計の年齢列）
     const sizeCheck = (cols[3] || '').trim()
     if (sizeCheck === '' || sizeCheck === '-') {
       // データなし行（合計なしの企業規模のみ）→ 他のサイズブロックも確認

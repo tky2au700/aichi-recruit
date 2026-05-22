@@ -1,37 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
-// データセット更新
+// 子データセット更新（調査年・公表日・URLのみ）
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const body = await req.json()
-    const { name, category, survey_year, published_at, source_name, source_url } = body
+    const { survey_year, published_at, source_url } = await req.json()
 
-    if (!name || !category || !survey_year) {
+    if (!survey_year) {
       return NextResponse.json(
-        { success: false, message: 'name, category, survey_year は必須です' },
+        { success: false, message: 'survey_year は必須です' },
         { status: 400 }
       )
     }
 
     await query(
-      `UPDATE datasets
-       SET name = ?, category = ?, survey_year = ?, published_at = ?, source_name = ?, source_url = ?
-       WHERE id = ?`,
-      [name, category, Number(survey_year), published_at || null, source_name || null, source_url || null, id]
+      `UPDATE datasets SET survey_year = ?, published_at = ?, source_url = ? WHERE id = ?`,
+      [Number(survey_year), published_at || null, source_url || null, id]
     )
 
-    const rows = await query('SELECT * FROM datasets WHERE id = ?', [id])
-    return NextResponse.json({ success: true, data: rows[0] })
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, message: '更新失敗', error: error.message },
-      { status: 500 }
+    const rows = await query(
+      `SELECT d.*, g.name AS group_name, g.category
+       FROM datasets d JOIN dataset_groups g ON g.id = d.group_id
+       WHERE d.id = ?`,
+      [id]
     )
+    return NextResponse.json({ success: true, data: (rows as any[])[0] })
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
 
@@ -42,11 +41,8 @@ export async function DELETE(
   try {
     const { id } = await params
     await query('DELETE FROM datasets WHERE id = ?', [id])
-    return NextResponse.json({ success: true, message: '削除しました' })
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, message: '削除失敗', error: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }
