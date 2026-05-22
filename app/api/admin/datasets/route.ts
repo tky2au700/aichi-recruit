@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
     const rows = await query(sql, args)
     return NextResponse.json({ success: true, data: rows })
   } catch (error: any) {
+    if (error.message?.includes("doesn't exist") || error.code === 'ER_NO_SUCH_TABLE') {
+      return NextResponse.json({ success: true, data: [] })
+    }
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }

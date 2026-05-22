@@ -24,6 +24,10 @@ export async function GET() {
     `)
     return NextResponse.json({ success: true, data: groups })
   } catch (error: any) {
+    // テーブルが存在しない場合（DB初期化前）は空配列を返す
+    if (error.message?.includes("doesn't exist") || error.code === 'ER_NO_SUCH_TABLE') {
+      return NextResponse.json({ success: true, data: [], warning: 'テーブルが未作成です。DB初期化を実行してください。' })
+    }
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
   }
 }

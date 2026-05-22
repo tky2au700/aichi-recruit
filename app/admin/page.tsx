@@ -156,13 +156,17 @@ function DataSourcesTab() {
   const [saving, setSaving]       = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [dbWarning, setDbWarning]     = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/admin/data-sources')
       const j   = await res.json()
-      if (j.success) setSources(j.data)
+      if (j.success) {
+        setSources(j.data)
+        setDbWarning(j.warning ?? null)
+      }
     } finally {
       setLoading(false)
     }
@@ -229,6 +233,12 @@ function DataSourcesTab() {
         </button>
       </div>
 
+      {dbWarning && (
+        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg px-3 py-2 text-xs">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {dbWarning}「DB初期化」タブからスキーマを実行してください。
+        </div>
+      )}
       {deleteError && (
         <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg px-3 py-2 text-xs">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
