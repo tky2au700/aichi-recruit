@@ -467,10 +467,10 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
                           <RankBadge rank={idx + 1} />
                         </td>
                         {/* 職種名 */}
-                        <td style={{ ...S.td, fontWeight: idx < 3 ? 600 : 400, color: '#1E293B' }}>
+                        <td style={{ ...S.td }}>
                           <Link
                             href={`/salary/occupation/${row.occupation_slug ?? encodeURIComponent(row.occupation_name)}`}
-                            style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: idx < 3 ? 600 : 500 }}
+                            className={`occupation-link${idx < 3 ? ' bold' : ''}`}
                           >
                             {row.occupation_name}
                           </Link>
