@@ -73,15 +73,19 @@ export async function GET(
     // 後方互換のため time_series（男女計・企業規模計のみ）も残す
     const timeSeriesAll = rows
       .map((r: any) => ({
-        survey_year:     r.survey_year,
-        sex:             r.sex,
-        enterprise_size: r.enterprise_size,
-        annual_income:   r.annual_income,
-        monthly_wage:    r.monthly_wage,
-        scheduled_wage:  r.scheduled_wage,
-        annual_bonus:    r.annual_bonus,
+        survey_year:      r.survey_year,
+        sex:              r.sex,
+        enterprise_size:  r.enterprise_size,
+        annual_income:    r.annual_income,
+        monthly_wage:     r.monthly_wage,
+        scheduled_wage:   r.scheduled_wage,
+        annual_bonus:     r.annual_bonus,
         // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
-        hourly_wage:     r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
+        hourly_wage:      r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
+        scheduled_hours:  r.scheduled_hours  != null ? Number(r.scheduled_hours)  : null,
+        overtime_hours:   r.overtime_hours   != null ? Number(r.overtime_hours)   : null,
+        workers:          r.workers          != null ? Number(r.workers)          : null,
+        age:              r.age              != null ? Number(r.age)              : null,
       }))
       .sort((a: any, b: any) => a.survey_year - b.survey_year)
 

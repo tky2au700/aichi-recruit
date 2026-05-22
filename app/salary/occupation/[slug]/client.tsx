@@ -38,6 +38,10 @@ interface TimePoint {
   scheduled_wage: number | null
   annual_bonus: number | null
   hourly_wage: number | null
+  scheduled_hours: number | null
+  overtime_hours: number | null
+  workers: number | null
+  age: number | null
 }
 
 interface ApiResponse {
@@ -125,10 +129,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ---------- 推移グラフ ----------
 const METRIC_TABS = [
-  { key: 'annual_income',  label: '推定年収',   unit: '万円', divisor: 10 },
-  { key: 'scheduled_wage', label: '月給（所定内）', unit: '万円', divisor: 10 },
-  { key: 'annual_bonus',   label: '年間賞与',   unit: '万円', divisor: 10 },
-  { key: 'hourly_wage',    label: '時給換算',   unit: '円',   divisor: 1 },
+  { key: 'annual_income',  label: '推定年収',      unit: '万円', divisor: 10,  stacked: false },
+  { key: 'scheduled_wage', label: '月給（所定内）',  unit: '万円', divisor: 10,  stacked: false },
+  { key: 'annual_bonus',   label: '年間賞与',      unit: '万円', divisor: 10,  stacked: false },
+  { key: 'hourly_wage',    label: '時給換算',      unit: '円',   divisor: 1,   stacked: false },
+  { key: 'work_hours',     label: '労働時間',      unit: 'h',    divisor: 1,   stacked: true  },
+  { key: 'workers',        label: '労働者数',      unit: '人',   divisor: 1,   stacked: false },
+  { key: 'age',            label: '平均年齢',      unit: '歳',   divisor: 1,   stacked: false },
 ] as const
 
 type MetricKey = typeof METRIC_TABS[number]['key']
@@ -159,10 +166,16 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
   const [compareMode, setCompareMode] = useState<CompareMode>('sex')
 
   const metricDef = METRIC_TABS.find(m => m.key === metric)!
+  const isStacked  = metricDef.stacked
   const lines = compareMode === 'sex' ? SEX_LINES : SIZE_LINES
   const lineLabel = (key: string) => compareMode === 'sex' ? (SEX_LABELS[key] ?? key) : key
 
-  // Recharts用データ: { year: 2021, '男女計': 1632, '男性': 1800, ... }
+  // 労働時間は積上げ用にキーを分ける: "所定内_男女計", "残業_男女計" など
+  const getStackKeys = (lineKey: string) => ({
+    scheduled: `所定内_${lineLabel(lineKey)}`,
+    overtime:  `残業_${lineLabel(lineKey)}`,
+  })
+
   const years = [...new Set(timeSeriesAll.map(t => t.survey_year))].sort((a, b) => a - b)
   const chartData = years.map(year => {
     const row: Record<string, number | string> = { year: `${year}年` }
@@ -170,13 +183,49 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
       const found = compareMode === 'sex'
         ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lineKey && t.enterprise_size === '企業規模計')
         : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lineKey)
-      const raw = found ? (found as any)[metric] : null
-      if (raw != null) {
-        row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
+      if (!found) return
+
+      if (metric === 'work_hours') {
+        const sk = getStackKeys(lineKey)
+        if (found.scheduled_hours != null) row[sk.scheduled] = Math.round(found.scheduled_hours * 10) / 10
+        if (found.overtime_hours  != null) row[sk.overtime]  = Math.round(found.overtime_hours  * 10) / 10
+      } else if (metric === 'workers') {
+        // workers は十人単位 → 人に変換
+        if (found.workers != null) row[lineLabel(lineKey)] = found.workers * 10
+      } else if (metric === 'age') {
+        if (found.age != null) row[lineLabel(lineKey)] = Math.round(found.age * 10) / 10
+      } else {
+        const raw = (found as any)[metric]
+        if (raw != null) row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
       }
     })
     return row
   })
+
+  const formatTick = (v: number) => {
+    if (metricDef.unit === '円')  return `${v.toLocaleString()}円`
+    if (metricDef.unit === '万円') return `${v.toLocaleString()}万`
+    if (metricDef.unit === 'h')   return `${v}h`
+    if (metricDef.unit === '人')  return v >= 10000 ? `${(v/10000).toFixed(1)}万` : `${v.toLocaleString()}`
+    if (metricDef.unit === '歳')  return `${v}歳`
+    return `${v}`
+  }
+  const formatTooltip = (v: number, name: string) => {
+    if (metricDef.unit === '円')  return [`${v.toLocaleString()}円`, name]
+    if (metricDef.unit === '万円') return [`${v.toLocaleString()}万円`, name]
+    if (metricDef.unit === 'h')   return [`${v}h`, name]
+    if (metricDef.unit === '人')  return [`${v.toLocaleString()}人`, name]
+    if (metricDef.unit === '歳')  return [`${v}歳`, name]
+    return [`${v}`, name]
+  }
+
+  // 積上げ棒グラフ用の全バーキーを列挙
+  const stackedBars = isStacked
+    ? lines.flatMap((lineKey, idx) => [
+        { dataKey: getStackKeys(lineKey).scheduled, fill: LINE_COLORS[idx % LINE_COLORS.length],        label: `所定内_${lineLabel(lineKey)}` },
+        { dataKey: getStackKeys(lineKey).overtime,  fill: LINE_COLORS[idx % LINE_COLORS.length] + '88', label: `残業_${lineLabel(lineKey)}` },
+      ])
+    : []
 
   const TabBtn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button onClick={onClick} style={{
@@ -190,17 +239,12 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
     </button>
   )
 
-  const formatTick = (v: number) => metricDef.unit === '円' ? `${v.toLocaleString()}円` : `${v.toLocaleString()}万`
-  const formatTooltip = (v: number) => metricDef.unit === '円' ? `${v.toLocaleString()}円` : `${v.toLocaleString()}万円`
-
   return (
     <section style={{ marginBottom: 36 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ marginBottom: 0 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #1a73e8', paddingLeft: 10, margin: 0 }}>
-            推移グラフ
-          </h2>
-        </div>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #1a73e8', paddingLeft: 10, margin: 0 }}>
+          推移グラフ
+        </h2>
         {/* 比較軸タブ */}
         <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2 }}>
           {COMPARE_MODES.map(m => (
@@ -227,26 +271,27 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="20%" barGap={3}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748B' }} />
-            <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={56} />
+            <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={60} />
             <Tooltip
-              formatter={(value: number, name: string) => [formatTooltip(value), name]}
+              formatter={formatTooltip}
               labelStyle={{ fontSize: 12, color: '#0F172A', fontWeight: 700 }}
               contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12 }}
               cursor={{ fill: 'rgba(0,0,0,0.04)' }}
             />
-            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            {lines.map((lineKey, idx) => (
-              <Bar
-                key={lineKey}
-                dataKey={lineLabel(lineKey)}
-                fill={LINE_COLORS[idx % LINE_COLORS.length]}
-                radius={[3, 3, 0, 0]}
-              />
-            ))}
+            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+
+            {isStacked
+              ? stackedBars.map(b => (
+                  <Bar key={b.dataKey} dataKey={b.dataKey} fill={b.fill} stackId={b.dataKey.replace(/^(所定内|残業)_/, '')} radius={b.dataKey.startsWith('残業') ? [3, 3, 0, 0] : undefined} />
+                ))
+              : lines.map((lineKey, idx) => (
+                  <Bar key={lineKey} dataKey={lineLabel(lineKey)} fill={LINE_COLORS[idx % LINE_COLORS.length]} radius={[3, 3, 0, 0]} />
+                ))
+            }
           </BarChart>
         </ResponsiveContainer>
 
@@ -257,6 +302,11 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
               {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
               {growthStr}
             </strong>
+          </div>
+        )}
+        {metric === 'work_hours' && (
+          <div style={{ marginTop: 8, fontSize: 11, color: '#94A3B8' }}>
+            ■ 濃色：所定内労働時間　■ 薄色：残業時間（単位：時間/月）
           </div>
         )}
       </div>
@@ -681,13 +731,13 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* 関連リンク */}
+        {/* 関連リン��� */}
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>関連ランキングを見る</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
             {[
               { href: '/salary/ranking/occupation',            label: '職種別年収ランキング',  icon: <TrendingUp size={14} color="#1a73e8" /> },
-              { href: '/salary/ranking/bonus',                 label: 'ボーナスランキング',      icon: <Award size={14} color="#f59e0b" /> },
+              { href: '/salary/ranking/bonus',                 label: 'ボーナス��ンキング',      icon: <Award size={14} color="#f59e0b" /> },
               { href: '/salary/ranking/hourly-wage',           label: '時給換算ランキング',      icon: <Clock size={14} color="#0ea5e9" /> },
               { href: '/salary/ranking/high-income-low-overtime', label: '残業少ない高年収',    icon: <BarChart2 size={14} color="#7c3aed" /> },
             ].map(({ href, label, icon }) => (
