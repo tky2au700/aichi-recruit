@@ -1131,8 +1131,23 @@ function PreviewTable({
   setPage: (p: number) => void
   pageSize: number
 }) {
-  const totalPages = Math.ceil(rows.length / pageSize)
-  const pageRows   = rows.slice((page - 1) * pageSize, page * pageSize)
+  const [sexFilter, setSexFilter] = useState<'全て' | '計' | '男' | '女'>('全て')
+
+  const filteredRows = sexFilter === '全て' ? rows : rows.filter(r => r.sex === sexFilter)
+  const totalPages   = Math.ceil(filteredRows.length / pageSize)
+  const pageRows     = filteredRows.slice((page - 1) * pageSize, page * pageSize)
+
+  function handleSexFilter(v: typeof sexFilter) {
+    setSexFilter(v)
+    setPage(1)
+  }
+
+  const sexCounts = {
+    全て: rows.length,
+    計:   summary.sex_breakdown['計'],
+    男:   summary.sex_breakdown['男'],
+    女:   summary.sex_breakdown['女'],
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-4">
@@ -1140,6 +1155,26 @@ function PreviewTable({
         <Eye className="w-4 h-4 text-primary shrink-0" />
         <h3 className="text-sm font-bold">プレビュー結果</h3>
         <span className="ml-auto text-xs text-muted-foreground">全 {rows.length.toLocaleString()} 件</span>
+      </div>
+
+      {/* 性別フィルタータブ */}
+      <div className="flex items-center gap-1 mb-4 p-1 bg-muted/20 rounded-lg w-fit">
+        {(['全て', '計', '男', '女'] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => handleSexFilter(s)}
+            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+              sexFilter === s
+                ? s === '男' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : s === '女' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
+                : 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {s === '計' ? '男女計' : s}
+            <span className="ml-1 text-[10px] opacity-70">({sexCounts[s].toLocaleString()})</span>
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -1201,7 +1236,8 @@ function PreviewTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
           <p className="text-xs text-muted-foreground">
-            {((page - 1) * pageSize + 1).toLocaleString()}〜{Math.min(page * pageSize, rows.length).toLocaleString()} / 全{rows.length.toLocaleString()}件
+            {((page - 1) * pageSize + 1).toLocaleString()}〜{Math.min(page * pageSize, filteredRows.length).toLocaleString()} / {filteredRows.length.toLocaleString()}件
+            {sexFilter !== '全て' && <span className="ml-1 text-primary">（{sexFilter === '計' ? '男女計' : sexFilter}でフィルター中）</span>}
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(1)} disabled={page === 1}
