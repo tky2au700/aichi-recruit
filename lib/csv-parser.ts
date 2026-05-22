@@ -2,25 +2,19 @@
  * 賃金構造基本統計調査 職種別CSVパーサー
  *
  * CSVフォーマット（(1-4-1)aa1s19形式）:
- *  - 行1-38: ヘッダー（スキップ）
- *  - 行39以降: データ行
- *    列B: 職種名（複数行にまたがる場合あり）
- *    列D-K: 企業規模計（10人以上）
- *    列L-S: 1,000人以上
- *    列T-AA: 100～999人
- *    列AB-AI: 10～99人
+ *  - ヘッダー: 最初の38論理行をスキップ
+ *  - データ行:
+ *    列[1]: 職種名 ※Excelの結合セルが改行込みクォートフィールドになる場合あり
+ *            例: "　男女計\n\n管理的職業従事者"  → sex=計, name=管理的職業従事者
+ *            例: "女\n\n看護助手"               → sex=女, name=看護助手
+ *            例: ",研究者,"                      → 前の性別を引き継ぎ, name=研究者
+ *    列[3..10]: 企業規模計（8列）
+ *    列[11..18]: 1000人以上（8列）
+ *    列[19..26]: 100～999人（8列）
+ *    列[27..34]: 10～99人（8列）
  *
- *  各企業規模の列順（8列）:
- *    [0] 年齢（歳）
- *    [1] 勤続年数（年）
- *    [2] 所定内実労働時間数（時間）
- *    [3] 超過実労働時間数（時間）
- *    [4] きまって支給する現金給与額（千円）
- *    [5] 所定内給与額（千円）
- *    [6] 年間賞与その他特別給与額（千円）
- *    [7] 労働者数（十人）
- *
- *  性別区分: 職種名セルに「男女計」「男」「女」が含まれる行でリセット
+ *  ★ 重要: Excelの複数行結合セルがCSVで改行入りクォートフィールドになるため、
+ *    ファイル全体を「RFC4180準拠の全体パーサー」で論理行に変換してから処理する。
  */
 
 export interface OccupationWageRow {
@@ -97,31 +91,86 @@ function extractSizeBlock(
   }
 }
 
+/**
+ * RFC4180準拠の全体CSVパーサー
+ * ファイル全体を1度に走査し、改行を含むクォートフィールドも正しく論理行に分割する
+ */
+function parseFullCsv(csvText: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  let i = 0
+
+  while (i < csvText.length) {
+    const ch = csvText[i]
+
+    if (inQuotes) {
+      if (ch === '"') {
+        // エスケープされた二重引用符
+        if (csvText[i + 1] === '"') {
+          field += '"'
+          i += 2
+        } else {
+          // 閉じクォート
+          inQuotes = false
+          i++
+        }
+      } else {
+        // クォート内の改行も含めてフィールドに追加
+        field += ch
+        i++
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+        i++
+      } else if (ch === ',') {
+        row.push(field)
+        field = ''
+        i++
+      } else if (ch === '\r' && csvText[i + 1] === '\n') {
+        // CRLF
+        row.push(field)
+        field = ''
+        rows.push(row)
+        row = []
+        i += 2
+      } else if (ch === '\n' || ch === '\r') {
+        // LF or CR
+        row.push(field)
+        field = ''
+        rows.push(row)
+        row = []
+        i++
+      } else {
+        field += ch
+        i++
+      }
+    }
+  }
+  // 最後のフィールド・行
+  if (field || row.length > 0) {
+    row.push(field)
+    rows.push(row)
+  }
+  return rows
+}
+
 // CSVテキスト全体をパースしてOccupationWageRow[]を返す
 export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
-  // Shift-JIS等のデコード済みテキストを前提とする
-  // 行に分割（\r\n / \n どちらでも対応）
-  const lines = csvText.split(/\r?\n/)
+  // ファイル全体を論理行に変換（改行入りセルを正しく処理）
+  const allRows = parseFullCsv(csvText)
 
   const results: OccupationWageRow[] = []
 
-  // ヘッダー行数: 行1-38をスキップ（0-indexed: 0-37）
+  // ヘッダー行数: 論理行の先頭38行をスキップ
+  // ただしExcelのヘッダー内にも改行セルがあるため、
+  // 「職種名セル(cols[1])に数値データ(cols[3])がある」行のみ処理する
   const DATA_START = 38
 
   // 現在の性別状態
   let currentSex: '計' | '男' | '女' = '計'
-
-  // 職種名が複数行セルにまたがる場合の管理
-  // 列インデックス（0-indexed）
-  // 元CSVはカンマ区切りで先頭に空列がある
-  // 実際の列配置:
-  //   [0]: 空
-  //   [1]: 区分/職種名（改行を含む場合あり）
-  //   [2]: 空（表頭分割用）
-  //   [3..10]: 企業規模計（8列）
-  //   [11..18]: 1000人以上（8列）
-  //   [19..26]: 100～999人（8列）
-  //   [27..34]: 10～99人（8列）
 
   const ENTERPRISE_SIZES: Array<{
     label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
@@ -133,55 +182,60 @@ export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
     { label: '10～99人', start: 27 },
   ]
 
-  for (let i = DATA_START; i < lines.length; i++) {
-    const line = lines[i]
-    if (!line.trim()) continue
-
-    // CSVパース（クォート対応）
-    const cols = parseCsvLine(line)
+  for (let i = DATA_START; i < allRows.length; i++) {
+    const cols = allRows[i]
+    if (!cols || cols.length < 4) continue
 
     // 職種名セル（列インデックス1）
-    const nameCell = normalizeName(cols[1] || '')
+    // 改行を含む場合: "　男女計\n\n管理的職業従事者" や "女\n\n看護助手" など
+    const rawNameCell = cols[1] || ''
 
-    // 性別判定: セルに「男女計」「　男」「　女」「男 」「女 」を含む
-    if (nameCell.includes('男女計') || nameCell.match(/^男女計/)) {
+    // 改行で分割して性別ラベルと職種名を取得
+    // 例: "　男女計\n\n管理的職業従事者" → parts = ["　男女計", "", "管理的職業従事者"]
+    const parts = rawNameCell.split(/\n/).map(s => s.replace(/\r/g, '').trim()).filter(s => s !== '')
+
+    // 性別ラベルの検出（partsの先頭に「男女計」「男」「女」があるケース）
+    let occupationName = ''
+    if (parts.length === 0) continue
+
+    // 先頭要素から性別を判定
+    const firstPart = parts[0].replace(/\u3000/g, ' ').trim()
+    if (firstPart === '男女計' || firstPart.match(/^[\s　]*男女計[\s　]*$/)) {
       currentSex = '計'
-    } else if (
-      nameCell.match(/^[\s　]*男[\s　]/) ||
-      nameCell.match(/^[\s　]*男$/) ||
-      nameCell === '男' ||
-      nameCell.startsWith('　男')
-    ) {
+      // 職種名は2番目以降
+      occupationName = parts.slice(1).join(' ').trim()
+    } else if (firstPart === '男' || firstPart.match(/^[\s　]*男[\s　]*$/)) {
       currentSex = '男'
-    } else if (
-      nameCell.match(/^[\s　]*女[\s　]/) ||
-      nameCell.match(/^[\s　]*女$/) ||
-      nameCell === '女' ||
-      nameCell.startsWith('　女')
-    ) {
+      occupationName = parts.slice(1).join(' ').trim()
+    } else if (firstPart === '女' || firstPart.match(/^[\s　]*女[\s　]*$/)) {
       currentSex = '女'
+      occupationName = parts.slice(1).join(' ').trim()
+    } else {
+      // 性別ラベルなし → 全体が職種名
+      occupationName = parts.join(' ').trim()
     }
 
-    // 実際の職種名を取得（性別プレフィックスを除いた部分）
-    // 例: "　男女計\n\n管理的職業従事者" -> "管理的職業従事者"
-    // 例: ",研究者," -> "研究者"
-    let occupationName = nameCell
-      .replace(/男女計/g, '')
-      .replace(/^[\s　]*(男|女)[\s　]*/g, '')
-      .trim()
+    // 職種名の最終正規化
+    occupationName = occupationName.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim()
 
     if (!occupationName) continue
 
-    // 企業規模計のデータが存在するか確認（年齢列が数値）
-    const sizeCheck = cols[3]
-    if (!sizeCheck || sizeCheck.trim() === '') continue
-    if (sizeCheck.trim() === '-' && cols[4]?.trim() === '-') continue
+    // 数値データがあるかチェック（企業規模計の年齢列）
+    const sizeCheck = (cols[3] || '').trim()
+    if (sizeCheck === '' || sizeCheck === '-') {
+      // データなし行（合計なしの企業規模のみ）→ 他のサイズブロックも確認
+      const anyData = [3, 11, 19, 27].some(start => {
+        const v = (cols[start] || '').trim()
+        return v !== '' && v !== '-'
+      })
+      if (!anyData) continue
+    }
 
     for (const { label, start } of ENTERPRISE_SIZES) {
       const block = cols.slice(start, start + 8)
       // 全て空またはハイフンならスキップ
       const hasData = block.some((c) => {
-        const t = c.trim()
+        const t = (c || '').trim()
         return t !== '' && t !== '-'
       })
       if (!hasData) continue
@@ -192,30 +246,4 @@ export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
   }
 
   return results
-}
-
-// RFC 4180準拠のCSV行パーサー
-function parseCsvLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current)
-      current = ''
-    } else {
-      current += ch
-    }
-  }
-  result.push(current)
-  return result
 }
