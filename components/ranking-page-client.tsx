@@ -73,7 +73,7 @@ function fmtFixed(v: number | null, d = 1, suffix = '') {
   return `${Number(v).toFixed(d)}${suffix}`
 }
 
-type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage' | 'workers'
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage' | 'workers' | '__composite'
 type SortDir = 'asc' | 'desc'
 
 function RankBadge({ rank }: { rank: number }) {
@@ -95,7 +95,9 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
   const [error, setError]       = useState<string | null>(null)
   const [surveyYear, setSurveyYear] = useState<number | null>(null)
   const [search, setSearch]     = useState('')
-  const [sortKey, setSortKey]   = useState<SortKey>(config.sortKey as SortKey)
+  const [sortKey, setSortKey]   = useState<SortKey>(
+    config.type === 'high-income-large-workforce' ? '__composite' : config.sortKey as SortKey
+  )
   const [sortDir, setSortDir]   = useState<SortDir>('desc')
 
   const fetchData = useCallback(async (_year: number | null) => {
@@ -123,18 +125,23 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
     else { setSortKey(key); setSortDir('desc') }
   }
 
+  const compositeScore = (r: RankingRow) =>
+    (r.workers != null && r.annual_income != null) ? r.workers * r.annual_income : null
+
   const filtered = data
     .filter(r => search === '' || r.occupation_name.includes(search))
     .sort((a, b) => {
-      const av = a[sortKey] as number | null
-      const bv = b[sortKey] as number | null
+      const av = sortKey === '__composite' ? compositeScore(a) : a[sortKey] as number | null
+      const bv = sortKey === '__composite' ? compositeScore(b) : b[sortKey] as number | null
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
       return sortDir === 'desc' ? bv - av : av - bv
     })
 
-  const topVal = (filtered[0]?.[config.sortKey] as number | null) ?? null
+  const topVal = sortKey === '__composite'
+    ? compositeScore(filtered[0] ?? {} as RankingRow)
+    : (filtered[0]?.[config.sortKey] as number | null) ?? null
 
   // ---- スタイル ----
   const pc = config.primaryColor
