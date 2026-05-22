@@ -1,10 +1,13 @@
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
+import { buildMetadata } from '@/lib/seo'
 
-export const metadata = {
-  title: '女性の平均年収が高い職種ランキング | 年収DB',
-  description: '賃金構造基本統計調査をもとにした女性の平均年収ランキング。職種ごとの女性年収データを一覧で確認できます。',
-}
+export const metadata = buildMetadata({
+  title: '女性の平均年収が高い職種ランキング2025 | AIリクルート',
+  description: '2025年調査・女性労働者の平均年収が高い職種ランキング。賃金構造基本統計調査に基づく女性年収データを職種別に比較。男女格差の確認にも。',
+  keywords: ['女性 年収', '女性 平均年収', '女性 年収ランキング', '女性 高収入', '男女格差'],
+  path: '/salary/ranking/female',
+})
 
 export default function FemaleRankingPage() {
   return (

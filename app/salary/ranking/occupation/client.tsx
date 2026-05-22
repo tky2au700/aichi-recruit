@@ -399,14 +399,12 @@ export function OccupationRankingClient() {
                         </td>
                         {/* 職種名 */}
                         <td style={{ ...S.td, fontWeight: idx < 3 ? 600 : 400, color: '#1E293B' }}>
-                          {row.occupation_slug ? (
-                            <Link
-                              href={`/salary/occupation/${row.occupation_slug}`}
-                              style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: idx < 3 ? 600 : 500 }}
-                            >
-                              {row.occupation_name}
-                            </Link>
-                          ) : row.occupation_name}
+                          <Link
+                            href={`/salary/occupation/${row.occupation_slug ?? encodeURIComponent(row.occupation_name)}`}
+                            style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: idx < 3 ? 600 : 500 }}
+                          >
+                            {row.occupation_name}
+                          </Link>
                         </td>
                         {/* 年収 + バー */}
                         <td style={{ ...S.td, minWidth: 140 }}>
