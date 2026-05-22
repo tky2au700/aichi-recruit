@@ -8,7 +8,7 @@ const dbConfig: mysql.ConnectionOptions = {
   password: process.env.MYSQL_PASSWORD || "emoji-luft-700",
   database: process.env.MYSQL_DATABASE || "recruit_db",
   timezone: "+00:00",
-  ssl: false,
+  ssl: undefined,
   connectTimeout: 10000,
 };
 
