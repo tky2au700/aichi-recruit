@@ -7,6 +7,10 @@ import {
   BarChart2, ArrowLeft, TrendingDown, Building2,
   Info,
 } from 'lucide-react'
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from 'recharts'
 
 // ---------- 型定義 ----------
 interface DetailRow {
@@ -27,9 +31,17 @@ interface DetailRow {
 
 interface TimePoint {
   survey_year: number
+  sex: string
+  enterprise_size: string
   annual_income: number | null
   monthly_wage: number | null
+  scheduled_wage: number | null
+  annual_bonus: number | null
   hourly_wage: number | null
+  scheduled_hours: number | null
+  overtime_hours: number | null
+  workers: number | null
+  age: number | null
 }
 
 interface ApiResponse {
@@ -42,6 +54,7 @@ interface ApiResponse {
   all_years: number[]
   latest_data: DetailRow[]
   time_series: TimePoint[]
+  time_series_all: TimePoint[]
   message?: string
 }
 
@@ -114,6 +127,197 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ---------- 推移グラフ ----------
+const METRIC_TABS = [
+  { key: 'annual_income',  label: '推定年収',      unit: '万円', divisor: 10,  stacked: false },
+  { key: 'scheduled_wage', label: '月給（所定内）',  unit: '万円', divisor: 10,  stacked: false },
+  { key: 'annual_bonus',   label: '年間賞与',      unit: '万円', divisor: 10,  stacked: false },
+  { key: 'hourly_wage',    label: '時給換算',      unit: '円',   divisor: 1,   stacked: false },
+  { key: 'work_hours',     label: '労働時間',      unit: 'h',    divisor: 1,   stacked: true  },
+  { key: 'workers',        label: '労働者数',      unit: '人',   divisor: 1,   stacked: false },
+  { key: 'age',            label: '平均年齢',      unit: '歳',   divisor: 1,   stacked: false },
+] as const
+
+type MetricKey = typeof METRIC_TABS[number]['key']
+
+// 比較軸：企業規模別 or 男女別
+const COMPARE_MODES = [
+  { key: 'sex',  label: '男女別' },
+  { key: 'size', label: '企業規模別' },
+] as const
+type CompareMode = typeof COMPARE_MODES[number]['key']
+
+// 色パレット（最大6本）
+const LINE_COLORS = ['#1a73e8', '#db2777', '#16a34a', '#d97706', '#7c3aed', '#64748b']
+
+const SEX_LINES    = ['計', '男', '女']
+const SEX_LABELS: Record<string, string>  = { '計': '男女計', '男': '男性', '女': '女性' }
+const SIZE_LINES   = ['企業規模計', '1000人以上', '100〜999人', '10〜99人']
+
+function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest, latest }: {
+  timeSeriesAll: TimePoint[]
+  allYears: number[]
+  growthStr: string
+  growthPositive: boolean
+  oldest: TimePoint | undefined
+  latest: TimePoint | undefined
+}) {
+  const [metric, setMetric]          = useState<MetricKey>('annual_income')
+  const [compareMode, setCompareMode] = useState<CompareMode>('sex')
+
+  const metricDef = METRIC_TABS.find(m => m.key === metric)!
+  const isStacked  = metricDef.stacked
+  const lines = compareMode === 'sex' ? SEX_LINES : SIZE_LINES
+  const lineLabel = (key: string) => compareMode === 'sex' ? (SEX_LABELS[key] ?? key) : key
+
+  // 労働時間は積上げ用にキーを分ける: "所定内_男女計", "残業_男女計" など
+  const getStackKeys = (lineKey: string) => ({
+    scheduled: `所定内_${lineLabel(lineKey)}`,
+    overtime:  `残業_${lineLabel(lineKey)}`,
+  })
+
+  const years = [...new Set(timeSeriesAll.map(t => t.survey_year))].sort((a, b) => a - b)
+  const chartData = years.map(year => {
+    const row: Record<string, number | string> = { year: `${year}年` }
+    lines.forEach(lineKey => {
+      const found = compareMode === 'sex'
+        ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lineKey && t.enterprise_size === '企業規模計')
+        : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lineKey)
+      if (!found) return
+
+      if (metric === 'work_hours') {
+        const sk = getStackKeys(lineKey)
+        const sh = found.scheduled_hours != null ? Number(found.scheduled_hours) : null
+        const oh = found.overtime_hours  != null ? Number(found.overtime_hours)  : null
+        if (sh != null) row[sk.scheduled] = Math.round(sh * 10) / 10
+        if (oh != null) row[sk.overtime]  = Math.round(oh * 10) / 10
+      } else if (metric === 'workers') {
+        // workers は十人単位 → 人に変換
+        const w = found.workers != null ? Number(found.workers) : null
+        if (w != null) row[lineLabel(lineKey)] = w * 10
+      } else if (metric === 'age') {
+        const a = found.age != null ? Number(found.age) : null
+        if (a != null) row[lineLabel(lineKey)] = Math.round(a * 10) / 10
+      } else {
+        const raw = (found as any)[metric]
+        if (raw != null) row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
+      }
+    })
+    return row
+  })
+
+  const formatTick = (v: number) => {
+    if (metricDef.unit === '円')  return `${v.toLocaleString()}円`
+    if (metricDef.unit === '万円') return `${v.toLocaleString()}万`
+    if (metricDef.unit === 'h')   return `${v}h`
+    if (metricDef.unit === '人')  return v >= 10000 ? `${(v/10000).toFixed(1)}万` : `${v.toLocaleString()}`
+    if (metricDef.unit === '歳')  return `${v}歳`
+    return `${v}`
+  }
+  const formatTooltip = (v: number, name: string) => {
+    if (metricDef.unit === '円')  return [`${v.toLocaleString()}円`, name]
+    if (metricDef.unit === '万円') return [`${v.toLocaleString()}万円`, name]
+    if (metricDef.unit === 'h')   return [`${v}h`, name]
+    if (metricDef.unit === '人')  return [`${v.toLocaleString()}人`, name]
+    if (metricDef.unit === '歳')  return [`${v}歳`, name]
+    return [`${v}`, name]
+  }
+
+  // 積上げ棒グラフ用の全バーキーを列挙
+  const stackedBars = isStacked
+    ? lines.flatMap((lineKey, idx) => [
+        { dataKey: getStackKeys(lineKey).scheduled, fill: LINE_COLORS[idx % LINE_COLORS.length],        label: `所定内_${lineLabel(lineKey)}` },
+        { dataKey: getStackKeys(lineKey).overtime,  fill: LINE_COLORS[idx % LINE_COLORS.length] + '88', label: `残業_${lineLabel(lineKey)}` },
+      ])
+    : []
+
+  const TabBtn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button onClick={onClick} style={{
+      padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+      background: active ? '#fff' : 'transparent',
+      color: active ? '#1a73e8' : '#64748B',
+      boxShadow: active ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+      transition: 'all 0.15s',
+    }}>
+      {children}
+    </button>
+  )
+
+  return (
+    <section style={{ marginBottom: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #1a73e8', paddingLeft: 10, margin: 0 }}>
+          推移グラフ
+        </h2>
+        {/* 比較軸タブ */}
+        <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2 }}>
+          {COMPARE_MODES.map(m => (
+            <TabBtn key={m.key} active={compareMode === m.key} onClick={() => setCompareMode(m.key)}>
+              {m.label}
+            </TabBtn>
+          ))}
+        </div>
+      </div>
+
+      {/* 指標タブ */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {METRIC_TABS.map(m => (
+          <button key={m.key} onClick={() => setMetric(m.key)} style={{
+            padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            border: metric === m.key ? '1.5px solid #1a73e8' : '1.5px solid #E2E8F0',
+            background: metric === m.key ? '#e8f0fe' : '#fff',
+            color: metric === m.key ? '#1a73e8' : '#475569',
+            transition: 'all 0.15s',
+          }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="20%" barGap={3}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748B' }} />
+            <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={60} />
+            <Tooltip
+              formatter={formatTooltip}
+              labelStyle={{ fontSize: 12, color: '#0F172A', fontWeight: 700 }}
+              contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12 }}
+              cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+            />
+            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+
+            {isStacked
+              ? stackedBars.map(b => (
+                  <Bar key={b.dataKey} dataKey={b.dataKey} fill={b.fill} stackId={b.dataKey.replace(/^(所定内|残業)_/, '')} radius={b.dataKey.startsWith('残業') ? [3, 3, 0, 0] : undefined} />
+                ))
+              : lines.map((lineKey, idx) => (
+                  <Bar key={lineKey} dataKey={lineLabel(lineKey)} fill={LINE_COLORS[idx % LINE_COLORS.length]} radius={[3, 3, 0, 0]} />
+                ))
+            }
+          </BarChart>
+        </ResponsiveContainer>
+
+        {growthStr !== '−' && metric === 'annual_income' && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B' }}>
+            <span>{oldest?.survey_year}年→{latest?.survey_year}年の変化（男女計）:</span>
+            <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
+              {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {growthStr}
+            </strong>
+          </div>
+        )}
+        {metric === 'work_hours' && (
+          <div style={{ marginTop: 8, fontSize: 11, color: '#94A3B8' }}>
+            ■ 濃色：所定内労働時間　■ 薄色：残業時間（単位：時間/月）
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ---------- メインコンポーネント ----------
 export function OccupationDetailClient({ slug }: { slug: string }) {
   const [data, setData]       = useState<ApiResponse | null>(null)
@@ -157,7 +361,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           {error ?? 'データが見つかりません'}
         </p>
         <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 24 }}>
-          DB マイグレーション未実行の場合、管理画面から setup-schema を実行してください。
+          DB マイグレーション未実行の場合、���理画面から setup-schema を実行してください。
         </p>
         <Link
           href="/salary/ranking/occupation"
@@ -173,12 +377,11 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   // --- データ整形 ---
   const repFixed = data.latest_data.find(r => r.sex === '計' && r.enterprise_size === '企業規模計')
   const rep      = data.latest_data.find(r => r.sex === kpiSexTab && r.enterprise_size === kpiSizeTab) ?? repFixed
-  const maxIncome = Math.max(...data.time_series.map(t => t.annual_income ?? 0), 1)
   const sizeRows  = ENTERPRISE_ORDER
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
     .filter(Boolean) as DetailRow[]
 
-  // 性別別テーブル用（企業規模タブでフィルタ）
+  // 性別別テーブル用（企��規模タブでフィルタ）
   const sexRows = SEX_ORDER
     .map(sex => data.latest_data.find(r => r.sex === sex && r.enterprise_size === sizeTab))
     .filter(Boolean) as DetailRow[]
@@ -368,48 +571,16 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
         )}
         </section>
 
-        {/* 年収推移 */}
-        {data.time_series.length > 1 && (
-          <section style={{ marginBottom: 36 }}>
-            <SectionTitle>年収推移（男女計・企業規模計）</SectionTitle>
-            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              {data.time_series.map((t, i) => {
-                const pct = t.annual_income ? (t.annual_income / maxIncome) * 100 : 0
-                const isLatest = i === data.time_series.length - 1
-                return (
-                  <div key={t.survey_year} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: i < data.time_series.length - 1 ? 10 : 0 }}>
-                    <span style={{ fontSize: 12, color: isLatest ? '#0F172A' : '#64748B', fontWeight: isLatest ? 700 : 400, minWidth: 40 }}>
-                      {t.survey_year}年
-                    </span>
-                    <div style={{ flex: 1, height: 20, background: '#F1F5F9', borderRadius: 6, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${pct}%`,
-                        height: '100%',
-                        background: isLatest ? '#1a73e8' : '#93C5FD',
-                        borderRadius: 6,
-                        transition: 'width 0.6s ease',
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: isLatest ? 700 : 400, color: isLatest ? '#0F172A' : '#64748B', minWidth: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtWan(t.annual_income)}
-                    </span>
-                  </div>
-                )
-              })}
-              {growthStr !== '−' && (
-                <div style={{
-                  marginTop: 16, paddingTop: 14, borderTop: '1px solid #F1F5F9',
-                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B',
-                }}>
-                  <span>{data.time_series[0]?.survey_year}年→{latest?.survey_year}年の変化:</span>
-                  <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                    {growthStr}
-                  </strong>
-                </div>
-              )}
-            </div>
-          </section>
+        {/* 推移グラフ */}
+        {(data.time_series_all ?? data.time_series).length > 1 && (
+          <TrendChart
+            timeSeriesAll={data.time_series_all ?? data.time_series.map(t => ({ ...t, sex: '計', enterprise_size: '企業規模計' }))}
+            allYears={data.all_years}
+            growthStr={growthStr}
+            growthPositive={growthPositive}
+            oldest={oldest}
+            latest={latest}
+          />
         )}
 
         {/* 企業規模別データ */}
@@ -564,13 +735,13 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* 関連リンク */}
+        {/* 関連リン��� */}
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>関連ランキングを見る</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
             {[
               { href: '/salary/ranking/occupation',            label: '職種別年収ランキング',  icon: <TrendingUp size={14} color="#1a73e8" /> },
-              { href: '/salary/ranking/bonus',                 label: 'ボーナスランキング',      icon: <Award size={14} color="#f59e0b" /> },
+              { href: '/salary/ranking/bonus',                 label: 'ボーナス��ンキング',      icon: <Award size={14} color="#f59e0b" /> },
               { href: '/salary/ranking/hourly-wage',           label: '時給換算ランキング',      icon: <Clock size={14} color="#0ea5e9" /> },
               { href: '/salary/ranking/high-income-low-overtime', label: '残業少ない高年収',    icon: <BarChart2 size={14} color="#7c3aed" /> },
             ].map(({ href, label, icon }) => (
