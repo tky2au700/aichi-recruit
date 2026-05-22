@@ -12,7 +12,7 @@ const rankingCategories = [
     bg: 'bg-primary/10',
   },
   {
-    href: '/salary/ranking/male',
+    href: '/salary/ranking/occupation?sex=male',
     label: '男性年収ランキング',
     description: '男性労働者の年収が高い職種ランキング',
     icon: Users,
@@ -20,7 +20,7 @@ const rankingCategories = [
     bg: 'bg-primary/10',
   },
   {
-    href: '/salary/ranking/female',
+    href: '/salary/ranking/occupation?sex=female',
     label: '女性年収ランキング',
     description: '女性労働者の年収が高い職種ランキング',
     icon: Users,
@@ -28,7 +28,7 @@ const rankingCategories = [
     bg: 'bg-destructive/10',
   },
   {
-    href: '/salary/ranking/bonus',
+    href: '/salary/ranking/occupation?sort=annual_bonus',
     label: 'ボーナスランキング',
     description: '年間賞与・特別給与額が多い職種ランキング',
     icon: Award,
