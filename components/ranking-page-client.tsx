@@ -63,6 +63,7 @@ interface RankingPageConfig {
 // ---------------------------------------------------------------------------
 // ユーティリティ
 // ---------------------------------------------------------------------------
+// API側で万円変換済みのため、そのまま表示
 function fmtWan(v: number | null) {
   if (v == null) return '−'
   return `${Math.round(v).toLocaleString()}万円`
@@ -285,12 +286,14 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                         onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}
                       >
                         <td style={{ ...S.td, width: 48 }}><RankBadge rank={idx + 1} /></td>
-                        <td style={{ ...S.td, fontWeight: idx < 3 ? 600 : 400, color: '#0F172A' }}>
+                        <td style={{ ...S.td }}>
                           {row.occupation_slug ? (
-                            <Link href={`/salary/occupation/${row.occupation_slug}`} style={{ color: pc, textDecoration: 'none', fontWeight: idx < 3 ? 600 : 500 }}>
+                            <Link href={`/salary/occupation/${row.occupation_slug}`} className="occupation-link">
                               {row.occupation_name}
                             </Link>
-                          ) : row.occupation_name}
+                          ) : (
+                            <span style={{ color: '#334155', fontWeight: 500 }}>{row.occupation_name}</span>
+                          )}
                         </td>
                         <td style={{ ...S.td, minWidth: 130 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: isTop ? '#D97706' : '#1a73e8', fontVariantNumeric: 'tabular-nums' }}>
@@ -307,7 +310,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                           )}
                         </td>
                         <td style={{ ...S.td, color: config.sortKey === 'hourly_wage' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'hourly_wage' && isTop ? 700 : 400 }}>
-                          {row.hourly_wage != null ? `${Math.round(row.hourly_wage).toLocaleString()}円/h` : '−'}
+                          {row.hourly_wage != null ? `${Number(row.hourly_wage).toLocaleString()}円/h` : '−'}
                           {config.sortKey === 'hourly_wage' && (
                             <div style={S.barWrap}><div style={{ width: `${ratio}%`, height: '100%', background: pc, borderRadius: 4 }} /></div>
                           )}

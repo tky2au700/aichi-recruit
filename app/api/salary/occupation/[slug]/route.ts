@@ -70,26 +70,40 @@ export async function GET(
     const latestRows = rows.filter((r: any) => r.survey_year === latestYear)
 
     // 時系列（全 sex × enterprise_size の組み合わせ）
-    // 後方互換のため time_series（男女計・企業規模計のみ）も残す
-    const timeSeriesAll = rows
-      .map((r: any) => ({
-        survey_year:      r.survey_year,
-        sex:              r.sex,
-        enterprise_size:  r.enterprise_size,
-        annual_income:    r.annual_income,
-        monthly_wage:     r.monthly_wage,
-        scheduled_wage:   r.scheduled_wage,
-        annual_bonus:     r.annual_bonus,
-        // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
-        hourly_wage:      r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
-        scheduled_hours:  r.scheduled_hours  != null ? Number(r.scheduled_hours)  : null,
-        overtime_hours:   r.overtime_hours   != null ? Number(r.overtime_hours)   : null,
-        workers:          r.workers          != null ? Number(r.workers)          : null,
-        age:              r.age              != null ? Number(r.age)              : null,
-      }))
-      .sort((a: any, b: any) => a.survey_year - b.survey_year)
+    const timeSeriesAll: Array<{
+      survey_year: number
+      sex: string
+      enterprise_size: string
+      annual_income: number | null
+      monthly_wage: number | null
+      scheduled_wage: number | null
+      annual_bonus: number | null
+      hourly_wage: number | null
+      scheduled_hours: number | null
+      overtime_hours: number | null
+      workers: number | null
+      age: number | null
+    }> = rows.map((r: any) => {
+      const mw = r.monthly_wage != null ? Number(r.monthly_wage) : null
+      return {
+        survey_year:     Number(r.survey_year),
+        sex:             String(r.sex),
+        enterprise_size: String(r.enterprise_size),
+        annual_income:   r.annual_income    != null ? Number(r.annual_income)   : null,
+        monthly_wage:    mw,
+        scheduled_wage:  r.scheduled_wage   != null ? Number(r.scheduled_wage)  : null,
+        annual_bonus:    r.annual_bonus     != null ? Number(r.annual_bonus)    : null,
+        hourly_wage:     r.hourly_wage      != null ? Number(r.hourly_wage)
+                       : mw                != null ? Math.round(mw * 1000 / 160) : null,
+        scheduled_hours: r.scheduled_hours  != null ? Number(r.scheduled_hours) : null,
+        overtime_hours:  r.overtime_hours   != null ? Number(r.overtime_hours)  : null,
+        workers:         r.workers          != null ? Number(r.workers)         : null,
+        age:             r.age              != null ? Number(r.age)             : null,
+      }
+    }).sort((a, b) => a.survey_year - b.survey_year)
 
-    const timeSeries = timeSeriesAll.filter((r: any) => r.sex === '計' && r.enterprise_size === '企業規模計')
+    // 後方互換のため time_series（男女計・企業規模計のみ）も残す
+    const timeSeries = timeSeriesAll.filter(r => r.sex === '計' && r.enterprise_size === '企業規模計')
 
     return NextResponse.json({
       success: true,

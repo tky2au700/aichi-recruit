@@ -107,9 +107,21 @@ export async function GET(req: NextRequest) {
     ) as any[]
     const stats = statsRows[0]
 
+    // DB値は千円単位 → 万円換算。hourly_wageは千円/h → 円換算
+    const toWan  = (v: any) => v != null ? Math.round(Number(v) / 10) : null
+    const toHour = (v: any) => v != null ? Math.round(Number(v) * 1000) : null
+    const convertedRows = rows.map((r: any) => ({
+      ...r,
+      annual_income:  toWan(r.annual_income),
+      monthly_wage:   toWan(r.monthly_wage),
+      scheduled_wage: toWan(r.scheduled_wage),
+      annual_bonus:   toWan(r.annual_bonus),
+      hourly_wage:    r.hourly_wage != null ? toHour(r.hourly_wage) : null,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: rows,
+      data: convertedRows,
       years: years.map(y => ({ survey_year: y.survey_year, dataset_id: y.dataset_id })),
       meta: {
         survey_year: target.survey_year,
@@ -118,10 +130,11 @@ export async function GET(req: NextRequest) {
         sex: cfg.sex,
         enterprise_size: cfg.enterprise_size,
         sort_col: cfg.sort_col,
-        avg_income:  stats?.avg_income  ? Math.round(Number(stats.avg_income))  : null,
-        max_income:  stats?.max_income  ? Math.round(Number(stats.max_income))  : null,
-        max_bonus:   stats?.max_bonus   ? Math.round(Number(stats.max_bonus))   : null,
-        max_hourly:  stats?.max_hourly  ? Number(Number(stats.max_hourly).toFixed(1)) : null,
+        // DB値は千円単位 → ÷10 で万円換算。hourly_wageは千円/h → ×1000 で円換算
+        avg_income:  stats?.avg_income  ? Math.round(Number(stats.avg_income)  / 10) : null,
+        max_income:  stats?.max_income  ? Math.round(Number(stats.max_income)  / 10) : null,
+        max_bonus:   stats?.max_bonus   ? Math.round(Number(stats.max_bonus)   / 10) : null,
+        max_hourly:  stats?.max_hourly  ? Math.round(Number(stats.max_hourly) * 1000) : null,
         occupation_count: Number(stats?.count ?? 0),
       },
     })
