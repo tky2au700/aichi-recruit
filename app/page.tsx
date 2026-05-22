@@ -165,10 +165,7 @@ export default function HomePage() {
             <Link
               key={href}
               href={href}
-              className="group flex flex-col gap-3 p-5 rounded-xl transition-all"
-              style={{ background: '#fff', border: '1px solid #e2e8f0' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = '1px solid #a8c4f5'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 12px rgba(26,115,232,0.08)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '1px solid #e2e8f0'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+              className="group flex flex-col gap-3 p-5 rounded-xl transition-all bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md"
             >
               <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center`}>
                 <Icon className={`w-5 h-5 ${color}`} />
@@ -177,7 +174,7 @@ export default function HomePage() {
                 <h3 className="font-semibold text-sm group-hover:text-blue-600 transition-colors" style={{ color: '#1e293b' }}>{label}</h3>
                 <p className="text-xs mt-1 leading-relaxed" style={{ color: '#94a3b8' }}>{description}</p>
               </div>
-              <div className="flex items-center gap-1 text-xs mt-auto transition-colors" style={{ color: '#94a3b8' }}>
+              <div className="flex items-center gap-1 text-xs mt-auto" style={{ color: '#94a3b8' }}>
                 <span>詳しく見る</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
@@ -197,10 +194,7 @@ export default function HomePage() {
             <Link
               key={href}
               href={href}
-              className="group flex flex-col gap-3 p-5 rounded-xl transition-all"
-              style={{ background: '#fff', border: '1px solid #e2e8f0' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.border = '1px solid #a8c4f5'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 12px rgba(26,115,232,0.08)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.border = '1px solid #e2e8f0'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+              className="group flex flex-col gap-3 p-5 rounded-xl transition-all bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md"
             >
               <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center`}>
                 <Icon className={`w-5 h-5 ${color}`} />
