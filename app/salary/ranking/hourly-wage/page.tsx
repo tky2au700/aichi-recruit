@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
@@ -13,15 +14,17 @@ export default function HourlyWageRankingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
-      <RankingPageClient config={{
-        type: 'hourly-wage',
-        title: '時給換算が高い職種ランキング',
-        description: '月給÷160時間で算出した時給換算額が高い職種を上位から表示。賃金構造基本統計調査に基づくデータです。',
-        sortKey: 'hourly_wage',
-        sortLabel: '時給換算',
-        primaryColor: '#0F9D58',
-        primaryBg: '#E6F4EA',
-      }} />
+      <Suspense>
+        <RankingPageClient config={{
+          type: 'hourly-wage',
+          title: '時給換算が高い職種ランキング',
+          description: '月給÷160時間で算出した時給換算額が高い職種を上位から表示。賃金構造基本統計調査に基づくデータです。',
+          sortKey: 'hourly_wage',
+          sortLabel: '時給換算',
+          primaryColor: '#0F9D58',
+          primaryBg: '#E6F4EA',
+        }} />
+      </Suspense>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
@@ -13,15 +14,17 @@ export default function HighIncomeLargeWorkforcePage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
-      <RankingPageClient config={{
-        type: 'high-income-large-workforce',
-        title: '労働者数が多くて年収が高い職種ランキング',
-        description: '労働者数（市場規模）と年収の両方が高い職種を複合スコアで順位付けしています。需要と収入を兼ね備えた職種を確認できます。',
-        sortKey: 'annual_income',
-        sortLabel: '年収',
-        primaryColor: '#7C3AED',
-        primaryBg: '#F5F3FF',
-      }} />
+      <Suspense>
+        <RankingPageClient config={{
+          type: 'high-income-large-workforce',
+          title: '労働者数が多くて年収が高い職種ランキング',
+          description: '労働者数（市場規模）と年収の両方が高い職種を複合スコアで順位付けしています。需要と収入を兼ね備えた職種を確認できます。',
+          sortKey: 'annual_income',
+          sortLabel: '年収',
+          primaryColor: '#7C3AED',
+          primaryBg: '#F5F3FF',
+        }} />
+      </Suspense>
     </div>
   )
 }

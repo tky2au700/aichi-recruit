@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -88,17 +89,34 @@ function RankBadge({ rank }: { rank: number }) {
 // メイン
 // ---------------------------------------------------------------------------
 export function RankingPageClient({ config }: { config: RankingPageConfig }) {
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+
+  // URLパラメータから初期値を復元
+  const initYear    = searchParams.get('year') ? Number(searchParams.get('year')) : null
+  const initSort    = (searchParams.get('sort') ?? (config.type === 'high-income-large-workforce' ? '__composite' : config.sortKey)) as SortKey
+  const initDir     = (searchParams.get('dir') === 'asc' ? 'asc' : 'desc') as SortDir
+
   const [data, setData]         = useState<RankingRow[]>([])
   const [meta, setMeta]         = useState<Meta | null>(null)
   const [years, setYears]       = useState<YearOption[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
-  const [surveyYear, setSurveyYear] = useState<number | null>(null)
+  const [surveyYear, setSurveyYear] = useState<number | null>(initYear)
   const [search, setSearch]     = useState('')
-  const [sortKey, setSortKey]   = useState<SortKey>(
-    config.type === 'high-income-large-workforce' ? '__composite' : config.sortKey as SortKey
-  )
-  const [sortDir, setSortDir]   = useState<SortDir>('desc')
+  const [sortKey, setSortKey]   = useState<SortKey>(initSort)
+  const [sortDir, setSortDir]   = useState<SortDir>(initDir)
+
+  // URL同期
+  const pushUrl = useCallback((year: number | null, key: SortKey, dir: SortDir) => {
+    const p = new URLSearchParams()
+    if (year) p.set('year', String(year))
+    if (key !== config.sortKey as string && key !== '__composite') p.set('sort', key)
+    if (dir === 'asc') p.set('dir', 'asc')
+    const qs = p.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [router, pathname, config.sortKey])
 
   const fetchData = useCallback(async (_year: number | null) => {
     setLoading(true); setError(null)
@@ -121,8 +139,15 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
   useEffect(() => { fetchData(surveyYear) }, [surveyYear, fetchData])
 
   function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortKey(key); setSortDir('desc') }
+    if (sortKey === key) {
+      const newDir: SortDir = sortDir === 'desc' ? 'asc' : 'desc'
+      setSortDir(newDir)
+      pushUrl(surveyYear, key, newDir)
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+      pushUrl(surveyYear, key, 'desc')
+    }
   }
 
   // ソート用: 生の複合スコア（workers千人 × annual_income万円）
@@ -239,7 +264,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           <span style={S.filterLabel}>調査年</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {years.map(y => (
-              <button key={y.survey_year} style={surveyYear === y.survey_year ? S.chipActive : S.chip} onClick={() => setSurveyYear(y.survey_year)}>
+              <button key={y.survey_year} style={surveyYear === y.survey_year ? S.chipActive : S.chip} onClick={() => { setSurveyYear(y.survey_year); pushUrl(y.survey_year, sortKey, sortDir) }}>
                 {y.survey_year}年
               </button>
             ))}
