@@ -60,12 +60,22 @@ export async function GET(req: NextRequest) {
       targetGroupId = years[0].group_id
     }
 
+    // occupation_slug / hourly_wage はマイグレーション後に追加される列なので存在チェック
+    const colCheck = await query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
+         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+    ) as Array<{ COLUMN_NAME: string }>
+    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
+    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
+    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
+
     // ランキングデータ取得（LIMIT は整数を直接埋め込みでバインドエラー回避）
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
     const rows = await query(
-      `SELECT occupation_name, occupation_slug, sex, enterprise_size,
+      `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
               age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, hourly_wage, workers
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, ${hourlyCol}, workers
        FROM occupation_wages
        WHERE dataset_id = ?
          AND sex = ?
@@ -75,6 +85,7 @@ export async function GET(req: NextRequest) {
       [targetDatasetId, sex, enterpriseSize]
     ) as Array<{
       occupation_name: string
+      occupation_slug: string | null
       sex: string
       enterprise_size: string
       age: number | null
@@ -85,6 +96,7 @@ export async function GET(req: NextRequest) {
       scheduled_wage: number | null
       annual_bonus: number | null
       annual_income: number | null
+      hourly_wage: number | null
       workers: number | null
     }>
 

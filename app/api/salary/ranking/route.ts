@@ -61,27 +61,45 @@ export async function GET(req: NextRequest) {
       ? years.find(y => y.survey_year === surveyYear) ?? years[0]
       : years[0]
 
+    // 追加列の存在チェック（マイグレーション前でも動作するよう）
+    const colCheck = await query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
+         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+    ) as Array<{ COLUMN_NAME: string }>
+    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
+    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
+    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
+
+    // hourly-wage ランキングは hourly_wage 列が存在しない場合 monthly_wage÷160 で代替
+    const effectiveSortCol = cfg.sort_col === 'hourly_wage' && !existingCols.has('hourly_wage')
+      ? 'ROUND(monthly_wage / 160, 1)'
+      : cfg.sort_col
+
     const safeLimit = Math.floor(limit)
     const filterClause = cfg.filter ? `AND ${cfg.filter}` : ''
 
     const rows = await query(
-      `SELECT occupation_name, occupation_slug, sex, enterprise_size,
+      `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
               age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, hourly_wage, workers
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, ${hourlyCol}, workers
        FROM occupation_wages
        WHERE dataset_id = ?
          AND sex = ?
          AND enterprise_size = ?
-         AND ${cfg.sort_col} IS NOT NULL
+         AND ${effectiveSortCol} IS NOT NULL
          ${filterClause}
-       ORDER BY ${cfg.sort_col} ${cfg.order}
+       ORDER BY ${effectiveSortCol} ${cfg.order}
        LIMIT ${safeLimit}`,
       [target.dataset_id, cfg.sex, cfg.enterprise_size]
     ) as any[]
 
+    const hourlyStatCol = existingCols.has('hourly_wage')
+      ? 'MAX(hourly_wage)'
+      : 'MAX(ROUND(monthly_wage / 160, 1))'
     const statsRows = await query(
       `SELECT AVG(annual_income) as avg_income, MAX(annual_income) as max_income,
-              MAX(annual_bonus) as max_bonus, MAX(hourly_wage) as max_hourly,
+              MAX(annual_bonus) as max_bonus, ${hourlyStatCol} as max_hourly,
               COUNT(*) as count
        FROM occupation_wages
        WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?`,

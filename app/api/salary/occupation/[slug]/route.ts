@@ -8,6 +8,20 @@ export async function GET(
   const { slug } = await params
 
   try {
+    // 追加列の存在チェック
+    const colCheck = await query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
+         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+    ) as Array<{ COLUMN_NAME: string }>
+    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
+
+    if (!existingCols.has('occupation_slug')) {
+      return NextResponse.json({ success: false, message: 'DB migration が未実行です。管理画面から setup-schema を実行してください。' }, { status: 503 })
+    }
+
+    const hourlyCol = existingCols.has('hourly_wage') ? 'ow.hourly_wage' : 'NULL AS hourly_wage'
+
     // slug に一致する最新年度のデータを全性別・全企業規模で取得
     const rows = await query(
       `SELECT ow.occupation_name, ow.occupation_slug,
@@ -15,7 +29,7 @@ export async function GET(
               ow.age, ow.tenure_years,
               ow.scheduled_hours, ow.overtime_hours,
               ow.monthly_wage, ow.scheduled_wage,
-              ow.annual_bonus, ow.annual_income, ow.hourly_wage, ow.workers,
+              ow.annual_bonus, ow.annual_income, ${hourlyCol}, ow.workers,
               d.survey_year,
               dg.survey_group_name, dg.survey_table_name
        FROM occupation_wages ow
