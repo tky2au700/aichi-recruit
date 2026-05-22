@@ -97,8 +97,8 @@ export function Nav() {
               <BarChart3 className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-bold text-gray-900 tracking-tight">年収データベース</span>
-              <span className="text-[10px] text-gray-400 font-normal tracking-wide">AIリクルート</span>
+              <span className="text-[15px] font-bold text-gray-900 tracking-tight">AIリクルート</span>
+              <span className="text-[10px] text-gray-400 font-normal tracking-wide">年収データベース</span>
             </div>
           </Link>
 
