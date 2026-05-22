@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   TrendingUp, Building2, MapPin, GraduationCap, BarChart3,
-  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2,
+  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
@@ -75,13 +75,23 @@ const categoryItems = [
 ]
 
 export function Nav() {
-  const pathname = usePathname()
+  const pathname   = usePathname()
+  const router     = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [megaOpen, setMegaOpen] = useState(false)
-  const megaRef = useRef<HTMLDivElement>(null)
+  const [megaOpen, setMegaOpen]     = useState(false)
+  const [searchQ, setSearchQ]       = useState('')
+  const megaRef  = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isRankingActive = pathname.startsWith('/salary/ranking')
+  const isOccupationActive = pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation')
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const q = searchQ.trim()
+    if (!q) return
+    setMegaOpen(false)
+    router.push(`/salary/occupation?q=${encodeURIComponent(q)}`)
+  }
 
   function openMega()  {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -112,7 +122,7 @@ export function Nav() {
           {/* ---- デスクトップナビ ---- */}
           <nav className="hidden md:flex items-center gap-1 flex-1">
 
-            {/* メガメニュートリガー: ランキング */}
+            {/* メガメニュートリガー: 職種別 */}
             <div
               ref={megaRef}
               className="relative"
@@ -123,13 +133,13 @@ export function Nav() {
                 aria-haspopup="true"
                 aria-expanded={megaOpen}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors select-none ${
-                  isRankingActive
+                  isOccupationActive
                     ? 'bg-blue-50 text-[#1a73e8]'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
-                ランキング
+                職種別
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${megaOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -139,14 +149,16 @@ export function Nav() {
                   onMouseEnter={openMega}
                   onMouseLeave={closeMega}
                   className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50"
-                  style={{ width: 560 }}
+                  style={{ width: 580 }}
                 >
                   {/* 上向き三角 */}
                   <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
 
                   <div className="relative bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+
+                    {/* ランキング一覧 */}
                     <div className="px-5 pt-4 pb-2">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">年収ランキング</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">ランキング</p>
                     </div>
                     <div className="grid grid-cols-2 gap-0.5 px-3 pb-3">
                       {rankingItems.map(({ href, label, description, icon: Icon, color }) => (
@@ -175,16 +187,30 @@ export function Nav() {
                         </Link>
                       ))}
                     </div>
-                    <div className="border-t border-gray-100 px-5 py-2.5 bg-gray-50/60 flex items-center justify-between">
-                      <span className="text-[11px] text-gray-400">賃金構造基本統計調査データをもとに算出</span>
-                      <Link
-                        href="/salary/ranking/occupation"
-                        onClick={() => setMegaOpen(false)}
-                        className="text-[12px] text-[#1a73e8] font-medium hover:underline"
-                      >
-                        すべて見る →
-                      </Link>
+
+                    {/* 職種検索窓 */}
+                    <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/60">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">職種を検索</p>
+                      <form onSubmit={handleSearch} className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={searchQ}
+                            onChange={e => setSearchQ(e.target.value)}
+                            placeholder="例: 看護師、エンジニア、医師..."
+                            className="w-full pl-8 pr-3 py-2 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] placeholder:text-gray-300"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-[#1a73e8] text-white text-[13px] font-medium rounded-lg hover:bg-[#1557b0] transition-colors shrink-0"
+                        >
+                          検索
+                        </button>
+                      </form>
                     </div>
+
                   </div>
                 </div>
               )}
@@ -229,7 +255,30 @@ export function Nav() {
       {/* ---- モバイルメニュー ---- */}
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white">
-          <div className="px-4 pt-3 pb-1">
+          {/* 職種検索窓 */}
+          <div className="px-4 pt-3 pb-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">職種を検索</p>
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQ}
+                  onChange={e => setSearchQ(e.target.value)}
+                  placeholder="例: 看護師、エンジニア..."
+                  className="w-full pl-8 pr-3 py-2 text-[13px] bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] placeholder:text-gray-300"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#1a73e8] text-white text-[13px] font-medium rounded-lg hover:bg-[#1557b0] transition-colors shrink-0"
+              >
+                検索
+              </button>
+            </form>
+          </div>
+          {/* ランキング */}
+          <div className="px-4 pt-1 pb-1">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">ランキング</p>
             {rankingItems.map(({ href, label, icon: Icon, color }) => (
               <Link
