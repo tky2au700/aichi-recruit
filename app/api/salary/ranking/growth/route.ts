@@ -6,6 +6,14 @@ export async function GET(req: NextRequest) {
   const years = Math.min(Number(searchParams.get('years') || '5'), 10)
   const limit = Math.min(Math.max(1, Number(searchParams.get('limit') || '200')), 500)
 
+  // 性別・企業規模フィルター（occupation rankingと同じマッピング）
+  const sexParam  = searchParams.get('sex')
+  const sizeParam = searchParams.get('size')
+  const SEX_MAP: Record<string, string>  = { male: '男', female: '女' }
+  const SIZE_MAP: Record<string, string> = { large: '1000人以上', medium: '100～999人', small: '10～99人' }
+  const sexVal  = sexParam  ? (SEX_MAP[sexParam]  ?? '計')        : '計'
+  const sizeVal = sizeParam ? (SIZE_MAP[sizeParam] ?? '企業規模計') : '企業規模計'
+
   try {
     // 利用可能な年度一覧（降順）
     const allYears = await query(
@@ -36,20 +44,38 @@ export async function GET(req: NextRequest) {
     const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
     const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
 
-    // 最新年度データ（男女計・企業規模計）
-    const latestRows = await query(
-      `SELECT occupation_name, ${slugCol}, annual_income, monthly_wage, ${hourlyCol}, workers
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計' AND annual_income IS NOT NULL`,
-      [latestDs.dataset_id]
-    ) as Array<{ occupation_name: string; occupation_slug: string | null; annual_income: number; monthly_wage: number | null; hourly_wage: number | null; workers: number | null }>
+    // 追加カラム存在チェック
+    const extraColCheck = await query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
+       AND COLUMN_NAME IN ('annual_bonus','scheduled_hours','overtime_hours','age','tenure_years')`
+    ) as Array<{ COLUMN_NAME: string }>
+    const extraCols = new Set(extraColCheck.map((r: any) => r.COLUMN_NAME))
+    const bonusCol   = extraCols.has('annual_bonus')    ? 'annual_bonus'    : 'NULL AS annual_bonus'
+    const ageCol     = extraCols.has('age')             ? 'age'             : 'NULL AS age'
+    const tenureCol  = extraCols.has('tenure_years')    ? 'tenure_years'    : 'NULL AS tenure_years'
+    const overtimeCol= extraCols.has('overtime_hours')  ? 'overtime_hours'  : 'NULL AS overtime_hours'
 
-    // 基準年度データ
+    // 最新年度データ（sex/sizeフィルター適用）
+    const latestRows = await query(
+      `SELECT occupation_name, ${slugCol}, annual_income, monthly_wage, ${hourlyCol},
+              ${bonusCol}, ${ageCol}, ${tenureCol}, ${overtimeCol}, workers
+       FROM occupation_wages
+       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
+      [latestDs.dataset_id, sexVal, sizeVal]
+    ) as Array<{
+      occupation_name: string; occupation_slug: string | null
+      annual_income: number; monthly_wage: number | null; hourly_wage: number | null
+      annual_bonus: number | null; age: number | null; tenure_years: number | null; overtime_hours: number | null
+      workers: number | null
+    }>
+
+    // 基準年度データ（同じsex/sizeフィルター）
     const baseRows = await query(
       `SELECT occupation_name, annual_income
        FROM occupation_wages
-       WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計' AND annual_income IS NOT NULL`,
-      [baseDs.dataset_id]
+       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
+      [baseDs.dataset_id, sexVal, sizeVal]
     ) as Array<{ occupation_name: string; annual_income: number }>
 
     const baseMap = new Map(baseRows.map(r => [r.occupation_name, r.annual_income]))
@@ -68,9 +94,13 @@ export async function GET(req: NextRequest) {
           annual_income:  toWan(r.annual_income),
           monthly_wage:   toWan(r.monthly_wage),
           hourly_wage:    toHour(r.hourly_wage),
+          annual_bonus:   toWan(r.annual_bonus),
+          age:            r.age            != null ? Number(Number(r.age).toFixed(1))            : null,
+          tenure_years:   r.tenure_years   != null ? Number(Number(r.tenure_years).toFixed(1))   : null,
+          overtime_hours: r.overtime_hours != null ? Number(Number(r.overtime_hours).toFixed(1)) : null,
           base_income:    toWan(baseIncome),
           growth_rate,
-          growth_amount:  toWan(growth_amount),  // 差分も万円換算
+          growth_amount:  toWan(growth_amount),
         }
       })
       .filter((r): r is NonNullable<typeof r> => r !== null)
