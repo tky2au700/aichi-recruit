@@ -8,7 +8,7 @@ import {
   Info,
 } from 'lucide-react'
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 
@@ -228,29 +228,26 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
 
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+          <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="20%" barGap={3}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748B' }} />
             <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={56} />
             <Tooltip
               formatter={(value: number, name: string) => [formatTooltip(value), name]}
               labelStyle={{ fontSize: 12, color: '#0F172A', fontWeight: 700 }}
               contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12 }}
+              cursor={{ fill: 'rgba(0,0,0,0.04)' }}
             />
             <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
             {lines.map((lineKey, idx) => (
-              <Line
+              <Bar
                 key={lineKey}
-                type="monotone"
                 dataKey={lineLabel(lineKey)}
-                stroke={LINE_COLORS[idx % LINE_COLORS.length]}
-                strokeWidth={lineKey === '計' || lineKey === '企業規模計' ? 2.5 : 1.8}
-                dot={{ r: 4, fill: LINE_COLORS[idx % LINE_COLORS.length] }}
-                activeDot={{ r: 6 }}
-                connectNulls
+                fill={LINE_COLORS[idx % LINE_COLORS.length]}
+                radius={[3, 3, 0, 0]}
               />
             ))}
-          </LineChart>
+          </BarChart>
         </ResponsiveContainer>
 
         {growthStr !== '−' && metric === 'annual_income' && (
