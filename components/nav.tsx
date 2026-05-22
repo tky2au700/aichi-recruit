@@ -7,8 +7,8 @@ import { useState } from 'react'
 
 const navItems = [
   { href: '/', label: 'トップ', icon: BarChart3 },
+  { href: '/salary/ranking/occupation', label: '職種ランキング', icon: TrendingUp },
   { href: '/salary/industry', label: '産業別', icon: Building2 },
-  { href: '/salary/occupation', label: '職種別', icon: TrendingUp },
   { href: '/salary/prefecture', label: '都道府県別', icon: MapPin },
   { href: '/salary/education', label: '学歴別', icon: GraduationCap },
   { href: '/salary/age', label: '年齢別', icon: BarChart3 },
