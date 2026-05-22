@@ -50,9 +50,10 @@ function fmt(v: number | null, suffix = '') {
   if (v == null) return '−'
   return `${Number(v).toLocaleString()}${suffix}`
 }
+// DB値は千円単位。÷10 で万円に変換して表示
 function fmtWan(v: number | null) {
   if (v == null) return '−'
-  return `${Math.round(v).toLocaleString()}万円`
+  return `${Math.round(v / 10).toLocaleString()}万円`
 }
 function fmtFixed(v: number | null, d = 1, suffix = '') {
   if (v == null) return '−'
@@ -259,10 +260,10 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               icon={<Clock size={13} color="#0ea5e9" />}
               label="時給換算"
               value={(() => {
-                // monthly_wage は万円単位。時給(円) = monthly_wage × 10,000 ÷ 160
+                // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
                 const mw = rep.monthly_wage
                 if (mw == null) return '−'
-                const hourly = Math.round(mw * 10000 / 160)
+                const hourly = Math.round(mw * 1000 / 160)
                 return `${hourly.toLocaleString()}円`
               })()}
               sub="月給 ÷ 160時間"

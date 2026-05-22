@@ -76,8 +76,8 @@ export async function GET(
         survey_year:   r.survey_year,
         annual_income: r.annual_income,
         monthly_wage:  r.monthly_wage,
-        // monthly_wage は万円単位。時給(円) = monthly_wage × 10,000 ÷ 160
-        hourly_wage:   r.hourly_wage ?? (r.monthly_wage ? Math.round(r.monthly_wage * 10000 / 160) : null),
+        // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
+        hourly_wage:   r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
       }))
       .sort((a: any, b: any) => a.survey_year - b.survey_year)
 
