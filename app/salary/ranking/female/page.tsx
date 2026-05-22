@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
@@ -13,15 +14,17 @@ export default function FemaleRankingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
-      <RankingPageClient config={{
-        type: 'female',
-        title: '女性の年収が高い職種ランキング',
-        description: '女性労働者の推定年収が高い職種を上位から表示しています。賃金構造基本統計調査に基づくデータです。',
-        sortKey: 'annual_income',
-        sortLabel: '女性年収',
-        primaryColor: '#DB4437',
-        primaryBg: '#FCECEA',
-      }} />
+      <Suspense>
+        <RankingPageClient config={{
+          type: 'female',
+          title: '女性の年収が高い職種ランキング',
+          description: '女性労働者の推定年収が高い職種を上位から表示しています。賃金構造基本統計調査に基づくデータです。',
+          sortKey: 'annual_income',
+          sortLabel: '女性年収',
+          primaryColor: '#DB4437',
+          primaryBg: '#FCECEA',
+        }} />
+      </Suspense>
     </div>
   )
 }

@@ -60,22 +60,21 @@ export async function GET(req: NextRequest) {
       targetGroupId = years[0].group_id
     }
 
-    // occupation_slug / hourly_wage はマイグレーション後に追加される列なので存在チェック
+    // occupation_slug はマイグレーション後に追加される列なので存在チェック
     const colCheck = await query(
       `SELECT COLUMN_NAME FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+         AND COLUMN_NAME = 'occupation_slug'`
     ) as Array<{ COLUMN_NAME: string }>
-    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
-    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
-    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
+    const hasSlug = colCheck.length > 0
+    const slugCol = hasSlug ? 'occupation_slug' : 'NULL AS occupation_slug'
 
     // ランキングデータ取得（LIMIT は整数を直接埋め込みでバインドエラー回避）
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
     const rows = await query(
       `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
               age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, ${hourlyCol}, workers
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
        FROM occupation_wages
        WHERE dataset_id = ?
          AND sex = ?
@@ -96,7 +95,6 @@ export async function GET(req: NextRequest) {
       scheduled_wage: number | null
       annual_bonus: number | null
       annual_income: number | null
-      hourly_wage: number | null
       workers: number | null
     }>
 
@@ -112,16 +110,22 @@ export async function GET(req: NextRequest) {
 
     const groupInfo = years.find(y => y.dataset_id === targetDatasetId)
 
-    // DB値は千円単位 → 万円換算。hourly_wageは千円/h → 円換算
-    const toWan  = (v: any) => v != null ? Math.round(Number(v) / 10) : null
-    const toHour = (v: any) => v != null ? Math.round(Number(v) * 1000) : null
+    // DB値は千円単位 → 万円換算
+    // 時給換算: scheduled_wage（千円/月）÷ scheduled_hours（時間/月）× 1000 → 円/時
+    const toWan = (v: any) => v != null ? Math.round(Number(v) / 10) : null
+    const calcHourly = (scheduledWage: any, scheduledHours: any): number | null => {
+      const w = Number(scheduledWage)
+      const h = Number(scheduledHours)
+      if (!w || !h || h <= 0) return null
+      return Math.round((w * 1000) / h)
+    }
     const convertedRows = rows.map((r: any) => ({
       ...r,
       annual_income:  toWan(r.annual_income),
       monthly_wage:   toWan(r.monthly_wage),
       scheduled_wage: toWan(r.scheduled_wage),
       annual_bonus:   toWan(r.annual_bonus),
-      hourly_wage:    r.hourly_wage != null ? toHour(r.hourly_wage) : null,
+      hourly_wage:    calcHourly(r.scheduled_wage, r.scheduled_hours),
     }))
 
     return NextResponse.json({

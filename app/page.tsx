@@ -12,7 +12,7 @@ const rankingCategories = [
     bg: 'bg-primary/10',
   },
   {
-    href: '/salary/ranking/male',
+    href: '/salary/ranking/occupation?sex=male',
     label: '男性年収ランキング',
     description: '男性労働者の年収が高い職種ランキング',
     icon: Users,
@@ -20,7 +20,7 @@ const rankingCategories = [
     bg: 'bg-primary/10',
   },
   {
-    href: '/salary/ranking/female',
+    href: '/salary/ranking/occupation?sex=female',
     label: '女性年収ランキング',
     description: '女性労働者の年収が高い職種ランキング',
     icon: Users,
@@ -28,7 +28,7 @@ const rankingCategories = [
     bg: 'bg-destructive/10',
   },
   {
-    href: '/salary/ranking/bonus',
+    href: '/salary/ranking/occupation?sort=annual_bonus',
     label: 'ボーナスランキング',
     description: '年間賞与・特別給与額が多い職種ランキング',
     icon: Award,
@@ -36,9 +36,9 @@ const rankingCategories = [
     bg: 'bg-accent/10',
   },
   {
-    href: '/salary/ranking/hourly-wage',
-    label: '時給換算ランキング',
-    description: '月給÷160時間で算出した時給が高い職種',
+    href: '/salary/ranking/overtime-wage',
+    label: '残業・時給ランキング',
+    description: '残業時間・時給換算のランキング',
     icon: Clock,
     color: 'text-success',
     bg: 'bg-success/10',
@@ -50,6 +50,14 @@ const rankingCategories = [
     icon: LineChart,
     color: 'text-success',
     bg: 'bg-success/10',
+  },
+  {
+    href: '/salary/ranking/high-income-large-workforce',
+    label: '需要×高年収ランキング',
+    description: '労働者数が多く年収も高い職種ランキング',
+    icon: Users,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
   },
   {
     href: '/salary/ranking/high-income-low-overtime',
@@ -158,7 +166,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pt-12 pb-6">
         <div className="flex items-baseline gap-3 mb-6">
           <h2 className="text-xl font-bold" style={{ color: '#1e293b' }}>年収ランキング</h2>
-          <span className="text-sm" style={{ color: '#64748b' }}>DBデータから職種・属性別に集計</span>
+          <span className="text-sm" style={{ color: '#64748b' }}>DBデータから���種・属性別に集計</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {rankingCategories.map(({ href, label, description, icon: Icon, color, bg }) => (

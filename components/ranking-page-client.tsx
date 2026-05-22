@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ interface ApiResponse {
   message?: string
 }
 
-export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime'
+export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime' | 'high-income-large-workforce'
 
 interface RankingPageConfig {
   type: RankingType
@@ -73,7 +74,7 @@ function fmtFixed(v: number | null, d = 1, suffix = '') {
   return `${Number(v).toFixed(d)}${suffix}`
 }
 
-type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage' | 'workers' | '__composite'
 type SortDir = 'asc' | 'desc'
 
 function RankBadge({ rank }: { rank: number }) {
@@ -88,15 +89,34 @@ function RankBadge({ rank }: { rank: number }) {
 // メイン
 // ---------------------------------------------------------------------------
 export function RankingPageClient({ config }: { config: RankingPageConfig }) {
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+
+  // URLパラメータから初期値を復元
+  const initYear    = searchParams.get('year') ? Number(searchParams.get('year')) : null
+  const initSort    = (searchParams.get('sort') ?? (config.type === 'high-income-large-workforce' ? '__composite' : config.sortKey)) as SortKey
+  const initDir     = (searchParams.get('dir') === 'asc' ? 'asc' : 'desc') as SortDir
+
   const [data, setData]         = useState<RankingRow[]>([])
   const [meta, setMeta]         = useState<Meta | null>(null)
   const [years, setYears]       = useState<YearOption[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
-  const [surveyYear, setSurveyYear] = useState<number | null>(null)
+  const [surveyYear, setSurveyYear] = useState<number | null>(initYear)
   const [search, setSearch]     = useState('')
-  const [sortKey, setSortKey]   = useState<SortKey>(config.sortKey as SortKey)
-  const [sortDir, setSortDir]   = useState<SortDir>('desc')
+  const [sortKey, setSortKey]   = useState<SortKey>(initSort)
+  const [sortDir, setSortDir]   = useState<SortDir>(initDir)
+
+  // URL同期
+  const pushUrl = useCallback((year: number | null, key: SortKey, dir: SortDir) => {
+    const p = new URLSearchParams()
+    if (year) p.set('year', String(year))
+    if (key !== config.sortKey as string && key !== '__composite') p.set('sort', key)
+    if (dir === 'asc') p.set('dir', 'asc')
+    const qs = p.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [router, pathname, config.sortKey])
 
   const fetchData = useCallback(async (_year: number | null) => {
     setLoading(true); setError(null)
@@ -119,22 +139,47 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
   useEffect(() => { fetchData(surveyYear) }, [surveyYear, fetchData])
 
   function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortKey(key); setSortDir('desc') }
+    if (sortKey === key) {
+      const newDir: SortDir = sortDir === 'desc' ? 'asc' : 'desc'
+      setSortDir(newDir)
+      pushUrl(surveyYear, key, newDir)
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+      pushUrl(surveyYear, key, 'desc')
+    }
+  }
+
+  // ソート用: 生の複合スコア（workers千人 × annual_income万円）
+  const compositeScore = (r: RankingRow) =>
+    (r.workers != null && r.annual_income != null) ? r.workers * r.annual_income : null
+
+  // 表示用: 全データのmaxで正規化し平方根カーブで0〜100に圧縮
+  const maxCompositeRaw = useMemo(() => {
+    let max = 0
+    for (const r of data) { const s = compositeScore(r); if (s != null && s > max) max = s }
+    return max
+  }, [data])
+  const normalizedScore = (r: RankingRow): number | null => {
+    const raw = compositeScore(r)
+    if (raw == null || maxCompositeRaw === 0) return null
+    return Math.round(Math.sqrt(raw / maxCompositeRaw) * 100)
   }
 
   const filtered = data
     .filter(r => search === '' || r.occupation_name.includes(search))
     .sort((a, b) => {
-      const av = a[sortKey] as number | null
-      const bv = b[sortKey] as number | null
+      const av = sortKey === '__composite' ? compositeScore(a) : a[sortKey] as number | null
+      const bv = sortKey === '__composite' ? compositeScore(b) : b[sortKey] as number | null
       if (av == null && bv == null) return 0
       if (av == null) return 1
       if (bv == null) return -1
       return sortDir === 'desc' ? bv - av : av - bv
     })
 
-  const topVal = (filtered[0]?.[config.sortKey] as number | null) ?? null
+  const topVal = sortKey === '__composite'
+    ? compositeScore(filtered[0] ?? {} as RankingRow)
+    : (filtered[0]?.[config.sortKey] as number | null) ?? null
 
   // ---- スタイル ----
   const pc = config.primaryColor
@@ -219,7 +264,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           <span style={S.filterLabel}>調査年</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {years.map(y => (
-              <button key={y.survey_year} style={surveyYear === y.survey_year ? S.chipActive : S.chip} onClick={() => setSurveyYear(y.survey_year)}>
+              <button key={y.survey_year} style={surveyYear === y.survey_year ? S.chipActive : S.chip} onClick={() => { setSurveyYear(y.survey_year); pushUrl(y.survey_year, sortKey, sortDir) }}>
                 {y.survey_year}年
               </button>
             ))}
@@ -267,6 +312,8 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                     <th style={{ ...S.th, width: 48, cursor: 'default' }}>#</th>
                     <th style={{ ...S.th, minWidth: 160, cursor: 'default' }}>職種名</th>
                     <Th label="推定年収"   k="annual_income" />
+                    {config.type === 'high-income-large-workforce' && <Th label="複合スコア" k="__composite" />}
+                    <Th label="労働者数"   k="workers" />
                     <Th label="年間賞与"   k="annual_bonus" />
                     <Th label="時給換算"   k="hourly_wage" />
                     <Th label="平均年齢"   k="age" />
@@ -276,9 +323,10 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                 </thead>
                 <tbody>
                   {filtered.map((row, idx) => {
-                    const sortVal = row[config.sortKey] as number | null
-                    const ratio   = topVal && sortVal ? (sortVal / topVal) * 100 : 0
-                    const isTop   = idx === 0
+                    const isTop     = idx === 0
+                    const rowScore  = compositeScore(row)
+                    const sortVal   = sortKey === '__composite' ? rowScore : row[sortKey] as number | null
+                    const ratio     = topVal && sortVal ? (sortVal / topVal) * 100 : 0
                     return (
                       <tr key={`${row.occupation_name}-${idx}`}
                         style={{ background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}
@@ -302,6 +350,27 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                           <div style={S.barWrap}>
                             <div style={{ width: `${config.sortKey === 'annual_income' ? ratio : (row.annual_income && meta?.max_income ? (row.annual_income / meta.max_income) * 100 : 0)}%`, height: '100%', background: '#1a73e8', borderRadius: 4 }} />
                           </div>
+                        </td>
+                        {config.type === 'high-income-large-workforce' && (() => {
+                          const isSort = sortKey === '__composite'
+                          const norm   = normalizedScore(row)
+                          // バー幅はそのまま0〜100スコアを使用（100が満点）
+                          const barW   = isSort && norm != null ? norm : 0
+                          const displayScore = norm != null ? `${norm}` : '−'
+                          return (
+                            <td style={{ ...S.td, color: isSort ? (isTop ? '#D97706' : '#1a73e8') : '#475569', fontWeight: isSort && isTop ? 700 : isSort ? 600 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                              {displayScore}
+                              {isSort && (
+                                <div style={S.barWrap}><div style={{ width: `${barW}%`, height: '100%', background: isTop ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} /></div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        <td style={{ ...S.td, color: config.sortKey === 'workers' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'workers' && isTop ? 700 : 400 }}>
+                          {row.workers != null ? `${row.workers.toLocaleString()}千人` : '−'}
+                          {config.sortKey === 'workers' && (
+                            <div style={S.barWrap}><div style={{ width: `${ratio}%`, height: '100%', background: pc, borderRadius: 4 }} /></div>
+                          )}
                         </td>
                         <td style={{ ...S.td, color: config.sortKey === 'annual_bonus' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'annual_bonus' && isTop ? 700 : 400 }}>
                           {fmtWan(row.annual_bonus)}
