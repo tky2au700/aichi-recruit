@@ -61,19 +61,18 @@ export async function GET(req: NextRequest) {
       ? years.find(y => y.survey_year === surveyYear) ?? years[0]
       : years[0]
 
-    // 追加列の存在チェック（マイグレーション前でも動作するよう）
+    // occupation_slug 列の存在チェック（hourly_wageはDB計算で代替するため不要）
     const colCheck = await query(
       `SELECT COLUMN_NAME FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+         AND COLUMN_NAME = 'occupation_slug'`
     ) as Array<{ COLUMN_NAME: string }>
-    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
-    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
-    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
+    const hasSlug = colCheck.length > 0
+    const slugCol = hasSlug ? 'occupation_slug' : 'NULL AS occupation_slug'
 
-    // hourly-wage ランキングは hourly_wage 列が存在しない場合 monthly_wage÷160 で代替
-    const effectiveSortCol = cfg.sort_col === 'hourly_wage' && !existingCols.has('hourly_wage')
-      ? 'ROUND(monthly_wage / 160, 1)'
+    // hourly-wage ソートは scheduled_wage÷scheduled_hours×1000（円/時）で計算
+    const effectiveSortCol = cfg.sort_col === 'hourly_wage'
+      ? 'ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)'
       : cfg.sort_col
 
     const safeLimit = Math.floor(limit)
@@ -82,7 +81,7 @@ export async function GET(req: NextRequest) {
     const rows = await query(
       `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
               age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, ${hourlyCol}, workers
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
        FROM occupation_wages
        WHERE dataset_id = ?
          AND sex = ?
@@ -94,12 +93,10 @@ export async function GET(req: NextRequest) {
       [target.dataset_id, cfg.sex, cfg.enterprise_size]
     ) as any[]
 
-    const hourlyStatCol = existingCols.has('hourly_wage')
-      ? 'MAX(hourly_wage)'
-      : 'MAX(ROUND(monthly_wage / 160, 1))'
     const statsRows = await query(
       `SELECT AVG(annual_income) as avg_income, MAX(annual_income) as max_income,
-              MAX(annual_bonus) as max_bonus, ${hourlyStatCol} as max_hourly,
+              MAX(annual_bonus) as max_bonus,
+              MAX(ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)) as max_hourly,
               COUNT(*) as count
        FROM occupation_wages
        WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?`,
@@ -107,16 +104,21 @@ export async function GET(req: NextRequest) {
     ) as any[]
     const stats = statsRows[0]
 
-    // DB値は千円単位 → 万円換算。hourly_wageは千円/h → 円換算
-    const toWan  = (v: any) => v != null ? Math.round(Number(v) / 10) : null
-    const toHour = (v: any) => v != null ? Math.round(Number(v) * 1000) : null
+    // DB値は千円単位 → 万円換算
+    // 時給換算: scheduled_wage（千円/月）÷ scheduled_hours（時間/月）× 1000 → 円/時
+    const toWan = (v: any) => v != null ? Math.round(Number(v) / 10) : null
+    const calcHourly = (wage: any, hours: any): number | null => {
+      const w = Number(wage); const h = Number(hours)
+      if (!w || !h || h <= 0) return null
+      return Math.round((w * 1000) / h)
+    }
     const convertedRows = rows.map((r: any) => ({
       ...r,
       annual_income:  toWan(r.annual_income),
       monthly_wage:   toWan(r.monthly_wage),
       scheduled_wage: toWan(r.scheduled_wage),
       annual_bonus:   toWan(r.annual_bonus),
-      hourly_wage:    r.hourly_wage != null ? toHour(r.hourly_wage) : null,
+      hourly_wage:    calcHourly(r.scheduled_wage, r.scheduled_hours),
     }))
 
     return NextResponse.json({
