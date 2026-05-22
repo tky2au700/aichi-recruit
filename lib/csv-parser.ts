@@ -204,17 +204,63 @@ export function parseOccupationWageCsv(
   const NAME_COL        = rule.name_col_index
   const SEX_LABEL_MODE  = rule.sex_label_mode ?? 'cell_combined'
 
-  // DATA_START より前の行を後ろからスキャンして、直近の性別ラベルを初期値として取得する。
-  // これにより「男女計」ラベルが data_start_row より前にある形式に対応する。
+  // DATA_START より前の行を後ろからスキャンして、直近の性別ラベルと
+  // 性別ラベル付き結合セル行（"男女計\n\n職種名" 形式）も遡って処理する。
+  // さらに cell_combined モードでは結合セルが DATA_START - 1 の行にある場合があるため、
+  // スキャン開始行を DATA_START ではなく「結合セル行が含まれうる最初の行」から開始する。
   let currentSex: '計' | '男' | '女' = '計'
+
+  // cell_combined モードでは DATA_START の数行前から遡ってスキャン
+  // （Excelの結合セルが論理行としてまとめられた場合に備える）
+  const scanStart = SEX_LABEL_MODE === 'cell_combined'
+    ? Math.max(0, DATA_START - 5)
+    : DATA_START
+
   for (let pre = DATA_START - 1; pre >= 0; pre--) {
     const preCols = allRows[pre]
     if (!preCols) continue
-    const preName = (preCols[NAME_COL] || '').replace(/[\u3000\u0020\t\r\n]/g, '').trim()
-    if (preName === '男女計') { currentSex = '計'; break }
-    if (preName === '男')    { currentSex = '男'; break }
-    if (preName === '女')    { currentSex = '女'; break }
+    const rawPre = preCols[NAME_COL] || ''
+    // cell_combined: 改行を含む結合セルから性別ラベルを検出
+    if (SEX_LABEL_MODE === 'cell_combined') {
+      const firstLine = rawPre.split(/\n/)[0].replace(/[\u3000\u0020\t\r]/g, '').trim()
+      if (firstLine === '男女計') { currentSex = '計'; break }
+      if (firstLine === '男')    { currentSex = '男'; break }
+      if (firstLine === '女')    { currentSex = '女'; break }
+    } else {
+      const preName = rawPre.replace(/[\u3000\u0020\t\r\n]/g, '').trim()
+      if (preName === '男女計') { currentSex = '計'; break }
+      if (preName === '男')    { currentSex = '男'; break }
+      if (preName === '女')    { currentSex = '女'; break }
+    }
   }
+
+  // cell_combined モードで DATA_START より前の行に職種データが含まれていた場合も取り込む
+  // 例: data_start_row=10 だが row[9] に "男女計\n\n管理的職業従事者" が入っているケース
+  const effectiveStart = (() => {
+    if (SEX_LABEL_MODE !== 'cell_combined') return DATA_START
+    for (let pre = DATA_START - 1; pre >= scanStart; pre--) {
+      const preCols = allRows[pre]
+      if (!preCols) continue
+      const rawPre = preCols[NAME_COL] || ''
+      const parts = rawPre.split(/\n/).map(s => s.replace(/\r/g, '').trim()).filter(s => s !== '')
+      // 性別ラベル + 職種名が同居していて、かつ数値データがある行
+      if (parts.length >= 2) {
+        const hasSex = (() => {
+          const s = parts[0].replace(/[\u3000\u0020\t]/g, '')
+          return s === '男女計' || s === '男' || s === '女'
+        })()
+        if (hasSex) {
+          const anyData = ENTERPRISE_SIZES.some(({ start }) =>
+            preCols.slice(start, start + 8).some(c => {
+              const t = (c || '').trim(); return t !== '' && t !== '-'
+            })
+          )
+          if (anyData) return pre  // このインデックスから処理開始
+        }
+      }
+    }
+    return DATA_START
+  })()
 
   const ENTERPRISE_SIZES: Array<{
     label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
@@ -235,7 +281,7 @@ export function parseOccupationWageCsv(
     return null
   }
 
-  for (let i = DATA_START; i < allRows.length; i++) {
+  for (let i = effectiveStart; i < allRows.length; i++) {
     const cols = allRows[i]
     if (!cols || cols.length < 4) continue
 
@@ -270,6 +316,12 @@ export function parseOccupationWageCsv(
       if (sex !== null) {
         currentSex = sex
         occupationName = parts.slice(1).join(' ').trim()
+        // デバッグ: 性別切替 + 職種名抽出の確認
+        if (occupationName) {
+          console.log(`[v0] sex-switch row[${i}]: sex=${sex}, name=${occupationName}`)
+        } else {
+          console.log(`[v0] sex-only  row[${i}]: sex=${sex}, rawCell=${JSON.stringify(rawNameCell.substring(0, 40))}`)
+        }
       } else {
         occupationName = parts.join(' ').trim()
       }
