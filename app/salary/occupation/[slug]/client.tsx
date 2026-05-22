@@ -346,6 +346,24 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               sub={rep.overtime_hours != null && rep.overtime_hours > 20 ? '残業多め' : '標準的'}
               accent={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : undefined}
             />
+            <KpiCard
+              icon={<Clock size={13} color="#0f766e" />}
+              label="月実労働時間"
+              value={fmtFixed(rep.scheduled_hours, 1, 'h')}
+              sub="所定内労働時間"
+            />
+            <KpiCard
+              icon={<Users size={13} color="#64748B" />}
+              label="労働者数"
+              value={(() => {
+                if (rep.workers == null) return '−'
+                // workers は十人単位
+                const people = rep.workers * 10
+                if (people >= 10000) return `${(people / 10000).toFixed(1)}万人`
+                return `${people.toLocaleString()}人`
+              })()}
+              sub="調査対象労働者数"
+            />
           </div>
         )}
         </section>
