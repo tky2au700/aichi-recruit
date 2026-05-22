@@ -204,7 +204,17 @@ export function parseOccupationWageCsv(
   const NAME_COL        = rule.name_col_index
   const SEX_LABEL_MODE  = rule.sex_label_mode ?? 'cell_combined'
 
+  // DATA_START より前の行を後ろからスキャンして、直近の性別ラベルを初期値として取得する。
+  // これにより「男女計」ラベルが data_start_row より前にある形式に対応する。
   let currentSex: '計' | '男' | '女' = '計'
+  for (let pre = DATA_START - 1; pre >= 0; pre--) {
+    const preCols = allRows[pre]
+    if (!preCols) continue
+    const preName = (preCols[NAME_COL] || '').replace(/[\u3000\u0020\t\r\n]/g, '').trim()
+    if (preName === '男女計') { currentSex = '計'; break }
+    if (preName === '男')    { currentSex = '男'; break }
+    if (preName === '女')    { currentSex = '女'; break }
+  }
 
   const ENTERPRISE_SIZES: Array<{
     label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
@@ -223,6 +233,16 @@ export function parseOccupationWageCsv(
     if (s === '男')    return '男'
     if (s === '女')    return '女'
     return null
+  }
+
+  // デバッグ: data_start_row付近の行とNAME_COL列の中身を出力
+  console.log('[v0] csv-parser: SEX_LABEL_MODE=', SEX_LABEL_MODE, 'DATA_START=', DATA_START, 'NAME_COL=', NAME_COL)
+  for (let dbgI = Math.max(0, DATA_START - 3); dbgI < Math.min(allRows.length, DATA_START + 5); dbgI++) {
+    const dbgCols = allRows[dbgI]
+    const dbgCell = dbgCols?.[NAME_COL] ?? ''
+    console.log(`[v0] row[${dbgI}] nameCell=${JSON.stringify(dbgCell.substring(0, 60))} hasData=${
+      ENTERPRISE_SIZES.some(({ start }) => dbgCols?.slice(start, start + 8).some(c => (c || '').trim() !== '' && (c || '').trim() !== '-'))
+    }`)
   }
 
   for (let i = DATA_START; i < allRows.length; i++) {

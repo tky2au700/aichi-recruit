@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       男: rows.filter(r => r.sex === '男').length,
       女: rows.filter(r => r.sex === '女').length,
     }
+    console.log('[v0] csv-preview sexBreakdown:', sexBreakdown, 'rule:', rule)
 
     return NextResponse.json({
       success: true,
