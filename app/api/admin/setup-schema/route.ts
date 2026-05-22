@@ -124,6 +124,24 @@ export async function POST() {
       results.push(`migration(ALTER): ${altErr.message}`)
     }
 
+    // --- マイグレーション: datasets に残存する旧列を削除（group_id 移行済みの場合も含む）---
+    try {
+      const residualCols = await query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'datasets'
+         AND COLUMN_NAME IN ('name','category','source_name')`
+      ) as any[]
+      const residual = residualCols.map((c: any) => c.COLUMN_NAME as string)
+      for (const col of residual) {
+        // name 列は NULL 許容に変更してから DROP（NOT NULL 制約がある場合の挿入エラー回避）
+        try { await query(`ALTER TABLE datasets MODIFY COLUMN \`${col}\` VARCHAR(255) NULL`) } catch { /* ignore */ }
+        await query(`ALTER TABLE datasets DROP COLUMN \`${col}\``)
+        results.push(`migration: datasets.${col} 削除`)
+      }
+    } catch (residualErr: any) {
+      results.push(`migration(datasets残存列): ${residualErr.message}`)
+    }
+
     // --- マイグレーション: 旧スキーマ(datasetsにname/category列がある)からの移行 ---
     try {
       const oldCols = await query(

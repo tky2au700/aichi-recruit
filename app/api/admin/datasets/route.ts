@@ -42,9 +42,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // datasets テーブルに旧 name 列が残っている場合は空文字を渡す
+    const hasCols = await query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'datasets' AND COLUMN_NAME = 'name'`
+    ) as any[]
+    const hasNameCol = hasCols.length > 0
+
     const result = await query(
-      `INSERT INTO datasets (group_id, survey_year, published_at, source_url)
-       VALUES (?, ?, ?, ?)`,
+      hasNameCol
+        ? `INSERT INTO datasets (group_id, survey_year, published_at, source_url, name) VALUES (?, ?, ?, ?, '')`
+        : `INSERT INTO datasets (group_id, survey_year, published_at, source_url) VALUES (?, ?, ?, ?)`,
       [Number(group_id), Number(survey_year), published_at || null, source_url || null]
     ) as any
 
