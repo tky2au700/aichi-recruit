@@ -38,7 +38,7 @@ const rankingItems = [
     color: '#f59e0b',
   },
   {
-    href: '/salary/ranking/hourly-wage',
+    href: '/salary/ranking/occupation?sort=hourly_wage',
     label: '時給換算ランキング',
     description: '時給に換算した場合のランキング',
     icon: Clock,

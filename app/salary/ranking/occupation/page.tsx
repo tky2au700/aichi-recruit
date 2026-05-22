@@ -31,12 +31,13 @@ const SORT_LABEL: Record<string, string> = {
   age:            '平均年齢',
   tenure_years:   '勤続年数',
   overtime_hours: '残業時間',
+  hourly_wage:    '時給',
 }
 
 const BASE_URL = 'https://ai-recruit.jp'
 const BASE_PATH = '/salary/ranking/occupation'
 
-type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours'
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
 type SortDir = 'asc' | 'desc'
 type SearchParams = Promise<{ sex?: string; size?: string; year?: string; sort?: string; dir?: string }>
 

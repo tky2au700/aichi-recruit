@@ -36,7 +36,7 @@ const rankingCategories = [
     bg: 'bg-accent/10',
   },
   {
-    href: '/salary/ranking/hourly-wage',
+    href: '/salary/ranking/occupation?sort=hourly_wage',
     label: '時給換算ランキング',
     description: '月給÷160時間で算出した時給が高い職種',
     icon: Clock,
@@ -158,7 +158,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pt-12 pb-6">
         <div className="flex items-baseline gap-3 mb-6">
           <h2 className="text-xl font-bold" style={{ color: '#1e293b' }}>年収ランキング</h2>
-          <span className="text-sm" style={{ color: '#64748b' }}>DBデータから職種・属性別に集計</span>
+          <span className="text-sm" style={{ color: '#64748b' }}>DBデータから���種・属性別に集計</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {rankingCategories.map(({ href, label, description, icon: Icon, color, bg }) => (

@@ -77,7 +77,7 @@ const PARAM_TO_SIZE: Record<string, string> = {
   large: '1000人以上', medium: '100～999人', small: '10～99人',
 }
 
-type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours'
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
 type SortDir = 'asc' | 'desc'
 
 // ソートキー → 見出しラベル（「職種別平均〇〇ランキング」）
@@ -88,6 +88,7 @@ const SORT_KEY_LABEL: Record<SortKey, string> = {
   age:            '平均年齢',
   tenure_years:   '勤続年数',
   overtime_hours: '残業時間',
+  hourly_wage:    '時給',
 }
 // ソートキー → meta の平均値フィールド名
 const SORT_KEY_AVG: Partial<Record<SortKey, keyof Meta>> = {
@@ -179,7 +180,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
       if (_year) params.set('survey_year', String(_year))
       const res  = await fetch(`/api/salary/ranking/occupation?${params}`)
       const json: ApiResponse = await res.json()
-      if (!json.success) { setError(json.message ?? 'エラーが発���しました'); return }
+      if (!json.success) { setError(json.message ?? 'エラーが発�����しました'); return }
       setData(json.data)
       setMeta(json.meta)
       if (json.years.length > 0) {
@@ -319,7 +320,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
     ? `${currentYearStr}調査の賃金構造基本統計調査に基づく${filterDescParts.length > 0 ? filterDescParts.join('・') + 'の' : ''}${baseTitle}データです。`
     : null
 
-  // SSRで渡されたpropsを初期値とし、クライアント側の変更で上書き
+  // SSRで渡されたpropsを初期値とし、クライアント側の変更で���書き
   const displayDescription = pageDescription ?? dynamicDescription
 
   return (
@@ -481,6 +482,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
                     <Th label="平均年齢" k="age" />
                     <Th label="勤続年数" k="tenure_years" />
                     <Th label="残業時間" k="overtime_hours" />
+                    <Th label="時給換算" k="hourly_wage" />
                   </tr>
                 </thead>
                 <tbody>
@@ -618,6 +620,26 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
                               {isSort && (
                                 <div style={S.barWrap}>
                                   <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#FCA5A5', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 時給換算 */}
+                        {(() => {
+                          const isSort = sortKey === 'hourly_wage'
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{
+                                fontWeight: isSort ? 700 : 400,
+                                color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {row.hourly_wage != null ? `${row.hourly_wage.toLocaleString()}円` : '—'}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
                                 </div>
                               )}
                             </td>
