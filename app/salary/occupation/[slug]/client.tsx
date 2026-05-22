@@ -119,8 +119,10 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   const [data, setData]       = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
-  const [sexTab, setSexTab]   = useState('計')
-  const [sizeTab, setSizeTab] = useState('企業規模計')
+  const [sexTab, setSexTab]       = useState('計')
+  const [sizeTab, setSizeTab]     = useState('企業規模計')
+  const [kpiSexTab, setKpiSexTab] = useState('計')
+  const [kpiSizeTab, setKpiSizeTab] = useState('企業規模計')
 
   useEffect(() => {
     fetch(`/api/salary/occupation/${encodeURIComponent(slug)}`)
@@ -169,7 +171,8 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   }
 
   // --- データ整形 ---
-  const rep = data.latest_data.find(r => r.sex === '計' && r.enterprise_size === '企業規模計')
+  const repFixed = data.latest_data.find(r => r.sex === '計' && r.enterprise_size === '企業規模計')
+  const rep      = data.latest_data.find(r => r.sex === kpiSexTab && r.enterprise_size === kpiSizeTab) ?? repFixed
   const maxIncome = Math.max(...data.time_series.map(t => t.annual_income ?? 0), 1)
   const sizeRows  = ENTERPRISE_ORDER
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
@@ -229,8 +232,8 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
             </h1>
             <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
               {data.survey_group_name} / {data.latest_year}年調査
-              {rep?.annual_income != null && (
-                <> — 推定年収 <strong style={{ color: '#1a73e8', fontSize: 15 }}>{fmtWan(rep.annual_income)}</strong>（男女計・企業規模計）</>
+              {repFixed?.annual_income != null && (
+                <> — 推定年収 <strong style={{ color: '#1a73e8', fontSize: 15 }}>{fmtWan(repFixed.annual_income)}</strong>（男女計・企業規模計）</>
               )}
             </p>
           </div>
@@ -240,9 +243,65 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
       {/* ---- コンテンツ本体 ---- */}
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 80px' }}>
 
+        {/* KPI サマリー */}
+        <section style={{ marginBottom: 36 }}>
+          {/* タブ行 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            {/* 性別タブ */}
+            <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2 }}>
+              {SEX_ORDER.map(sex => (
+                <button
+                  key={sex}
+                  onClick={() => setKpiSexTab(sex)}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: 'none',
+                    background: kpiSexTab === sex ? '#fff' : 'transparent',
+                    color: kpiSexTab === sex ? SEX_COLOR[sex] : '#64748B',
+                    cursor: 'pointer',
+                    boxShadow: kpiSexTab === sex ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {SEX_LABEL[sex]}
+                </button>
+              ))}
+            </div>
+            {/* 企業規模タブ */}
+            <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2, flexWrap: 'wrap' }}>
+              {ENTERPRISE_ORDER.map(size => (
+                <button
+                  key={size}
+                  onClick={() => setKpiSizeTab(size)}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: 'none',
+                    background: kpiSizeTab === size ? '#fff' : 'transparent',
+                    color: kpiSizeTab === size ? '#1a73e8' : '#64748B',
+                    cursor: 'pointer',
+                    boxShadow: kpiSizeTab === size ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            {/* 現在の選択ラベル */}
+            <span style={{ fontSize: 11, color: '#94A3B8' }}>
+              {SEX_LABEL[kpiSexTab]} / {kpiSizeTab}
+            </span>
+          </div>
+
         {/* KPI グリッド */}
         {rep && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 36 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 0 }}>
             <KpiCard
               icon={<Award size={13} color="#1a73e8" />}
               label="推定年収"
@@ -289,6 +348,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
             />
           </div>
         )}
+        </section>
 
         {/* 年収推移 */}
         {data.time_series.length > 1 && (
