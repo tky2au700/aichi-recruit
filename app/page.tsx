@@ -36,9 +36,9 @@ const rankingCategories = [
     bg: 'bg-accent/10',
   },
   {
-    href: '/salary/ranking/occupation?sort=hourly_wage',
-    label: '時給換算ランキング',
-    description: '月給÷160時間で算出した時給が高い職種',
+    href: '/salary/ranking/overtime-wage',
+    label: '残業・時給ランキング',
+    description: '残業時間・時給換算のランキング',
     icon: Clock,
     color: 'text-success',
     bg: 'bg-success/10',
