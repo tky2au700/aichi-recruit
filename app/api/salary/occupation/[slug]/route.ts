@@ -16,15 +16,17 @@ export async function GET(
     ) as Array<{ COLUMN_NAME: string }>
     const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
 
-    if (!existingCols.has('occupation_slug')) {
-      return NextResponse.json({ success: false, message: 'DB migration が未実行です。管理画面から setup-schema を実行してください。' }, { status: 503 })
-    }
-
     const hourlyCol = existingCols.has('hourly_wage') ? 'ow.hourly_wage' : 'NULL AS hourly_wage'
+
+    // slug 列が存在する場合は slug で検索、存在しない場合は occupation_name で検索
+    const whereClause = existingCols.has('occupation_slug')
+      ? 'ow.occupation_slug = ?'
+      : 'ow.occupation_name = ?'
 
     // slug に一致する最新年度のデータを全性別・全企業規模で取得
     const rows = await query(
-      `SELECT ow.occupation_name, ow.occupation_slug,
+      `SELECT ow.occupation_name,
+              ${existingCols.has('occupation_slug') ? 'ow.occupation_slug' : 'NULL AS occupation_slug'},
               ow.sex, ow.enterprise_size,
               ow.age, ow.tenure_years,
               ow.scheduled_hours, ow.overtime_hours,
@@ -35,7 +37,7 @@ export async function GET(
        FROM occupation_wages ow
        JOIN datasets d ON ow.dataset_id = d.id
        JOIN dataset_groups dg ON d.group_id = dg.id
-       WHERE ow.occupation_slug = ?
+       WHERE ${whereClause}
        ORDER BY d.survey_year DESC, ow.sex, ow.enterprise_size`,
       [slug]
     ) as Array<{

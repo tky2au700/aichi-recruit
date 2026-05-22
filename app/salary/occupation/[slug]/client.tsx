@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronRight, TrendingUp, Clock, Users, Award, BarChart2, ArrowLeft } from 'lucide-react'
+import {
+  ChevronRight, TrendingUp, Clock, Users, Award,
+  BarChart2, ArrowLeft, TrendingDown, Building2,
+  Info,
+} from 'lucide-react'
 
+// ---------- 型定義 ----------
 interface DetailRow {
   sex: string
   enterprise_size: string
@@ -40,6 +45,7 @@ interface ApiResponse {
   message?: string
 }
 
+// ---------- ユーティリティ ----------
 function fmt(v: number | null, suffix = '') {
   if (v == null) return '−'
   return `${Number(v).toLocaleString()}${suffix}`
@@ -52,45 +58,70 @@ function fmtFixed(v: number | null, d = 1, suffix = '') {
   if (v == null) return '−'
   return `${Number(v).toFixed(d)}${suffix}`
 }
+function growthRate(latest: number | null, oldest: number | null): string {
+  if (!latest || !oldest || oldest === 0) return '−'
+  const rate = ((latest - oldest) / oldest) * 100
+  const sign = rate >= 0 ? '+' : ''
+  return `${sign}${rate.toFixed(1)}%`
+}
 
 const ENTERPRISE_ORDER = ['企業規模計', '1000人以上', '100～999人', '10～99人']
 const SEX_ORDER        = ['計', '男', '女']
 const SEX_LABEL: Record<string, string> = { '計': '男女計', '男': '男性', '女': '女性' }
+const SEX_COLOR: Record<string, string> = { '計': '#1a73e8', '男': '#0ea5e9', '女': '#e8336d' }
 
-const S = {
-  container:  { maxWidth: 960, margin: '0 auto', padding: '0 24px 64px' },
-  breadcrumb: { display: 'flex', alignItems: 'center', gap: 6, padding: '20px 0 0', fontSize: 12, color: '#64748B' },
-  hero:       { padding: '28px 0 24px' },
-  h1:         { fontSize: 28, fontWeight: 700, color: '#0F172A', margin: '0 0 8px', letterSpacing: '-0.4px', lineHeight: 1.3 },
-  meta:       { fontSize: 13, color: '#64748B' },
-  kpiGrid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '24px 0' },
-  kpiCard:    { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' },
-  kpiLabel:   { fontSize: 11, color: '#64748B', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 5 },
-  kpiValue:   { fontSize: 22, fontWeight: 700, color: '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums' as const },
-  kpiSub:     { fontSize: 11, color: '#94A3B8', marginTop: 3 },
-  section:    { marginTop: 32 },
-  sectionH2:  { fontSize: 16, fontWeight: 700, color: '#0F172A', marginBottom: 16, paddingBottom: 10, borderBottom: '2px solid #1a73e8', display: 'inline-block' },
-  card:       { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' },
-  table:      { width: '100%', borderCollapse: 'collapse' as const },
-  th:         { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#64748B', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' as const, whiteSpace: 'nowrap' as const },
-  td:         { padding: '10px 14px', fontSize: 13, color: '#374151', borderBottom: '1px solid #F1F5F9', whiteSpace: 'nowrap' as const },
-  sexTabBar:  { display: 'flex', gap: 4, marginBottom: 16 },
-  sexTabActive: { padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, border: '1.5px solid #1a73e8', background: '#EBF3FE', color: '#1a73e8', cursor: 'pointer' },
-  sexTab:     { padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569', cursor: 'pointer' },
-  timeBarWrap:{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 12 },
-  timeYear:   { fontSize: 12, color: '#64748B', minWidth: 36 },
-  timeBarOuter:{ flex: 1, height: 18, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' as const },
-  timeLabel:  { fontSize: 12, color: '#374151', minWidth: 72, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const },
+// ---------- サブコンポーネント ----------
+function KpiCard({
+  icon, label, value, sub, accent,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  sub: string
+  accent?: string
+}) {
+  return (
+    <div style={{
+      background: '#fff',
+      border: '1px solid #E2E8F0',
+      borderRadius: 12,
+      padding: '20px 22px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {icon}
+        {label}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 10, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{sub}</div>
+    </div>
+  )
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <h2 style={{
+        fontSize: 16, fontWeight: 700, color: '#0F172A',
+        borderLeft: '3px solid #1a73e8', paddingLeft: 10, margin: 0,
+      }}>
+        {children}
+      </h2>
+    </div>
+  )
+}
+
+// ---------- メインコンポーネント ----------
 export function OccupationDetailClient({ slug }: { slug: string }) {
-  const [data, setData]     = useState<ApiResponse | null>(null)
+  const [data, setData]       = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
-  const [sexTab, setSexTab] = useState('計')
+  const [error, setError]     = useState<string | null>(null)
+  const [sexTab, setSexTab]   = useState('計')
 
   useEffect(() => {
-    fetch(`/api/salary/occupation/${slug}`)
+    fetch(`/api/salary/occupation/${encodeURIComponent(slug)}`)
       .then(r => r.json())
       .then((json: ApiResponse) => {
         if (!json.success) { setError(json.message ?? 'データが見つかりません'); return }
@@ -100,162 +131,321 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
       .finally(() => setLoading(false))
   }, [slug])
 
+  // --- ローディング ---
   if (loading) {
     return (
-      <div style={S.container}>
-        <div style={{ padding: '80px 0', textAlign: 'center', color: '#94A3B8' }}>読み込み中...</div>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '120px 24px', textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, border: '3px solid #E2E8F0', borderTopColor: '#1a73e8', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <p style={{ color: '#94A3B8', fontSize: 14 }}>データを読み込んでいます...</p>
       </div>
     )
   }
+
+  // --- エラー ---
   if (error || !data) {
     return (
-      <div style={S.container}>
-        <div style={{ padding: '80px 0', textAlign: 'center', color: '#EF4444' }}>{error ?? 'データが見つかりません'}</div>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>
+          <Info size={40} color="#94A3B8" style={{ margin: '0 auto' }} />
+        </div>
+        <p style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+          {error ?? 'データが見つかりません'}
+        </p>
+        <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 24 }}>
+          DB マイグレーション未実行の場合、管理画面から setup-schema を実行してください。
+        </p>
+        <Link
+          href="/salary/ranking/occupation"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1a73e8', color: '#fff', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
+        >
+          <ArrowLeft size={15} />
+          職種ランキングに戻る
+        </Link>
       </div>
     )
   }
 
-  // 男女計・企業規模計の代表値
+  // --- データ整形 ---
   const rep = data.latest_data.find(r => r.sex === '計' && r.enterprise_size === '企業規模計')
-
-  // 最大年収（時系列バー描画用）
   const maxIncome = Math.max(...data.time_series.map(t => t.annual_income ?? 0), 1)
-
-  // 企業規模テーブル（選択中の性別）
-  const sizeRows = ENTERPRISE_ORDER
+  const sizeRows  = ENTERPRISE_ORDER
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
     .filter(Boolean) as DetailRow[]
 
+  // 年収変化（最古→最新）
+  const oldest = data.time_series[0]
+  const latest = data.time_series[data.time_series.length - 1]
+  const growthStr = growthRate(latest?.annual_income, oldest?.annual_income)
+  const growthPositive = growthStr !== '−' && !growthStr.startsWith('-')
+
   return (
-    <div style={S.container}>
-      {/* パンくずリスト */}
-      <nav aria-label="パンくずリスト" style={S.breadcrumb}>
-        <Link href="/" style={{ color: '#1a73e8', textDecoration: 'none' }}>ホーム</Link>
-        <ChevronRight size={13} />
-        <Link href="/salary/ranking/occupation" style={{ color: '#1a73e8', textDecoration: 'none' }}>職種ランキング</Link>
-        <ChevronRight size={13} />
-        <span>{data.occupation_name}</span>
-      </nav>
+    <main style={{ background: '#F8FAFC', minHeight: '100vh' }}>
+      {/* ---- ヒーローバナー ---- */}
+      <div style={{ background: 'linear-gradient(135deg, #f0f6ff 0%, #ffffff 70%)', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 24px' }}>
 
-      {/* ヒーロー */}
-      <header style={S.hero}>
-        <h1 style={S.h1}>{data.occupation_name}の平均年収</h1>
-        <p style={S.meta}>
-          {data.survey_group_name} / {data.latest_year}年調査データ
-          {data.survey_table_name && <span style={{ color: '#94A3B8' }}>　{data.survey_table_name}</span>}
-        </p>
-      </header>
+          {/* パンくずリスト */}
+          <nav aria-label="パンくずリスト" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '20px 0 0', fontSize: 12, color: '#64748B', flexWrap: 'wrap' }}>
+            <Link href="/" style={{ color: '#1a73e8', textDecoration: 'none' }}>AIリクルート</Link>
+            <ChevronRight size={12} />
+            <Link href="/salary/ranking/occupation" style={{ color: '#1a73e8', textDecoration: 'none' }}>職種別年収ランキング</Link>
+            <ChevronRight size={12} />
+            <span style={{ color: '#94A3B8' }}>{data.occupation_name}</span>
+          </nav>
 
-      {/* KPI */}
-      {rep && (
-        <div style={S.kpiGrid}>
-          {[
-            { icon: <Award size={14} color="#1a73e8" />, label: '推定年収', value: fmtWan(rep.annual_income), sub: '男女計・全規模' },
-            { icon: <BarChart2 size={14} color="#0F9D58" />, label: '月給（所定内）', value: fmtWan(rep.scheduled_wage), sub: '所定内給与額' },
-            { icon: <TrendingUp size={14} color="#F4B400" />, label: '年間賞与', value: fmtWan(rep.annual_bonus), sub: '賞与・特別給与額' },
-            { icon: <Clock size={14} color="#DB4437" />, label: '時給換算', value: rep.hourly_wage != null ? `${Math.round(rep.hourly_wage).toLocaleString()}円/h` : '−', sub: '月給÷160h' },
-            { icon: <Users size={14} color="#8B5CF6" />, label: '平均年齢', value: fmtFixed(rep.age, 1, '歳'), sub: `勤続 ${fmtFixed(rep.tenure_years, 1, '年')}` },
-            { icon: <Clock size={14} color="#F97316" />, label: '残業時間', value: fmtFixed(rep.overtime_hours, 1, 'h/月'), sub: '所定外実労働' },
-          ].map(({ icon, label, value, sub }) => (
-            <div key={label} style={S.kpiCard}>
-              <div style={S.kpiLabel}>{icon}{label}</div>
-              <div style={S.kpiValue}>{value}</div>
-              <div style={S.kpiSub}>{sub}</div>
+          {/* タイトル・メタ */}
+          <div style={{ padding: '24px 0 32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, background: '#E8F0FE', color: '#1a73e8', padding: '3px 10px', borderRadius: 20, border: '1px solid #C5D8FC' }}>
+                {data.latest_year}年調査
+              </span>
+              {growthStr !== '−' && (
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  background: growthPositive ? '#ECFDF5' : '#FEF2F2',
+                  color: growthPositive ? '#16a34a' : '#dc2626',
+                  padding: '3px 10px', borderRadius: 20,
+                  border: `1px solid ${growthPositive ? '#BBF7D0' : '#FECACA'}`,
+                  display: 'flex', alignItems: 'center', gap: 3,
+                }}>
+                  {growthPositive
+                    ? <TrendingUp size={11} />
+                    : <TrendingDown size={11} />}
+                  {data.time_series[0]?.survey_year}年比 {growthStr}
+                </span>
+              )}
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* 年収推移 */}
-      {data.time_series.length > 1 && (
-        <section style={S.section}>
-          <h2 style={S.sectionH2}>年収推移（男女計・企業規模計）</h2>
-          <div style={S.card}>
-            <div style={{ padding: '20px 24px' }}>
-              {data.time_series.map(t => (
-                <div key={t.survey_year} style={S.timeBarWrap}>
-                  <span style={S.timeYear}>{t.survey_year}年</span>
-                  <div style={S.timeBarOuter}>
-                    <div style={{
-                      width: `${t.annual_income ? (t.annual_income / maxIncome) * 100 : 0}%`,
-                      height: '100%',
-                      background: '#1a73e8',
-                      borderRadius: 4,
-                      transition: 'width .4s',
-                    }} />
+            <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0F172A', margin: '0 0 8px', letterSpacing: '-0.5px', lineHeight: 1.25 }}>
+              {data.occupation_name}の平均年収
+            </h1>
+            <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
+              {data.survey_group_name} / {data.latest_year}年調査
+              {rep?.annual_income != null && (
+                <> — 推定年収 <strong style={{ color: '#1a73e8', fontSize: 15 }}>{fmtWan(rep.annual_income)}</strong>（男女計・企業規模計）</>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ---- コンテンツ本体 ---- */}
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 80px' }}>
+
+        {/* KPI グリッド */}
+        {rep && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 36 }}>
+            <KpiCard
+              icon={<Award size={13} color="#1a73e8" />}
+              label="推定年収"
+              value={fmtWan(rep.annual_income)}
+              sub="男女計・企業規模計"
+              accent="#1a73e8"
+            />
+            <KpiCard
+              icon={<BarChart2 size={13} color="#0F9D58" />}
+              label="月給（所定内）"
+              value={fmtWan(rep.scheduled_wage)}
+              sub="所定内給与額"
+            />
+            <KpiCard
+              icon={<TrendingUp size={13} color="#F4B400" />}
+              label="年間賞与"
+              value={fmtWan(rep.annual_bonus)}
+              sub="賞与・特別給与額"
+            />
+            <KpiCard
+              icon={<Clock size={13} color="#0ea5e9" />}
+              label="時給換算"
+              value={rep.hourly_wage != null ? `${Math.round(rep.hourly_wage).toLocaleString()}円` : fmtFixed(rep.monthly_wage != null ? rep.monthly_wage / 160 : null, 0, '円')}
+              sub="月給 ÷ 160時間"
+            />
+            <KpiCard
+              icon={<Users size={13} color="#7c3aed" />}
+              label="平均年齢"
+              value={fmtFixed(rep.age, 1, '歳')}
+              sub={`勤続 ${fmtFixed(rep.tenure_years, 1, '年')}`}
+            />
+            <KpiCard
+              icon={<Clock size={13} color={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : '#94A3B8'} />}
+              label="月残業時間"
+              value={fmtFixed(rep.overtime_hours, 1, 'h')}
+              sub={rep.overtime_hours != null && rep.overtime_hours > 20 ? '残業多め' : '標準的'}
+              accent={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : undefined}
+            />
+          </div>
+        )}
+
+        {/* 年収推移 */}
+        {data.time_series.length > 1 && (
+          <section style={{ marginBottom: 36 }}>
+            <SectionTitle>年収推移（男女計・企業規模計）</SectionTitle>
+            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              {data.time_series.map((t, i) => {
+                const pct = t.annual_income ? (t.annual_income / maxIncome) * 100 : 0
+                const isLatest = i === data.time_series.length - 1
+                return (
+                  <div key={t.survey_year} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: i < data.time_series.length - 1 ? 10 : 0 }}>
+                    <span style={{ fontSize: 12, color: isLatest ? '#0F172A' : '#64748B', fontWeight: isLatest ? 700 : 400, minWidth: 40 }}>
+                      {t.survey_year}年
+                    </span>
+                    <div style={{ flex: 1, height: 20, background: '#F1F5F9', borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${pct}%`,
+                        height: '100%',
+                        background: isLatest ? '#1a73e8' : '#93C5FD',
+                        borderRadius: 6,
+                        transition: 'width 0.6s ease',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: isLatest ? 700 : 400, color: isLatest ? '#0F172A' : '#64748B', minWidth: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtWan(t.annual_income)}
+                    </span>
                   </div>
-                  <span style={S.timeLabel}>{fmtWan(t.annual_income)}</span>
+                )
+              })}
+              {growthStr !== '−' && (
+                <div style={{
+                  marginTop: 16, paddingTop: 14, borderTop: '1px solid #F1F5F9',
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B',
+                }}>
+                  <span>{data.time_series[0]?.survey_year}年→{latest?.survey_year}年の変化:</span>
+                  <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    {growthStr}
+                  </strong>
                 </div>
-              ))}
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* 企業規模別データ */}
+        <section style={{ marginBottom: 36 }}>
+          <SectionTitle>企業規模別データ</SectionTitle>
+
+          {/* 性別タブ */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {SEX_ORDER.map(s => (
+              <button
+                key={s}
+                onClick={() => setSexTab(s)}
+                style={{
+                  padding: '6px 18px',
+                  borderRadius: 20,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: sexTab === s ? `1.5px solid ${SEX_COLOR[s]}` : '1.5px solid #E2E8F0',
+                  background: sexTab === s ? `${SEX_COLOR[s]}14` : '#fff',
+                  color: sexTab === s ? SEX_COLOR[s] : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {SEX_LABEL[s]}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['企業規模', '推定年収', '月給（所定内）', '年間賞与', '時給換算', '平均年齢', '勤続年数', '月残業', '労働者数'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sizeRows.map((r, i) => {
+                    const isTotal = r.enterprise_size === '企業規模計'
+                    const hourly = r.hourly_wage ?? (r.monthly_wage != null ? Math.round(r.monthly_wage / 160) : null)
+                    return (
+                      <tr key={r.enterprise_size} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < sizeRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: '#0F172A', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Building2 size={13} color={isTotal ? '#1a73e8' : '#94A3B8'} />
+                          {r.enterprise_size}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: '#1a73e8', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtWan(r.annual_income)}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.annual_bonus)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
+                          {hourly != null ? `${hourly.toLocaleString()}円/h` : '−'}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtFixed(r.age, 1, '歳')}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtFixed(r.tenure_years, 1, '年')}</td>
+                        <td style={{
+                          padding: '11px 14px', fontSize: 13, whiteSpace: 'nowrap',
+                          color: r.overtime_hours != null && r.overtime_hours > 20 ? '#dc2626' : '#374151',
+                          fontWeight: r.overtime_hours != null && r.overtime_hours > 20 ? 700 : 400,
+                        }}>
+                          {fmtFixed(r.overtime_hours, 1, 'h')}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#94A3B8', whiteSpace: 'nowrap' }}>{fmt(r.workers, '(十人)')}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
-      )}
 
-      {/* 企業規模別 */}
-      <section style={S.section}>
-        <h2 style={S.sectionH2}>企業規模別データ</h2>
-        <div style={S.sexTabBar}>
-          {SEX_ORDER.map(s => (
-            <button
-              key={s}
-              onClick={() => setSexTab(s)}
-              style={sexTab === s ? S.sexTabActive : S.sexTab}
-            >
-              {SEX_LABEL[s]}
-            </button>
-          ))}
-        </div>
-        <div style={S.card}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  {['企業規模', '推定年収', '月給（所定内）', '年間賞与', '時給', '平均年齢', '勤続年数', '残業時間/月', '労働者数(十人)'].map(h => (
-                    <th key={h} style={S.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sizeRows.map((r, i) => (
-                  <tr key={r.enterprise_size} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC' }}>
-                    <td style={{ ...S.td, fontWeight: r.enterprise_size === '企業規模計' ? 600 : 400, color: '#0F172A' }}>{r.enterprise_size}</td>
-                    <td style={{ ...S.td, fontWeight: 700, color: '#1a73e8', fontVariantNumeric: 'tabular-nums' }}>{fmtWan(r.annual_income)}</td>
-                    <td style={S.td}>{fmtWan(r.scheduled_wage)}</td>
-                    <td style={S.td}>{fmtWan(r.annual_bonus)}</td>
-                    <td style={S.td}>{r.hourly_wage != null ? `${Math.round(r.hourly_wage).toLocaleString()}円/h` : '−'}</td>
-                    <td style={S.td}>{fmtFixed(r.age, 1, '歳')}</td>
-                    <td style={S.td}>{fmtFixed(r.tenure_years, 1, '年')}</td>
-                    <td style={{
-                      ...S.td,
-                      color: r.overtime_hours != null && r.overtime_hours > 20 ? '#EF4444' : '#374151',
-                      fontWeight: r.overtime_hours != null && r.overtime_hours > 20 ? 600 : 400,
-                    }}>{fmtFixed(r.overtime_hours, 1, 'h')}</td>
-                    <td style={S.td}>{fmt(r.workers)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* 関連リンク */}
+        <section style={{ marginBottom: 36 }}>
+          <SectionTitle>関連ランキングを見る</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            {[
+              { href: '/salary/ranking/occupation',            label: '職種別年収ランキング',  icon: <TrendingUp size={14} color="#1a73e8" /> },
+              { href: '/salary/ranking/bonus',                 label: 'ボーナスランキング',      icon: <Award size={14} color="#f59e0b" /> },
+              { href: '/salary/ranking/hourly-wage',           label: '時給換算ランキング',      icon: <Clock size={14} color="#0ea5e9" /> },
+              { href: '/salary/ranking/high-income-low-overtime', label: '残業少ない高年収',    icon: <BarChart2 size={14} color="#7c3aed" /> },
+            ].map(({ href, label, icon }) => (
+              <Link
+                key={href}
+                href={href}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '12px 16px', background: '#fff',
+                  border: '1px solid #E2E8F0', borderRadius: 10,
+                  textDecoration: 'none', fontSize: 13, color: '#374151',
+                  fontWeight: 500, transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#93C5FD')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#E2E8F0')}
+              >
+                {icon}
+                {label}
+                <ChevronRight size={13} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+              </Link>
+            ))}
           </div>
+        </section>
+
+        {/* 戻るリンク */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 8 }}>
+          <Link
+            href="/salary/ranking/occupation"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1a73e8', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}
+          >
+            <ArrowLeft size={15} />
+            職種ランキング一覧に戻る
+          </Link>
         </div>
-      </section>
 
-      {/* ランキングへ戻る */}
-      <div style={{ marginTop: 40 }}>
-        <Link
-          href="/salary/ranking/occupation"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1a73e8', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}
-        >
-          <ArrowLeft size={15} />
-          職種ランキング一覧に戻る
-        </Link>
+        {/* 出典 */}
+        <p style={{ marginTop: 32, fontSize: 11, color: '#94A3B8', lineHeight: 1.8, borderTop: '1px solid #F1F5F9', paddingTop: 20 }}>
+          出典: {data.survey_group_name}（厚生労働省 e-Stat）{data.latest_year}年調査。
+          年収は「所定内給与額×12ヶ月＋年間賞与・特別給与額」をもとに推計した値です。
+          表示データは統計上の平均値であり、個別の企業・職場の賃金を保証するものではありません。
+        </p>
       </div>
-
-      {/* 出典 */}
-      <p style={{ marginTop: 32, fontSize: 12, color: '#94A3B8', lineHeight: 1.7 }}>
-        出典: {data.survey_group_name}（厚生労働省）{data.latest_year}年調査。
-        年収は「所定内給与額×12ヶ月＋年間賞与・特別給与額」をもとに推計した値です。
-      </p>
-    </div>
+    </main>
   )
 }

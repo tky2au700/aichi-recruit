@@ -29,11 +29,16 @@ export async function generateMetadata({ params }: Props) {
     if (rows.length === 0) return { title: '職種が見つかりません' }
     const name = rows[0].occupation_name
     return {
-      title: `${name}の平均年収・給与データ | 年収DB`,
+      title: `${name}の平均年収・給与データ | AIリクルート`,
       description: `${name}の平均年収・月給・賞与・時給・企業規模別データを賃金構造基本統計調査をもとに掲載。男女別・企業規模別の詳細データも確認できます。`,
+      openGraph: {
+        title: `${name}の平均年収 | AIリクルート`,
+        description: `${name}の平均年収・月給・賞与・時給・企業規模別データ。賃金構造基本統計調査の最新データ。`,
+        siteName: 'AIリクルート 年収データベース',
+      },
     }
   } catch {
-    return { title: '職種詳細 | 年収DB' }
+    return { title: '職種詳細 | AIリクルート' }
   }
 }
 
