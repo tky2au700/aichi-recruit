@@ -2,7 +2,7 @@ import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 
 export const metadata = {
-  title: '男性の平均年収が高い職種ランキング | 年収DB',
+  title: '男性の平均年収が高い職種ランキング | AIリクルート',
   description: '賃金構造基本統計調査をもとにした男性の平均年収ランキング。職種ごとの男性年収データを一覧で確認できます。',
 }
 

@@ -2,7 +2,7 @@ import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 
 export const metadata = {
-  title: '時給換算が高い職種ランキング | 年収DB',
+  title: '時給換算が高い職種ランキング | AIリクルート',
   description: '月給を月160時間で割った時給換算額が高い職種ランキング。時間効率のよい仕事を職種別に確認できます。',
 }
 

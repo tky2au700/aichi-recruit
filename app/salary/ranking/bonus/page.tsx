@@ -2,7 +2,7 @@ import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 
 export const metadata = {
-  title: '年間ボーナスが高い職種ランキング | 年収DB',
+  title: '年間ボーナスが高い職種ランキング | AIリクルート',
   description: '賃金構造基本統計調査をもとにした年間賞与・特別給与額が高い職種ランキング。ボーナスの多い仕事を職種別に確認できます。',
 }
 

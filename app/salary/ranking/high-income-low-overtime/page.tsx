@@ -2,7 +2,7 @@ import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 
 export const metadata = {
-  title: '残業が少なくて年収が高い職種ランキング | 年収DB',
+  title: '残業が少なくて年収が高い職種ランキング | AIリクルート',
   description: '月残業10時間以下で年収が高い職種ランキング。ワークライフバランスと収入を両立できる仕事を賃金構造基本統計調査のデータで確認できます。',
 }
 
