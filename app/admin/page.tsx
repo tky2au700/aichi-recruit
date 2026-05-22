@@ -1131,14 +1131,24 @@ function PreviewTable({
   setPage: (p: number) => void
   pageSize: number
 }) {
-  const [sexFilter, setSexFilter] = useState<'全て' | '計' | '男' | '女'>('全て')
+  const [sexFilter, setSexFilter]     = useState<'全て' | '計' | '男' | '女'>('全て')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const filteredRows = sexFilter === '全て' ? rows : rows.filter(r => r.sex === sexFilter)
-  const totalPages   = Math.ceil(filteredRows.length / pageSize)
-  const pageRows     = filteredRows.slice((page - 1) * pageSize, page * pageSize)
+  const filteredRows = rows.filter(r => {
+    const matchSex    = sexFilter === '全て' || r.sex === sexFilter
+    const matchSearch = searchQuery === '' || r.occupation_name.includes(searchQuery)
+    return matchSex && matchSearch
+  })
+  const totalPages = Math.ceil(filteredRows.length / pageSize)
+  const pageRows   = filteredRows.slice((page - 1) * pageSize, page * pageSize)
 
   function handleSexFilter(v: typeof sexFilter) {
     setSexFilter(v)
+    setPage(1)
+  }
+
+  function handleSearch(v: string) {
+    setSearchQuery(v)
     setPage(1)
   }
 
@@ -1157,24 +1167,51 @@ function PreviewTable({
         <span className="ml-auto text-xs text-muted-foreground">全 {rows.length.toLocaleString()} 件</span>
       </div>
 
-      {/* 性別フィルタータブ */}
-      <div className="flex items-center gap-1 mb-4 p-1 bg-muted/20 rounded-lg w-fit">
-        {(['全て', '計', '男', '女'] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => handleSexFilter(s)}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-              sexFilter === s
-                ? s === '男' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : s === '女' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
-                : 'bg-primary/20 text-primary border border-primary/30'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {s === '計' ? '男女計' : s}
-            <span className="ml-1 text-[10px] opacity-70">({sexCounts[s].toLocaleString()})</span>
-          </button>
-        ))}
+      {/* フィルター行: 性別タブ + 職種検索 */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-1 p-1 bg-muted/20 rounded-lg">
+          {(['全て', '計', '男', '女'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => handleSexFilter(s)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                sexFilter === s
+                  ? s === '男' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  : s === '女' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
+                  : 'bg-primary/20 text-primary border border-primary/30'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {s === '計' ? '男女計' : s}
+              <span className="ml-1 text-[10px] opacity-70">({sexCounts[s].toLocaleString()})</span>
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+            placeholder="職種名で絞り込み..."
+            className="w-full bg-background border border-border rounded-md pl-8 pr-8 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+          />
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {searchQuery && (
+            <button
+              onClick={() => handleSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        {(searchQuery || sexFilter !== '全て') && (
+          <span className="text-xs text-muted-foreground">
+            {filteredRows.length.toLocaleString()} 件表示中
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
