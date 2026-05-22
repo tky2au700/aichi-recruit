@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'AIリクルート | 転職データベース',
-  description: '最新の求人情報を検索・比較。あなたのキャリアに最適な転職先を見つけよう。',
-  keywords: '転職, 求人, キャリア, 就職, 求人情報',
+  title: 'AIリクルート | 年収データベース',
+  description: '賃金構造基本統計調査に基づく年収データベース。職種別・産業別・都道府県別・学歴別・年齢別の年収ランキングと推移グラフ。',
+  keywords: '年収, 賃金, 給与, 職種別年収, 産業別年収, 都道府県別年収, 賃金構造基本統計調査',
 }
 
 export default function RootLayout({

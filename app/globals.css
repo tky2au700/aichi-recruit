@@ -4,54 +4,53 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ===== カラーシステム: 転職DB ===== */
-  /* Primary: 信頼感のある濃いネイビー */
-  --background: oklch(0.98 0.004 240);
-  --foreground: oklch(0.13 0.02 240);
+  /* ===== ダークテーマ: 年収データベース ===== */
+  --background: oklch(0.12 0.02 250);
+  --foreground: oklch(0.93 0.01 250);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.02 240);
+  --card: oklch(0.17 0.025 250);
+  --card-foreground: oklch(0.93 0.01 250);
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.02 240);
+  --popover: oklch(0.17 0.025 250);
+  --popover-foreground: oklch(0.93 0.01 250);
 
-  /* Primary: ディープブルー */
-  --primary: oklch(0.35 0.12 250);
-  --primary-foreground: oklch(0.99 0 0);
+  /* Primary: シアン */
+  --primary: oklch(0.72 0.15 200);
+  --primary-foreground: oklch(0.12 0.02 250);
 
-  /* Secondary: ライトグレー */
-  --secondary: oklch(0.95 0.005 240);
-  --secondary-foreground: oklch(0.35 0.12 250);
+  /* Secondary */
+  --secondary: oklch(0.22 0.025 250);
+  --secondary-foreground: oklch(0.93 0.01 250);
 
   /* Muted */
-  --muted: oklch(0.95 0.005 240);
-  --muted-foreground: oklch(0.52 0.02 240);
+  --muted: oklch(0.22 0.02 250);
+  --muted-foreground: oklch(0.58 0.02 250);
 
-  /* Accent: アクセントブルー (明るめ) */
-  --accent: oklch(0.55 0.18 250);
-  --accent-foreground: oklch(0.99 0 0);
+  /* Accent: アンバー */
+  --accent: oklch(0.78 0.17 70);
+  --accent-foreground: oklch(0.12 0.02 250);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.93 0.01 250);
 
-  --border: oklch(0.88 0.01 240);
-  --input: oklch(0.88 0.01 240);
-  --ring: oklch(0.55 0.18 250);
+  --border: oklch(0.27 0.03 250);
+  --input: oklch(0.27 0.03 250);
+  --ring: oklch(0.72 0.15 200);
 
-  /* Brand highlight: 鮮やかなオレンジ */
-  --highlight: oklch(0.72 0.18 55);
-  --highlight-foreground: oklch(0.99 0 0);
+  /* Success */
+  --success: oklch(0.72 0.17 155);
+  --success-foreground: oklch(0.12 0.02 250);
 
   --radius: 0.5rem;
 
-  --sidebar: oklch(0.13 0.02 240);
-  --sidebar-foreground: oklch(0.99 0 0);
-  --sidebar-primary: oklch(0.55 0.18 250);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.22 0.03 240);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(0.25 0.03 240);
-  --sidebar-ring: oklch(0.55 0.18 250);
+  --sidebar: oklch(0.15 0.025 250);
+  --sidebar-foreground: oklch(0.93 0.01 250);
+  --sidebar-primary: oklch(0.72 0.15 200);
+  --sidebar-primary-foreground: oklch(0.12 0.02 250);
+  --sidebar-accent: oklch(0.22 0.025 250);
+  --sidebar-accent-foreground: oklch(0.93 0.01 250);
+  --sidebar-border: oklch(0.27 0.03 250);
+  --sidebar-ring: oklch(0.72 0.15 200);
 }
 
 @theme inline {
@@ -77,8 +76,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-highlight: var(--highlight);
-  --color-highlight-foreground: var(--highlight-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
