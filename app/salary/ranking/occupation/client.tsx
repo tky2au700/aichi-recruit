@@ -111,12 +111,14 @@ function RankBadge({ rank }: { rank: number }) {
 // メインコンポーネント
 // ---------------------------------------------------------------------------
 interface Props {
-  initialSex?:  string | undefined
-  initialSize?: string | undefined
-  initialYear?: number | null
+  initialSex?:      string | undefined
+  initialSize?:     string | undefined
+  initialYear?:     number | null
+  pageHeading?:     string
+  pageDescription?: string
 }
 
-export function OccupationRankingClient({ initialSex, initialSize, initialYear }: Props = {}) {
+export function OccupationRankingClient({ initialSex, initialSize, initialYear, pageHeading, pageDescription }: Props = {}) {
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -257,13 +259,46 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear }
   // ---------------------------------------------------------------------------
   // レンダリング
   // ---------------------------------------------------------------------------
+  // クライアント側でタブ切り替え後の見出しをリアルタイム導出
+  const sexLabelMap:  Record<string, string> = { '男': '男性', '女': '女性' }
+  const sizeLabelMap: Record<string, string> = {
+    '1000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業',
+  }
+  const currentSexLabel  = sex  !== '計'        ? (sexLabelMap[sex]   ?? null) : null
+  const currentSizeLabel = size !== '企業規模計' ? (sizeLabelMap[size] ?? null) : null
+  const currentYearStr   = surveyYear ? `${surveyYear}年` : (meta?.survey_year ? `${meta.survey_year}年` : '')
+
+  let dynamicHeading: string
+  if (currentSizeLabel) {
+    dynamicHeading = `${currentSizeLabel}の職種別平均年収ランキング${currentYearStr}${currentSexLabel ? `・${currentSexLabel}` : ''}`
+  } else if (currentSexLabel) {
+    dynamicHeading = `${currentSexLabel}の職種別平均年収ランキング${currentYearStr}`
+  } else if (currentYearStr) {
+    dynamicHeading = `職種別平均年収ランキング${currentYearStr}`
+  } else {
+    dynamicHeading = '職種別平均年収ランキング'
+  }
+
+  const filterDescParts = [
+    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100〜999人' : '10〜99人'}）` : null,
+    currentSexLabel,
+  ].filter(Boolean)
+  const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear)
+    ? `${currentYearStr}調査の賃金構造基本統計調査に基づく${filterDescParts.length > 0 ? filterDescParts.join('・') + 'の' : ''}職種別平均年収データです。`
+    : null
+
+  // SSRで渡されたpropsを初期値とし、クライアント側の変更で上書き
+  const displayDescription = pageDescription ?? dynamicDescription
+
   return (
     <div style={S.page}>
       {/* ヘッダー帯 */}
       <div style={S.hero}>
         <div style={S.heroInner}>
-          <h1 style={S.h1}>職種別平均年収ランキング</h1>
-          {meta ? (
+          <h1 style={S.h1}>{dynamicHeading}</h1>
+          {displayDescription ? (
+            <p style={S.subtitle}>{displayDescription}</p>
+          ) : meta ? (
             <p style={S.subtitle}>
               {meta.survey_group_name}
               {meta.survey_table_name && <span style={{ color: '#94A3B8' }}>　{meta.survey_table_name}</span>}
