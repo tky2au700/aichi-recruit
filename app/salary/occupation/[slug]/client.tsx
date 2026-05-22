@@ -187,13 +187,17 @@ function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest
 
       if (metric === 'work_hours') {
         const sk = getStackKeys(lineKey)
-        if (found.scheduled_hours != null) row[sk.scheduled] = Math.round(found.scheduled_hours * 10) / 10
-        if (found.overtime_hours  != null) row[sk.overtime]  = Math.round(found.overtime_hours  * 10) / 10
+        const sh = found.scheduled_hours != null ? Number(found.scheduled_hours) : null
+        const oh = found.overtime_hours  != null ? Number(found.overtime_hours)  : null
+        if (sh != null) row[sk.scheduled] = Math.round(sh * 10) / 10
+        if (oh != null) row[sk.overtime]  = Math.round(oh * 10) / 10
       } else if (metric === 'workers') {
         // workers は十人単位 → 人に変換
-        if (found.workers != null) row[lineLabel(lineKey)] = found.workers * 10
+        const w = found.workers != null ? Number(found.workers) : null
+        if (w != null) row[lineLabel(lineKey)] = w * 10
       } else if (metric === 'age') {
-        if (found.age != null) row[lineLabel(lineKey)] = Math.round(found.age * 10) / 10
+        const a = found.age != null ? Number(found.age) : null
+        if (a != null) row[lineLabel(lineKey)] = Math.round(a * 10) / 10
       } else {
         const raw = (found as any)[metric]
         if (raw != null) row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
@@ -377,7 +381,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
     .filter(Boolean) as DetailRow[]
 
-  // 性別別テーブル用（企業規模タブでフィルタ）
+  // 性別別テーブル用（企��規模タブでフィルタ）
   const sexRows = SEX_ORDER
     .map(sex => data.latest_data.find(r => r.sex === sex && r.enterprise_size === sizeTab))
     .filter(Boolean) as DetailRow[]
