@@ -58,6 +58,13 @@ const rankingItems = [
     icon: BarChart2,
     color: '#7c3aed',
   },
+  {
+    href: '/salary/ranking/high-income-large-workforce',
+    label: '需要×高年収ランキング',
+    description: '労働者数が多く年収も高い職種',
+    icon: Users,
+    color: '#0891b2',
+  },
 ]
 
 const categoryItems = [

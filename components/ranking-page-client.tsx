@@ -48,7 +48,7 @@ interface ApiResponse {
   message?: string
 }
 
-export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime'
+export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime' | 'high-income-large-workforce'
 
 interface RankingPageConfig {
   type: RankingType
@@ -73,7 +73,7 @@ function fmtFixed(v: number | null, d = 1, suffix = '') {
   return `${Number(v).toFixed(d)}${suffix}`
 }
 
-type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage' | 'workers'
 type SortDir = 'asc' | 'desc'
 
 function RankBadge({ rank }: { rank: number }) {
@@ -267,6 +267,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                     <th style={{ ...S.th, width: 48, cursor: 'default' }}>#</th>
                     <th style={{ ...S.th, minWidth: 160, cursor: 'default' }}>職種名</th>
                     <Th label="推定年収"   k="annual_income" />
+                    <Th label="労働者数"   k="workers" />
                     <Th label="年間賞与"   k="annual_bonus" />
                     <Th label="時給換算"   k="hourly_wage" />
                     <Th label="平均年齢"   k="age" />
@@ -302,6 +303,12 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                           <div style={S.barWrap}>
                             <div style={{ width: `${config.sortKey === 'annual_income' ? ratio : (row.annual_income && meta?.max_income ? (row.annual_income / meta.max_income) * 100 : 0)}%`, height: '100%', background: '#1a73e8', borderRadius: 4 }} />
                           </div>
+                        </td>
+                        <td style={{ ...S.td, color: config.sortKey === 'workers' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'workers' && isTop ? 700 : 400 }}>
+                          {row.workers != null ? `${row.workers.toLocaleString()}千人` : '−'}
+                          {config.sortKey === 'workers' && (
+                            <div style={S.barWrap}><div style={{ width: `${ratio}%`, height: '100%', background: pc, borderRadius: 4 }} /></div>
+                          )}
                         </td>
                         <td style={{ ...S.td, color: config.sortKey === 'annual_bonus' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'annual_bonus' && isTop ? 700 : 400 }}>
                           {fmtWan(row.annual_bonus)}

@@ -52,6 +52,14 @@ const rankingCategories = [
     bg: 'bg-success/10',
   },
   {
+    href: '/salary/ranking/high-income-large-workforce',
+    label: '需要×高年収ランキング',
+    description: '労働者数が多く年収も高い職種ランキング',
+    icon: Users,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+  },
+  {
     href: '/salary/ranking/high-income-low-overtime',
     label: '残業少ない高年収',
     description: '月残業10時間以下で年収が高い職種一覧',

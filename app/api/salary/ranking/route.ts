@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
 // ランキング種別ごとのソートキーと絞り込み条件
-export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime'
+export type RankingType = 'female' | 'male' | 'bonus' | 'hourly-wage' | 'high-income-low-overtime' | 'high-income-large-workforce'
 
 const CONFIG: Record<RankingType, {
   sex: string
@@ -31,6 +31,13 @@ const CONFIG: Record<RankingType, {
     sex: '計', enterprise_size: '企業規模計',
     sort_col: 'annual_income', order: 'DESC',
     filter: 'overtime_hours <= 10',
+  },
+  'high-income-large-workforce': {
+    sex: '計', enterprise_size: '企業規模計',
+    // workers（千人単位）× annual_income（千円単位）の複合スコアでソート
+    sort_col: 'high-income-large-workforce',
+    order: 'DESC',
+    filter: 'workers IS NOT NULL AND annual_income IS NOT NULL',
   },
 }
 
@@ -71,9 +78,13 @@ export async function GET(req: NextRequest) {
     const slugCol = hasSlug ? 'occupation_slug' : 'NULL AS occupation_slug'
 
     // hourly-wage ソートは scheduled_wage÷scheduled_hours×1000（円/時）で計算
-    const effectiveSortCol = cfg.sort_col === 'hourly_wage'
-      ? 'ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)'
-      : cfg.sort_col
+    const effectiveSortCol =
+      cfg.sort_col === 'hourly_wage'
+        ? 'ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)'
+        : cfg.sort_col === 'high-income-large-workforce'
+          // 労働者数（千人）× 年収（千円）の複合スコア。両方をパーセンタイル化して加算
+          ? '(workers * annual_income)'
+          : cfg.sort_col
 
     const safeLimit = Math.floor(limit)
     const filterClause = cfg.filter ? `AND ${cfg.filter}` : ''
