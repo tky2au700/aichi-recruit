@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseOccupationWageCsv } from '@/lib/csv-parser'
+import iconv from 'iconv-lite'
 
 // CSVをパースしてプレビューデータを返す（DBには保存しない）
 export async function POST(req: NextRequest) {
@@ -16,16 +17,15 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer()
+    const nodeBuffer = Buffer.from(buffer)
 
-    // Shift-JISデコード（賃金構造基本統計調査の標準エンコーディング）
+    // iconv-liteでShift-JIS(CP932)デコード
+    // BOMチェック: UTF-8 BOMならUTF-8、それ以外はCP932として処理
     let text: string
-    try {
-      const decoder = new TextDecoder('shift-jis')
-      text = decoder.decode(buffer)
-    } catch {
-      // UTF-8フォールバック
-      const decoder = new TextDecoder('utf-8')
-      text = decoder.decode(buffer)
+    if (nodeBuffer[0] === 0xef && nodeBuffer[1] === 0xbb && nodeBuffer[2] === 0xbf) {
+      text = nodeBuffer.slice(3).toString('utf-8')
+    } else {
+      text = iconv.decode(nodeBuffer, 'CP932')
     }
 
     const rows = parseOccupationWageCsv(text)

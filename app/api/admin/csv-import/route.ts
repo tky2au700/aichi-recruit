@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseOccupationWageCsv } from '@/lib/csv-parser'
 import { query } from '@/lib/db'
+import iconv from 'iconv-lite'
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,13 +23,14 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer()
+    const nodeBuffer = Buffer.from(buffer)
+
+    // iconv-liteでCP932(Shift-JIS)デコード
     let text: string
-    try {
-      const decoder = new TextDecoder('shift-jis')
-      text = decoder.decode(buffer)
-    } catch {
-      const decoder = new TextDecoder('utf-8')
-      text = decoder.decode(buffer)
+    if (nodeBuffer[0] === 0xef && nodeBuffer[1] === 0xbb && nodeBuffer[2] === 0xbf) {
+      text = nodeBuffer.slice(3).toString('utf-8')
+    } else {
+      text = iconv.decode(nodeBuffer, 'CP932')
     }
 
     const rows = parseOccupationWageCsv(text)
