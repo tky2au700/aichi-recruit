@@ -44,14 +44,24 @@ export async function GET(req: NextRequest) {
 
     const baseMap = new Map(baseRows.map(r => [r.occupation_name, r.annual_income]))
 
-    // 増加率計算
+    // 増加率計算（DB値は千円単位 → 万円換算。growth_rateは%なのでそのまま）
+    const toWan  = (v: number | null | undefined) => v != null ? Math.round(Number(v) / 10) : null
+    const toHour = (v: number | null | undefined) => v != null ? Math.round(Number(v) * 1000) : null
     const growthData = latestRows
       .map(r => {
         const baseIncome = baseMap.get(r.occupation_name)
         if (!baseIncome || baseIncome <= 0) return null
-        const growth_rate    = ((r.annual_income - baseIncome) / baseIncome) * 100
-        const growth_amount  = r.annual_income - baseIncome
-        return { ...r, base_income: baseIncome, growth_rate, growth_amount }
+        const growth_rate   = ((r.annual_income - baseIncome) / baseIncome) * 100
+        const growth_amount = r.annual_income - baseIncome
+        return {
+          ...r,
+          annual_income:  toWan(r.annual_income),
+          monthly_wage:   toWan(r.monthly_wage),
+          hourly_wage:    toHour(r.hourly_wage),
+          base_income:    toWan(baseIncome),
+          growth_rate,
+          growth_amount:  toWan(growth_amount),  // 差分も万円換算
+        }
       })
       .filter((r): r is NonNullable<typeof r> => r !== null)
       .sort((a, b) => b.growth_rate - a.growth_rate)

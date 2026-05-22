@@ -25,10 +25,10 @@ interface ApiResponse {
   message?: string
 }
 
-// DB値は千円単位 → ÷10 で万円換算
+// API側で万円変換済みのため、そのまま表示
 function fmtWan(v: number | null) {
   if (v == null) return '−'
-  return `${Math.round(v / 10).toLocaleString()}万円`
+  return `${Math.round(v).toLocaleString()}万円`
 }
 
 function RankBadge({ rank }: { rank: number }) {

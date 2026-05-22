@@ -63,10 +63,10 @@ interface RankingPageConfig {
 // ---------------------------------------------------------------------------
 // ユーティリティ
 // ---------------------------------------------------------------------------
-// DB値は千円単位 → ÷10 で万円換算
+// API側で万円変換済みのため、そのまま表示
 function fmtWan(v: number | null) {
   if (v == null) return '−'
-  return `${Math.round(v / 10).toLocaleString()}万円`
+  return `${Math.round(v).toLocaleString()}万円`
 }
 function fmtFixed(v: number | null, d = 1, suffix = '') {
   if (v == null) return '−'
@@ -308,7 +308,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                           )}
                         </td>
                         <td style={{ ...S.td, color: config.sortKey === 'hourly_wage' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'hourly_wage' && isTop ? 700 : 400 }}>
-                          {row.hourly_wage != null ? `${Math.round(Number(row.hourly_wage) * 1000).toLocaleString()}円/h` : '−'}
+                          {row.hourly_wage != null ? `${Number(row.hourly_wage).toLocaleString()}円/h` : '−'}
                           {config.sortKey === 'hourly_wage' && (
                             <div style={S.barWrap}><div style={{ width: `${ratio}%`, height: '100%', background: pc, borderRadius: 4 }} /></div>
                           )}

@@ -107,9 +107,21 @@ export async function GET(req: NextRequest) {
     ) as any[]
     const stats = statsRows[0]
 
+    // DB値は千円単位 → 万円換算。hourly_wageは千円/h → 円換算
+    const toWan  = (v: any) => v != null ? Math.round(Number(v) / 10) : null
+    const toHour = (v: any) => v != null ? Math.round(Number(v) * 1000) : null
+    const convertedRows = rows.map((r: any) => ({
+      ...r,
+      annual_income:  toWan(r.annual_income),
+      monthly_wage:   toWan(r.monthly_wage),
+      scheduled_wage: toWan(r.scheduled_wage),
+      annual_bonus:   toWan(r.annual_bonus),
+      hourly_wage:    r.hourly_wage != null ? toHour(r.hourly_wage) : null,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: rows,
+      data: convertedRows,
       years: years.map(y => ({ survey_year: y.survey_year, dataset_id: y.dataset_id })),
       meta: {
         survey_year: target.survey_year,
