@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     // データセット + 親グループのCSVルールを取得
     const dsRows = await query(
-      `SELECT d.*, g.data_start_row, g.name_col_index,
+      `SELECT d.*, g.data_start_row, g.name_col_index, g.sex_label_mode,
               g.size1_col_start, g.size2_col_start, g.size3_col_start, g.size4_col_start
        FROM datasets d
        JOIN dataset_groups g ON g.id = d.group_id
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       size2_col_start: ds.size2_col_start,
       size3_col_start: ds.size3_col_start,
       size4_col_start: ds.size4_col_start,
+      sex_label_mode:  ds.sex_label_mode ?? 'cell_combined',
     }
 
     const buffer = await file.arrayBuffer()

@@ -30,7 +30,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      name, category = 'occupation', source_name,
+      name, category = 'occupation',
+      source_type = 'mhlw', source_name,
+      sex_label_mode = 'cell_combined',
       data_start_row = 10, name_col_index = 1,
       size1_col_start = 3, size2_col_start = 11,
       size3_col_start = 19, size4_col_start = 27,
@@ -43,10 +45,11 @@ export async function POST(req: NextRequest) {
 
     const result = await query(
       `INSERT INTO dataset_groups
-         (name, category, source_name, data_start_row, name_col_index,
+         (name, category, source_type, source_name, sex_label_mode,
+          data_start_row, name_col_index,
           size1_col_start, size2_col_start, size3_col_start, size4_col_start, parse_notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, category, source_name ?? null,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, category, source_type, source_name ?? null, sex_label_mode,
        data_start_row, name_col_index,
        size1_col_start, size2_col_start, size3_col_start, size4_col_start,
        parse_notes ?? null]

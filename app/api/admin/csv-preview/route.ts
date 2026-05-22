@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
           size2_col_start: g.size2_col_start,
           size3_col_start: g.size3_col_start,
           size4_col_start: g.size4_col_start,
+          sex_label_mode:  g.sex_label_mode ?? 'cell_combined',
         }
       }
     }

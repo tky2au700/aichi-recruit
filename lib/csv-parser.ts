@@ -25,6 +25,20 @@ export interface CsvParseRule {
   size2_col_start: number  // 1000人以上 開始列
   size3_col_start: number  // 100～999人 開始列
   size4_col_start: number  // 10～99人 開始列
+  /**
+   * 性別ラベルのCSV上での位置を指定する
+   *
+   * 'cell_combined' (デフォルト):
+   *   職種名セルに性別ラベルが改行で同居する形式
+   *   例: "　男女計\n\n管理的職業従事者" → sex=計, name=管理的職業従事者
+   *       "女\n\n看護助手"              → sex=女, name=看護助手
+   *
+   * 'separate_row':
+   *   性別ラベルが独立した行として存在する形式（画像1・3・4のCSV）
+   *   例: 行N  → [.., "男女計", ...] （数値なし）→ currentSex = 計
+   *       行N+1→ [.., "管理的職業従事者", ...] （数値あり）→ sex継続
+   */
+  sex_label_mode: 'cell_combined' | 'separate_row'
 }
 
 export const DEFAULT_CSV_RULE: CsvParseRule = {
@@ -34,6 +48,7 @@ export const DEFAULT_CSV_RULE: CsvParseRule = {
   size2_col_start: 11,
   size3_col_start: 19,
   size4_col_start: 27,
+  sex_label_mode: 'cell_combined',
 }
 
 export interface OccupationWageRow {
@@ -185,8 +200,9 @@ export function parseOccupationWageCsv(
   const allRows = parseFullCsv(csvText)
   const results: OccupationWageRow[] = []
 
-  const DATA_START   = rule.data_start_row
-  const NAME_COL     = rule.name_col_index
+  const DATA_START      = rule.data_start_row
+  const NAME_COL        = rule.name_col_index
+  const SEX_LABEL_MODE  = rule.sex_label_mode ?? 'cell_combined'
 
   let currentSex: '計' | '男' | '女' = '計'
 
@@ -200,65 +216,75 @@ export function parseOccupationWageCsv(
     { label: '10～99人',   start: rule.size4_col_start },
   ]
 
+  // 性別ラベルかどうかを判定するヘルパー
+  function detectSexLabel(raw: string): '計' | '男' | '女' | null {
+    const s = raw.replace(/[\u3000\u0020\t]/g, '').trim()
+    if (s === '男女計') return '計'
+    if (s === '男')    return '男'
+    if (s === '女')    return '女'
+    return null
+  }
+
   for (let i = DATA_START; i < allRows.length; i++) {
     const cols = allRows[i]
     if (!cols || cols.length < 4) continue
 
-    // 職種名セル（ルールで指定された列インデックス）
     const rawNameCell = cols[NAME_COL] || ''
-
-    // 改行で分割して性別ラベルと職種名を取得
-    // 例: "　男女計\n\n管理的職業従事者" → parts = ["　男女計", "", "管理的職業従事者"]
-    const parts = rawNameCell.split(/\n/).map(s => s.replace(/\r/g, '').trim()).filter(s => s !== '')
-
-    // 性別ラベルの検出（partsの先頭に「男女計」「男」「女」があるケース）
     let occupationName = ''
-    if (parts.length === 0) continue
 
-    // 先頭要素から性別を判定（全角スペース・半角スペース両対応）
-    // 例: "　男女計" / "男女計" / " 男 " / "女"
-    const firstPart = parts[0].replace(/[\u3000\u0020\t]/g, '').trim()
-    if (firstPart === '男女計') {
-      currentSex = '計'
-      occupationName = parts.slice(1).join(' ').trim()
-    } else if (firstPart === '男') {
-      currentSex = '男'
-      occupationName = parts.slice(1).join(' ').trim()
-    } else if (firstPart === '女') {
-      currentSex = '女'
-      occupationName = parts.slice(1).join(' ').trim()
+    if (SEX_LABEL_MODE === 'separate_row') {
+      // ---- separate_row モード ----
+      // 性別ラベルのみの行（数値データなし）→ currentSex を更新してスキップ
+      const sex = detectSexLabel(rawNameCell)
+      if (sex !== null) {
+        // データ列がすべて空/ハイフンであれば性別ラベル行として扱う
+        const anyData = ENTERPRISE_SIZES.some(({ start }) =>
+          cols.slice(start, start + 8).some(c => {
+            const t = (c || '').trim(); return t !== '' && t !== '-'
+          })
+        )
+        if (!anyData) {
+          currentSex = sex
+          continue
+        }
+      }
+      occupationName = normalizeName(rawNameCell)
     } else {
-      // 性別ラベルなし → 全体が職種名
-      occupationName = parts.join(' ').trim()
+      // ---- cell_combined モード（デフォルト）----
+      // 改行で分割して性別ラベルと職種名を取得
+      // 例: "　男女計\n\n管理的職業従事者" → parts = ["　男女計", "管理的職業従事者"]
+      const parts = rawNameCell.split(/\n/).map(s => s.replace(/\r/g, '').trim()).filter(s => s !== '')
+      if (parts.length === 0) continue
+
+      const sex = detectSexLabel(parts[0])
+      if (sex !== null) {
+        currentSex = sex
+        occupationName = parts.slice(1).join(' ').trim()
+      } else {
+        occupationName = parts.join(' ').trim()
+      }
     }
 
     // 職種名の最終正規化
-    occupationName = occupationName.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim()
-
+    occupationName = normalizeName(occupationName)
     if (!occupationName) continue
 
-    // 数値データがあるかチェッ��（企業規模計の年齢列）
-    const sizeCheck = (cols[3] || '').trim()
-    if (sizeCheck === '' || sizeCheck === '-') {
-      // データなし行（合計なしの企業規模のみ）→ 他のサイズブロックも確認
-      const anyData = [3, 11, 19, 27].some(start => {
-        const v = (cols[start] || '').trim()
-        return v !== '' && v !== '-'
+    // 数値データがあるかチェック（全企業規模ブロック横断）
+    const anyData = ENTERPRISE_SIZES.some(({ start }) =>
+      cols.slice(start, start + 8).some(c => {
+        const t = (c || '').trim(); return t !== '' && t !== '-'
       })
-      if (!anyData) continue
-    }
+    )
+    if (!anyData) continue
 
     for (const { label, start } of ENTERPRISE_SIZES) {
       const block = cols.slice(start, start + 8)
-      // 全て空またはハイフンならスキップ
-      const hasData = block.some((c) => {
-        const t = (c || '').trim()
-        return t !== '' && t !== '-'
+      const hasData = block.some(c => {
+        const t = (c || '').trim(); return t !== '' && t !== '-'
       })
       if (!hasData) continue
 
-      const row = extractSizeBlock(occupationName, currentSex, label, block)
-      results.push(row)
+      results.push(extractSizeBlock(occupationName, currentSex, label, block))
     }
   }
 

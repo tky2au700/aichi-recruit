@@ -12,7 +12,9 @@ interface DatasetGroup {
   id: number
   name: string
   category: string
+  source_type: 'mhlw' | 'estat' | 'other'
   source_name: string | null
+  sex_label_mode: 'cell_combined' | 'separate_row'
   data_start_row: number
   name_col_index: number
   size1_col_start: number
@@ -130,7 +132,9 @@ export default function AdminPage() {
 // ============================================================
 function defaultGroupForm() {
   return {
-    name: '', category: 'occupation', source_name: '',
+    name: '', category: 'occupation',
+    source_type: 'mhlw', source_name: '',
+    sex_label_mode: 'cell_combined',
     data_start_row: '10', name_col_index: '1',
     size1_col_start: '3', size2_col_start: '11',
     size3_col_start: '19', size4_col_start: '27',
@@ -166,7 +170,10 @@ function GroupsTab() {
 
   function openEdit(g: DatasetGroup) {
     setForm({
-      name: g.name, category: g.category, source_name: g.source_name ?? '',
+      name: g.name, category: g.category,
+      source_type: g.source_type ?? 'mhlw',
+      source_name: g.source_name ?? '',
+      sex_label_mode: g.sex_label_mode ?? 'cell_combined',
       data_start_row:  String(g.data_start_row),
       name_col_index:  String(g.name_col_index),
       size1_col_start: String(g.size1_col_start),
@@ -264,11 +271,23 @@ function GroupsTab() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース名</label>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース種別</label>
+                <select
+                  value={form.source_type}
+                  onChange={e => setForm(p => ({ ...p, source_type: e.target.value }))}
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  <option value="mhlw">厚生労働省</option>
+                  <option value="estat">e-Stat</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース名（任意）</label>
                 <input
                   value={form.source_name}
                   onChange={e => setForm(p => ({ ...p, source_name: e.target.value }))}
-                  placeholder="例: 厚生労働省"
+                  placeholder="例: 賃金構造基本統計調査"
                   className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                 />
               </div>
@@ -276,6 +295,22 @@ function GroupsTab() {
 
             <div className="border border-border rounded-lg p-3">
               <p className="text-[10px] font-semibold text-muted-foreground mb-3">CSVパースルール（列インデックスは0始まり）</p>
+              <div className="mb-3">
+                <label className="block text-[10px] text-muted-foreground mb-0.5">性別ラベルの形式</label>
+                <select
+                  value={form.sex_label_mode}
+                  onChange={e => setForm(p => ({ ...p, sex_label_mode: e.target.value }))}
+                  className="w-full sm:w-auto bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  <option value="cell_combined">同一セル内（"男女計\n職種名" 形式）</option>
+                  <option value="separate_row">独立行（性別ラベルが別行に存在する形式）</option>
+                </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  {form.sex_label_mode === 'cell_combined'
+                    ? '例: セル内容 "　男女計\\n\\n管理的職業従事者" → 性別=計、職種=管理的職業従事者'
+                    : '例: 行N "男女計"（数値なし）→ 以降の行に職種名が続く形式（令和7年以降の新形式）'}
+                </p>
+              </div>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {ruleFields.map(({ key, label }) => (
                   <div key={key}>
@@ -333,6 +368,13 @@ function GroupsTab() {
                     <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
                       {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
                     </span>
+                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] ${
+                      g.source_type === 'mhlw'  ? 'bg-blue-500/10 text-blue-400' :
+                      g.source_type === 'estat' ? 'bg-green-500/10 text-green-400' :
+                                                   'bg-muted text-muted-foreground'
+                    }`}>
+                      {g.source_type === 'mhlw' ? '厚生労働省' : g.source_type === 'estat' ? 'e-Stat' : 'その他'}
+                    </span>
                     {g.source_name && (
                       <span className="shrink-0 text-[10px] text-muted-foreground">{g.source_name}</span>
                     )}
@@ -347,6 +389,9 @@ function GroupsTab() {
                   <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground/60 flex-wrap">
                     <span>開始行: {g.data_start_row}</span>
                     <span>職種列: {g.name_col_index}</span>
+                    <span className={g.sex_label_mode === 'separate_row' ? 'text-accent/70' : ''}>
+                      性別: {g.sex_label_mode === 'separate_row' ? '独立行形式' : '同一セル形式'}
+                    </span>
                     <span>規模計: {g.size1_col_start}</span>
                     <span>1000人+: {g.size2_col_start}</span>
                     <span>100-999人: {g.size3_col_start}</span>

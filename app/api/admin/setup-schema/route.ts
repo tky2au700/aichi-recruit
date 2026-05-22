@@ -11,14 +11,17 @@ export async function POST() {
         id              INT AUTO_INCREMENT PRIMARY KEY,
         name            VARCHAR(255) NOT NULL COMMENT '調査名',
         category        VARCHAR(100) NOT NULL DEFAULT 'occupation',
-        source_name     VARCHAR(255) COMMENT 'データソース名',
+        source_type     VARCHAR(20)  NOT NULL DEFAULT 'mhlw' COMMENT 'mhlw=厚生労働省 / estat=e-Stat / other',
+        source_name     VARCHAR(255) COMMENT 'データソース名（自由記述）',
+        sex_label_mode  VARCHAR(20)  NOT NULL DEFAULT 'cell_combined'
+                          COMMENT 'cell_combined=性別+職種が同一セル / separate_row=性別が独立行',
         data_start_row  INT NOT NULL DEFAULT 10 COMMENT 'CSVデータ開始行（0-indexed）',
         name_col_index  INT NOT NULL DEFAULT 1  COMMENT '職種名列インデックス',
         size1_col_start INT NOT NULL DEFAULT 3  COMMENT '企業規模計 開始列',
         size2_col_start INT NOT NULL DEFAULT 11 COMMENT '1000人以上 開始列',
         size3_col_start INT NOT NULL DEFAULT 19 COMMENT '100～999人 開始列',
         size4_col_start INT NOT NULL DEFAULT 27 COMMENT '10～99人 開始列',
-        parse_notes     TEXT COMMENT 'パースルールメモ',
+        parse_notes     TEXT COMMENT 'パースルールメモ・特記事項',
         created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -67,6 +70,26 @@ export async function POST() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `)
     results.push('occupation_wages: OK')
+
+    // --- マイグレーション: dataset_groups に新列がなければ追加 ---
+    try {
+      const existingCols = await query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dataset_groups'
+         AND COLUMN_NAME IN ('source_type','sex_label_mode')`
+      ) as any[]
+      const existing = existingCols.map((c: any) => c.COLUMN_NAME)
+      if (!existing.includes('source_type')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN source_type VARCHAR(20) NOT NULL DEFAULT 'mhlw' AFTER category`)
+        results.push('migration: dataset_groups.source_type 追加')
+      }
+      if (!existing.includes('sex_label_mode')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN sex_label_mode VARCHAR(20) NOT NULL DEFAULT 'cell_combined' AFTER source_name`)
+        results.push('migration: dataset_groups.sex_label_mode 追加')
+      }
+    } catch (altErr: any) {
+      results.push(`migration(ALTER): ${altErr.message}`)
+    }
 
     // --- マイグレーション: 旧スキーマ(datasetsにname/category列がある)からの移行 ---
     try {

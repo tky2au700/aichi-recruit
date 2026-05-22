@@ -10,7 +10,9 @@ export async function PATCH(
     const { id } = await params
     const body = await req.json()
     const {
-      name, category, source_name,
+      name, category,
+      source_type, source_name,
+      sex_label_mode,
       data_start_row, name_col_index,
       size1_col_start, size2_col_start, size3_col_start, size4_col_start,
       parse_notes,
@@ -22,12 +24,14 @@ export async function PATCH(
 
     await query(
       `UPDATE dataset_groups SET
-         name = ?, category = ?, source_name = ?,
+         name = ?, category = ?, source_type = ?, source_name = ?,
+         sex_label_mode = ?,
          data_start_row = ?, name_col_index = ?,
          size1_col_start = ?, size2_col_start = ?, size3_col_start = ?, size4_col_start = ?,
          parse_notes = ?
        WHERE id = ?`,
-      [name, category, source_name ?? null,
+      [name, category, source_type ?? 'mhlw', source_name ?? null,
+       sex_label_mode ?? 'cell_combined',
        data_start_row, name_col_index,
        size1_col_start, size2_col_start, size3_col_start, size4_col_start,
        parse_notes ?? null, id]
