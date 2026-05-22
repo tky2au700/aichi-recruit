@@ -124,8 +124,9 @@ export async function GET(req: NextRequest) {
         enterprise_size: enterpriseSize,
         survey_group_name: groupInfo?.survey_group_name ?? groupInfo?.legacy_name ?? '',
         survey_table_name: groupInfo?.survey_table_name ?? null,
-        avg_income: stats?.avg_income ? Math.round(Number(stats.avg_income)) : null,
-        max_income: stats?.max_income ? Math.round(Number(stats.max_income)) : null,
+        // DB値は千円単位 → ÷10 で万円換算
+        avg_income: stats?.avg_income ? Math.round(Number(stats.avg_income) / 10) : null,
+        max_income: stats?.max_income ? Math.round(Number(stats.max_income) / 10) : null,
         total_workers: stats?.total_workers ? Number(stats.total_workers) : null,
         occupation_count: stats?.count ? Number(stats.count) : 0,
       },

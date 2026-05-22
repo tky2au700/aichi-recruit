@@ -72,9 +72,10 @@ type SortDir = 'asc' | 'desc'
 // ---------------------------------------------------------------------------
 // ユーティリティ
 // ---------------------------------------------------------------------------
+// DB値は千円単位 → ÷10 で万円換算
 function fmtWan(val: number | null) {
   if (val == null) return '−'
-  return `${Math.round(val).toLocaleString()}万円`
+  return `${Math.round(val / 10).toLocaleString()}万円`
 }
 function fmtNum(val: number | null, suffix = '') {
   if (val == null) return '−'

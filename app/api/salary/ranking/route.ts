@@ -118,10 +118,11 @@ export async function GET(req: NextRequest) {
         sex: cfg.sex,
         enterprise_size: cfg.enterprise_size,
         sort_col: cfg.sort_col,
-        avg_income:  stats?.avg_income  ? Math.round(Number(stats.avg_income))  : null,
-        max_income:  stats?.max_income  ? Math.round(Number(stats.max_income))  : null,
-        max_bonus:   stats?.max_bonus   ? Math.round(Number(stats.max_bonus))   : null,
-        max_hourly:  stats?.max_hourly  ? Number(Number(stats.max_hourly).toFixed(1)) : null,
+        // DB値は千円単位 → ÷10 で万円換算。hourly_wageは千円/h → ×1000 で円換算
+        avg_income:  stats?.avg_income  ? Math.round(Number(stats.avg_income)  / 10) : null,
+        max_income:  stats?.max_income  ? Math.round(Number(stats.max_income)  / 10) : null,
+        max_bonus:   stats?.max_bonus   ? Math.round(Number(stats.max_bonus)   / 10) : null,
+        max_hourly:  stats?.max_hourly  ? Math.round(Number(stats.max_hourly) * 1000) : null,
         occupation_count: Number(stats?.count ?? 0),
       },
     })
