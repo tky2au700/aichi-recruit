@@ -12,7 +12,7 @@ const categories = [
     bg: 'bg-primary/10',
   },
   {
-    href: '/salary/occupation',
+    href: '/salary/ranking/occupation',
     label: '職種別年収',
     description: '医師・エンジニア・営業など職種ごとの年収データ',
     icon: TrendingUp,

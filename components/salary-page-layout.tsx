@@ -29,9 +29,6 @@ interface SalaryPageLayoutProps {
   surveyYear?: string
   source?: string
   error?: string
-  tabs?: { key: string; label: string }[]
-  activeTab?: string
-  onTabChange?: (tab: string) => void
 }
 
 export function SalaryPageLayout({
@@ -43,9 +40,6 @@ export function SalaryPageLayout({
   surveyYear,
   source,
   error,
-  tabs,
-  activeTab,
-  onTabChange,
 }: SalaryPageLayoutProps) {
   if (error) {
     return (
@@ -75,25 +69,6 @@ export function SalaryPageLayout({
           </p>
         )}
       </div>
-
-      {/* タブ */}
-      {tabs && onTabChange && (
-        <div className="flex gap-1 mb-6 border-b border-border">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === tab.key
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ランキング */}
