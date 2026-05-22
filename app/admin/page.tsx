@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import {
   Upload, Database, FileText, CheckCircle2, AlertCircle,
-  Loader2, Eye, Download, Trash2, Plus, X, ChevronDown, ChevronUp
+  Loader2, Eye, Download, Trash2, Plus, X, Pencil, ChevronLeft, ChevronRight
 } from 'lucide-react'
 
 // ---------- 型定義 ----------
@@ -93,7 +93,20 @@ export default function AdminPage() {
     rows: PreviewRow[]
     occupations: string[]
   } | null>(null)
-  const [previewExpanded, setPreviewExpanded] = useState(false)
+  const [previewPage, setPreviewPage] = useState(1)
+  const PREVIEW_PAGE_SIZE = 50
+
+  // --- データセット編集 ---
+  const [editingDatasetId, setEditingDatasetId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    category: 'occupation',
+    survey_year: '',
+    published_at: '',
+    source_name: '',
+    source_url: '',
+  })
+  const [editSaving, setEditSaving] = useState(false)
 
   // --- 取込 ---
   const [importing, setImporting] = useState(false)
@@ -168,6 +181,49 @@ export default function AdminPage() {
     }
   }
 
+  // ---- データセット編集開始 ----
+  function handleEditDataset(ds: Dataset) {
+    setEditingDatasetId(ds.id)
+    setEditForm({
+      name: ds.name,
+      category: ds.category,
+      survey_year: ds.survey_year.toString(),
+      published_at: ds.published_at?.slice(0, 10) ?? '',
+      source_name: ds.source_name ?? '',
+      source_url: ds.source_url ?? '',
+    })
+  }
+
+  // ---- データセット更新保存 ----
+  async function handleSaveDataset(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingDatasetId) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/admin/datasets/${editingDatasetId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editForm,
+          survey_year: parseInt(editForm.survey_year),
+          published_at: editForm.published_at || null,
+          source_url: editForm.source_url || null,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setEditingDatasetId(null)
+        await loadDatasets()
+      } else {
+        alert('更新失敗: ' + (json.message || ''))
+      }
+    } catch (e: any) {
+      alert('エラー: ' + e.message)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   // ---- データセット削除 ----
   async function handleDeleteDataset(id: number) {
     if (!confirm('このデータセットとすべての取込データを削除しますか？')) return
@@ -204,6 +260,7 @@ export default function AdminPage() {
       const json = await res.json()
       if (json.success) {
         setPreview({ summary: json.summary, rows: json.preview, occupations: json.all_occupations })
+        setPreviewPage(1)
       } else {
         alert('プレビュー失敗: ' + json.message)
       }
@@ -314,34 +371,129 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {datasets.map(ds => (
-                    <tr key={ds.id} className="border-b border-border/50 hover:bg-muted/20">
-                      <td className="py-2 pr-4 text-muted-foreground">{ds.id}</td>
-                      <td className="py-2 pr-4 text-foreground font-medium">{ds.name}</td>
-                      <td className="py-2 pr-4">
-                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
-                          {CATEGORIES.find(c => c.value === ds.category)?.label ?? ds.category}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-4 text-muted-foreground">{ds.survey_year}年</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{ds.published_at?.slice(0, 10) ?? '-'}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">
-                        {ds.source_url ? (
-                          <a href={ds.source_url} target="_blank" rel="noopener noreferrer" className="text-primary underline truncate max-w-[120px] block">
-                            {ds.source_name ?? ds.source_url}
-                          </a>
-                        ) : (ds.source_name ?? '-')}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-foreground">{ds.record_count.toLocaleString()}件</td>
-                      <td className="py-2 text-right">
-                        <button
-                          onClick={() => handleDeleteDataset(ds.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          title="削除"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
+                    editingDatasetId === ds.id ? (
+                      /* インライン編集行 */
+                      <tr key={ds.id} className="border-b border-primary/30 bg-muted/10">
+                        <td colSpan={8} className="py-3 px-2">
+                          <form onSubmit={handleSaveDataset}>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                              <div className="sm:col-span-3">
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">データベース名 <span className="text-destructive">*</span></label>
+                                <input
+                                  required
+                                  value={editForm.name}
+                                  onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">カテゴリ</label>
+                                <select
+                                  value={editForm.category}
+                                  onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                                >
+                                  {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">調査年</label>
+                                <input
+                                  required type="number" min="2000" max="2100"
+                                  value={editForm.survey_year}
+                                  onChange={e => setEditForm(p => ({ ...p, survey_year: e.target.value }))}
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">公表日</label>
+                                <input
+                                  type="date"
+                                  value={editForm.published_at}
+                                  onChange={e => setEditForm(p => ({ ...p, published_at: e.target.value }))}
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース</label>
+                                <input
+                                  value={editForm.source_name}
+                                  onChange={e => setEditForm(p => ({ ...p, source_name: e.target.value }))}
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">元ファイルURL</label>
+                                <input
+                                  type="url"
+                                  value={editForm.source_url}
+                                  onChange={e => setEditForm(p => ({ ...p, source_url: e.target.value }))}
+                                  placeholder="https://..."
+                                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="submit"
+                                disabled={editSaving}
+                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded-md text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                              >
+                                {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                保存
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingDatasetId(null)}
+                                className="flex items-center gap-1 border border-border text-muted-foreground px-3 py-1 rounded-md text-xs hover:text-foreground"
+                              >
+                                <X className="w-3 h-3" />
+                                キャンセル
+                              </button>
+                            </div>
+                          </form>
+                        </td>
+                      </tr>
+                    ) : (
+                      /* 通常行 */
+                      <tr key={ds.id} className="border-b border-border/50 hover:bg-muted/20">
+                        <td className="py-2 pr-4 text-muted-foreground">{ds.id}</td>
+                        <td className="py-2 pr-4 text-foreground font-medium">{ds.name}</td>
+                        <td className="py-2 pr-4">
+                          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
+                            {CATEGORIES.find(c => c.value === ds.category)?.label ?? ds.category}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground">{ds.survey_year}年</td>
+                        <td className="py-2 pr-4 text-muted-foreground">{ds.published_at?.slice(0, 10) ?? '-'}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">
+                          {ds.source_url ? (
+                            <a href={ds.source_url} target="_blank" rel="noopener noreferrer" className="text-primary underline truncate max-w-[120px] block">
+                              {ds.source_name ?? ds.source_url}
+                            </a>
+                          ) : (ds.source_name ?? '-')}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-foreground">{ds.record_count.toLocaleString()}件</td>
+                        <td className="py-2 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleEditDataset(ds)}
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                              title="編集"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDataset(ds.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              title="削除"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
                   ))}
                 </tbody>
               </table>
@@ -519,7 +671,7 @@ export default function AdminPage() {
               className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              DBに取り込む
+              DBに��り込む
             </button>
           </div>
 
@@ -541,18 +693,12 @@ export default function AdminPage() {
         {/* ---- プレビュー結果 ---- */}
         {preview && (
           <section className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Eye className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-bold text-foreground">プレビュー結果</h2>
-              </div>
-              <button
-                onClick={() => setPreviewExpanded(p => !p)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {previewExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                {previewExpanded ? '折りたたむ' : '全件表示'}
-              </button>
+            <div className="flex items-center gap-3 mb-4">
+              <Eye className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground">プレビュー結果</h2>
+              <span className="ml-auto text-xs text-muted-foreground">
+                全 {preview.rows.length.toLocaleString()} 件
+              </span>
             </div>
 
             {/* サマリーカード */}
@@ -584,39 +730,102 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* データテーブル */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    {['職種名', '性別', '企業規模', '年齢', '勤続年数', '月給(千円)', '所定内(千円)', '年間賞与(千円)', '推計年収(千円)', '労働者数(十人)'].map(h => (
-                      <th key={h} className="text-left py-2 px-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(previewExpanded ? preview.rows : preview.rows.slice(0, 10)).map((row, i) => (
-                    <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                      <td className="py-1.5 px-2 text-foreground max-w-[180px] truncate" title={row.occupation_name}>{row.occupation_name}</td>
-                      <td className="py-1.5 px-2 text-muted-foreground">{row.sex}</td>
-                      <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{row.enterprise_size}</td>
-                      <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.age)}</td>
-                      <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.tenure_years)}</td>
-                      <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.monthly_wage)}</td>
-                      <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.scheduled_wage)}</td>
-                      <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.annual_bonus)}</td>
-                      <td className="py-1.5 px-2 text-right font-semibold text-accent">{fmt(row.annual_income)}</td>
-                      <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.workers)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!previewExpanded && preview.rows.length > 10 && (
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  ...他 {preview.rows.length - 10}件（「全件表示」で展開）
-                </p>
-              )}
-            </div>
+            {/* データテーブル（ページネーション） */}
+            {(() => {
+              const totalPages = Math.ceil(preview.rows.length / PREVIEW_PAGE_SIZE)
+              const pageRows = preview.rows.slice((previewPage - 1) * PREVIEW_PAGE_SIZE, previewPage * PREVIEW_PAGE_SIZE)
+              return (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          {['#', '職種名', '性別', '企業規模', '年齢', '勤続年数', '月給(千円)', '所定内(千円)', '年間賞与(千円)', '推計年収(千円)', '労働者数(十人)'].map(h => (
+                            <th key={h} className="text-left py-2 px-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageRows.map((row, i) => {
+                          const absIdx = (previewPage - 1) * PREVIEW_PAGE_SIZE + i + 1
+                          return (
+                            <tr key={absIdx} className={`border-b border-border/40 hover:bg-muted/20 ${absIdx % 2 === 0 ? 'bg-muted/10' : ''}`}>
+                              <td className="py-1.5 px-2 text-muted-foreground text-right">{absIdx}</td>
+                              <td className="py-1.5 px-2 text-foreground max-w-[200px] truncate" title={row.occupation_name}>{row.occupation_name}</td>
+                              <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{row.sex}</td>
+                              <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{row.enterprise_size}</td>
+                              <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.age)}</td>
+                              <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.tenure_years)}</td>
+                              <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.monthly_wage)}</td>
+                              <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.scheduled_wage)}</td>
+                              <td className="py-1.5 px-2 text-right text-foreground">{fmt(row.annual_bonus)}</td>
+                              <td className="py-1.5 px-2 text-right font-semibold text-accent">{fmt(row.annual_income)}</td>
+                              <td className="py-1.5 px-2 text-right text-muted-foreground">{fmt(row.workers)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* ページネーションコントロール */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        {((previewPage - 1) * PREVIEW_PAGE_SIZE + 1).toLocaleString()}〜{Math.min(previewPage * PREVIEW_PAGE_SIZE, preview.rows.length).toLocaleString()}件 / 全{preview.rows.length.toLocaleString()}件
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setPreviewPage(1)}
+                          disabled={previewPage === 1}
+                          className="px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          最初
+                        </button>
+                        <button
+                          onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
+                          disabled={previewPage === 1}
+                          className="p-1 border border-border rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        {/* ページ番号ボタン（前後2ページ表示） */}
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          const start = Math.max(1, Math.min(previewPage - 2, totalPages - 4))
+                          return start + i
+                        }).map(p => (
+                          <button
+                            key={p}
+                            onClick={() => setPreviewPage(p)}
+                            className={`w-7 h-7 text-xs border rounded transition-colors ${
+                              p === previewPage
+                                ? 'border-primary bg-primary text-primary-foreground font-semibold'
+                                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))}
+                          disabled={previewPage === totalPages}
+                          className="p-1 border border-border rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setPreviewPage(totalPages)}
+                          disabled={previewPage === totalPages}
+                          className="px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          最後
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
 
             {/* 取込ボタン（プレビュー下） */}
             <div className="mt-5 pt-4 border-t border-border flex items-center gap-3">
