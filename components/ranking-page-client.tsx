@@ -125,8 +125,21 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
     else { setSortKey(key); setSortDir('desc') }
   }
 
+  // ソート用: 生の複合スコア（workers千人 × annual_income万円）
   const compositeScore = (r: RankingRow) =>
     (r.workers != null && r.annual_income != null) ? r.workers * r.annual_income : null
+
+  // 表示用: 全データのmaxで正規化し平方根カーブで0〜100に圧縮
+  const maxCompositeRaw = useMemo(() => {
+    let max = 0
+    for (const r of data) { const s = compositeScore(r); if (s != null && s > max) max = s }
+    return max
+  }, [data])
+  const normalizedScore = (r: RankingRow): number | null => {
+    const raw = compositeScore(r)
+    if (raw == null || maxCompositeRaw === 0) return null
+    return Math.round(Math.sqrt(raw / maxCompositeRaw) * 100)
+  }
 
   const filtered = data
     .filter(r => search === '' || r.occupation_name.includes(search))
@@ -315,11 +328,10 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                         </td>
                         {config.type === 'high-income-large-workforce' && (() => {
                           const isSort = sortKey === '__composite'
-                          const score  = rowScore
-                          const topScore = topVal
-                          const barW   = isSort && topScore && score ? (score / topScore) * 100 : 0
-                          // 表示用: スコアを億単位で表示（workers千人 × annual_income万円）
-                          const displayScore = score != null ? `${Math.round(score / 100).toLocaleString()}億` : '−'
+                          const norm   = normalizedScore(row)
+                          // バー幅はそのまま0〜100スコアを使用（100が満点）
+                          const barW   = isSort && norm != null ? norm : 0
+                          const displayScore = norm != null ? `${norm}` : '−'
                           return (
                             <td style={{ ...S.td, color: isSort ? (isTop ? '#D97706' : '#1a73e8') : '#475569', fontWeight: isSort && isTop ? 700 : isSort ? 600 : 400, fontVariantNumeric: 'tabular-nums' }}>
                               {displayScore}
