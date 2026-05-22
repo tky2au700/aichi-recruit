@@ -1,6 +1,65 @@
 import Link from 'next/link'
-import { ArrowRight, Building2, TrendingUp, MapPin, GraduationCap, BarChart3, Database, ExternalLink } from 'lucide-react'
+import { ArrowRight, Building2, TrendingUp, MapPin, GraduationCap, BarChart3, Database, ExternalLink, Users, Clock, Award, LineChart } from 'lucide-react'
 import { Nav } from '@/components/nav'
+
+const rankingCategories = [
+  {
+    href: '/salary/ranking/occupation',
+    label: '職種別年収ランキング',
+    description: '医師・弁護士・エンジニアなど全職種の年収を一覧',
+    icon: TrendingUp,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+  },
+  {
+    href: '/salary/ranking/male',
+    label: '男性年収ランキング',
+    description: '男性労働者の年収が高い職種ランキング',
+    icon: Users,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+  },
+  {
+    href: '/salary/ranking/female',
+    label: '女性年収ランキング',
+    description: '女性労働者の年収が高い職種ランキング',
+    icon: Users,
+    color: 'text-destructive',
+    bg: 'bg-destructive/10',
+  },
+  {
+    href: '/salary/ranking/bonus',
+    label: 'ボーナスランキング',
+    description: '年間賞与・特別給与額が多い職種ランキング',
+    icon: Award,
+    color: 'text-accent',
+    bg: 'bg-accent/10',
+  },
+  {
+    href: '/salary/ranking/hourly-wage',
+    label: '時給換算ランキング',
+    description: '月給÷160時間で算出した時給が高い職種',
+    icon: Clock,
+    color: 'text-success',
+    bg: 'bg-success/10',
+  },
+  {
+    href: '/salary/ranking/growth',
+    label: '年収増加率ランキング',
+    description: '過去数年間で最も年収が伸びた職種',
+    icon: LineChart,
+    color: 'text-success',
+    bg: 'bg-success/10',
+  },
+  {
+    href: '/salary/ranking/high-income-low-overtime',
+    label: '残業少ない高年収',
+    description: '月残業10時間以下で年収が高い職種一覧',
+    icon: Clock,
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+  },
+]
 
 const categories = [
   {
@@ -10,14 +69,6 @@ const categories = [
     icon: Building2,
     color: 'text-primary',
     bg: 'bg-primary/10',
-  },
-  {
-    href: '/salary/ranking/occupation',
-    label: '職種別年収',
-    description: '医師・エンジニア・営業など職種ごとの年収データ',
-    icon: TrendingUp,
-    color: 'text-accent',
-    bg: 'bg-accent/10',
   },
   {
     href: '/salary/prefecture',
@@ -88,8 +139,34 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ランキングカード */}
+      <section className="mx-auto max-w-7xl px-4 pt-12 pb-6">
+        <h2 className="text-lg font-bold text-foreground mb-6">年収ランキング</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {rankingCategories.map(({ href, label, description, icon: Icon, color, bg }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex flex-col gap-3 p-5 bg-card border border-border rounded-xl hover:border-primary/40 hover:bg-muted/30 transition-all"
+            >
+              <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center`}>
+                <Icon className={`w-5 h-5 ${color}`} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors">{label}</h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{description}</p>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-primary transition-colors mt-auto">
+                <span>詳しく見る</span>
+                <ArrowRight className="w-3 h-3" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* カテゴリカード */}
-      <section className="mx-auto max-w-7xl px-4 py-12">
+      <section className="mx-auto max-w-7xl px-4 py-6">
         <h2 className="text-lg font-bold text-foreground mb-6">カテゴリから探す</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {categories.map(({ href, label, description, icon: Icon, color, bg }) => (

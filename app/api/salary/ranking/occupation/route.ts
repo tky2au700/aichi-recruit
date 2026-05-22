@@ -63,9 +63,9 @@ export async function GET(req: NextRequest) {
     // ランキングデータ取得（LIMIT は整数を直接埋め込みでバインドエラー回避）
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
     const rows = await query(
-      `SELECT occupation_name, sex, enterprise_size,
+      `SELECT occupation_name, occupation_slug, sex, enterprise_size,
               age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, hourly_wage, workers
        FROM occupation_wages
        WHERE dataset_id = ?
          AND sex = ?

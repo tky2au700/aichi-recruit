@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -8,6 +9,7 @@ import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown,
 // ---------------------------------------------------------------------------
 interface OccupationRow {
   occupation_name: string
+  occupation_slug: string | null
   sex: string
   enterprise_size: string
   age: number | null
@@ -397,7 +399,14 @@ export function OccupationRankingClient() {
                         </td>
                         {/* 職種名 */}
                         <td style={{ ...S.td, fontWeight: idx < 3 ? 600 : 400, color: '#1E293B' }}>
-                          {row.occupation_name}
+                          {row.occupation_slug ? (
+                            <Link
+                              href={`/salary/occupation/${row.occupation_slug}`}
+                              style={{ color: '#1a73e8', textDecoration: 'none', fontWeight: idx < 3 ? 600 : 500 }}
+                            >
+                              {row.occupation_name}
+                            </Link>
+                          ) : row.occupation_name}
                         </td>
                         {/* 年収 + バー */}
                         <td style={{ ...S.td, minWidth: 140 }}>

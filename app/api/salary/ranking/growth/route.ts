@@ -1,0 +1,74 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { query } from '@/lib/db'
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const years = Math.min(Number(searchParams.get('years') || '5'), 10)
+  const limit = Math.min(Math.max(1, Number(searchParams.get('limit') || '200')), 500)
+
+  try {
+    // 利用可能な年度一覧（降順）
+    const allYears = await query(
+      `SELECT DISTINCT d.survey_year, d.id as dataset_id
+       FROM datasets d WHERE d.record_count > 0 ORDER BY d.survey_year DESC`
+    ) as Array<{ survey_year: number; dataset_id: number }>
+
+    if (allYears.length < 2) {
+      return NextResponse.json({ success: true, data: [], available_years: allYears.map(y => y.survey_year), message: '比較するデータが不足しています（最低2年分必要）' })
+    }
+
+    const latestDs  = allYears[0]
+    // 指定年数前に最も近い年度
+    const baseYear  = latestDs.survey_year - years
+    const baseDs    = allYears.find(y => y.survey_year <= baseYear) ?? allYears[allYears.length - 1]
+
+    if (latestDs.dataset_id === baseDs.dataset_id) {
+      return NextResponse.json({ success: true, data: [], available_years: allYears.map(y => y.survey_year), message: '比較に必要な年度数のデータがありません' })
+    }
+
+    // 最新年度データ（男女計・企業規模計）
+    const latestRows = await query(
+      `SELECT occupation_name, occupation_slug, annual_income, monthly_wage, hourly_wage, workers
+       FROM occupation_wages
+       WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計' AND annual_income IS NOT NULL`,
+      [latestDs.dataset_id]
+    ) as Array<{ occupation_name: string; occupation_slug: string | null; annual_income: number; monthly_wage: number | null; hourly_wage: number | null; workers: number | null }>
+
+    // 基準年度データ
+    const baseRows = await query(
+      `SELECT occupation_name, annual_income
+       FROM occupation_wages
+       WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計' AND annual_income IS NOT NULL`,
+      [baseDs.dataset_id]
+    ) as Array<{ occupation_name: string; annual_income: number }>
+
+    const baseMap = new Map(baseRows.map(r => [r.occupation_name, r.annual_income]))
+
+    // 増加率計算
+    const growthData = latestRows
+      .map(r => {
+        const baseIncome = baseMap.get(r.occupation_name)
+        if (!baseIncome || baseIncome <= 0) return null
+        const growth_rate    = ((r.annual_income - baseIncome) / baseIncome) * 100
+        const growth_amount  = r.annual_income - baseIncome
+        return { ...r, base_income: baseIncome, growth_rate, growth_amount }
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => b.growth_rate - a.growth_rate)
+      .slice(0, limit)
+
+    return NextResponse.json({
+      success: true,
+      data: growthData,
+      latest_year: latestDs.survey_year,
+      base_year: baseDs.survey_year,
+      actual_years: latestDs.survey_year - baseDs.survey_year,
+      available_years: allYears.map(y => y.survey_year),
+    })
+  } catch (error: any) {
+    if (error.message?.includes("doesn't exist") || error.code === 'ER_NO_SUCH_TABLE') {
+      return NextResponse.json({ success: true, data: [], available_years: [], message: 'データが見つかりません' })
+    }
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+  }
+}
