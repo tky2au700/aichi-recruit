@@ -235,16 +235,6 @@ export function parseOccupationWageCsv(
     return null
   }
 
-  // デバッグ: data_start_row付近の行とNAME_COL列の中身を出力
-  console.log('[v0] csv-parser: SEX_LABEL_MODE=', SEX_LABEL_MODE, 'DATA_START=', DATA_START, 'NAME_COL=', NAME_COL)
-  for (let dbgI = Math.max(0, DATA_START - 3); dbgI < Math.min(allRows.length, DATA_START + 5); dbgI++) {
-    const dbgCols = allRows[dbgI]
-    const dbgCell = dbgCols?.[NAME_COL] ?? ''
-    console.log(`[v0] row[${dbgI}] nameCell=${JSON.stringify(dbgCell.substring(0, 60))} hasData=${
-      ENTERPRISE_SIZES.some(({ start }) => dbgCols?.slice(start, start + 8).some(c => (c || '').trim() !== '' && (c || '').trim() !== '-'))
-    }`)
-  }
-
   for (let i = DATA_START; i < allRows.length; i++) {
     const cols = allRows[i]
     if (!cols || cols.length < 4) continue

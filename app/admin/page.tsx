@@ -986,7 +986,6 @@ function DataTab() {
                         <tr
                           key={ds.id}
                           onClick={() => {
-                            console.log("[v0] row clicked, ds.id:", ds.id, "type:", typeof ds.id)
                             setSelectedDatasetId(Number(ds.id))
                             setImportMsg(null)
                           }}
@@ -1093,7 +1092,7 @@ function DataTab() {
                   {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
                   プレビュー確認
                 </button>
-                <button onClick={() => { console.log("[v0] import btn: importing=", importing, "selectedDatasetId=", selectedDatasetId, "preview=", !!preview); handleImport() }} disabled={importing || !selectedDatasetId || !preview}
+                <button onClick={handleImport} disabled={importing || !selectedDatasetId || !preview}
                   className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                   {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                   DBに取り込む
@@ -1148,13 +1147,23 @@ function PreviewTable({
           { label: '総レコード数', value: `${summary.total_rows.toLocaleString()}件` },
           { label: '職種数', value: `${summary.occupation_count}職種` },
           { label: 'ファイルサイズ', value: `${(summary.file_size / 1024).toFixed(1)} KB` },
-          { label: '性別内訳（男女計）', value: `${summary.sex_breakdown['計'].toLocaleString()}件` },
         ].map(({ label, value }) => (
           <div key={label} className="bg-muted/20 rounded-lg p-3">
             <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
             <p className="text-base font-bold">{value}</p>
           </div>
         ))}
+        <div className="bg-muted/20 rounded-lg p-3">
+          <p className="text-[10px] text-muted-foreground mb-1">性別内訳</p>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-base font-bold">{summary.sex_breakdown['計'].toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">計</span>
+            <span className="text-sm font-semibold text-blue-400">{summary.sex_breakdown['男'].toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">男</span>
+            <span className="text-sm font-semibold text-pink-400">{summary.sex_breakdown['女'].toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">女</span>
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
