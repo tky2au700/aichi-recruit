@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
@@ -66,6 +67,16 @@ const SIZE_OPTIONS = [
   { value: '10～99人',   label: '10〜99人' },
 ]
 
+// URLパラメーター ↔ DB値 マッピング
+const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
+const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
+const SIZE_TO_PARAM: Record<string, string> = {
+  '1000人以上': 'large', '100～999人': 'medium', '10～99人': 'small',
+}
+const PARAM_TO_SIZE: Record<string, string> = {
+  large: '1000人以上', medium: '100～999人', small: '10～99人',
+}
+
 type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours'
 type SortDir = 'asc' | 'desc'
 
@@ -99,16 +110,38 @@ function RankBadge({ rank }: { rank: number }) {
 // ---------------------------------------------------------------------------
 // メインコンポーネント
 // ---------------------------------------------------------------------------
-export function OccupationRankingClient() {
+interface Props {
+  initialSex?:  string | undefined
+  initialSize?: string | undefined
+  initialYear?: number | null
+}
+
+export function OccupationRankingClient({ initialSex, initialSize, initialYear }: Props = {}) {
+  const router   = useRouter()
+  const pathname = usePathname()
+
   const [data, setData]       = useState<OccupationRow[]>([])
   const [meta, setMeta]       = useState<Meta | null>(null)
   const [years, setYears]     = useState<YearOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
 
-  const [sex, setSex]               = useState('計')
-  const [size, setSize]             = useState('企業規模計')
-  const [surveyYear, setSurveyYear] = useState<number | null>(null)
+  // propsのURLパラメーター → DB値に変換して初期値にセット
+  const [sex, setSex]               = useState(initialSex ? (PARAM_TO_SEX[initialSex] ?? '計') : '計')
+  const [size, setSize]             = useState(initialSize ? (PARAM_TO_SIZE[initialSize] ?? '企業規模計') : '企業規模計')
+  const [surveyYear, setSurveyYear] = useState<number | null>(initialYear ?? null)
+
+  // タブ変更時にURLを更新する共通関数（引数を全て受け取るのでstateへの依存なし）
+  const pushUrl = useCallback((newSex: string, newSize: string, newYear: number | null) => {
+    const params = new URLSearchParams()
+    const sexParam  = SEX_TO_PARAM[newSex]
+    const sizeParam = SIZE_TO_PARAM[newSize]
+    if (sexParam)          params.set('sex',  sexParam)
+    if (sizeParam)         params.set('size', sizeParam)
+    if (newYear !== null)  params.set('year', String(newYear))
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [router, pathname])
 
   const [search, setSearch]   = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('annual_income')
@@ -271,7 +304,7 @@ export function OccupationRankingClient() {
                 <button
                   key={y.survey_year}
                   style={surveyYear === y.survey_year ? S.chipActive : S.chip}
-                  onClick={() => setSurveyYear(y.survey_year)}
+                  onClick={() => { setSurveyYear(y.survey_year); pushUrl(sex, size, y.survey_year) }}
                 >
                   {y.survey_year}年
                 </button>
@@ -295,7 +328,7 @@ export function OccupationRankingClient() {
                         background: o.value === '男' ? '#EBF3FE' : o.value === '女' ? '#FCECEA' : '#EBF3FE',
                       }
                     : S.chip}
-                  onClick={() => setSex(o.value)}
+                  onClick={() => { setSex(o.value); pushUrl(o.value, size, surveyYear) }}
                 >
                   {o.label}
                 </button>
@@ -313,7 +346,7 @@ export function OccupationRankingClient() {
                 <button
                   key={o.value}
                   style={size === o.value ? S.chipActive : S.chip}
-                  onClick={() => setSize(o.value)}
+                  onClick={() => { setSize(o.value); pushUrl(sex, o.value, surveyYear) }}
                 >
                   {o.label}
                 </button>
