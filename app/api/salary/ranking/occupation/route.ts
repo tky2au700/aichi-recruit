@@ -19,14 +19,14 @@ export async function GET(req: NextRequest) {
       WHERE d.record_count > 0
       ORDER BY d.survey_year DESC
     `
-    const years = await query<{
+    const years = await query(yearsQuery) as Array<{
       survey_year: number
       dataset_id: number
       group_id: number
       survey_group_name: string
       survey_table_name: string | null
       legacy_name: string
-    }>(yearsQuery)
+    }>
 
     if (years.length === 0) {
       return NextResponse.json({ success: true, data: [], years: [], meta: null })
@@ -60,8 +60,20 @@ export async function GET(req: NextRequest) {
       targetGroupId = years[0].group_id
     }
 
-    // ランキングデータ取得
-    const rows = await query<{
+    // ランキングデータ取得（LIMIT は整数を直接埋め込みでバインドエラー回避）
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
+    const rows = await query(
+      `SELECT occupation_name, sex, enterprise_size,
+              age, tenure_years, scheduled_hours, overtime_hours,
+              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
+       FROM occupation_wages
+       WHERE dataset_id = ?
+         AND sex = ?
+         AND enterprise_size = ?
+       ORDER BY annual_income DESC
+       LIMIT ${safeLimit}`,
+      [targetDatasetId, sex, enterpriseSize]
+    ) as Array<{
       occupation_name: string
       sex: string
       enterprise_size: string
@@ -74,27 +86,16 @@ export async function GET(req: NextRequest) {
       annual_bonus: number | null
       annual_income: number | null
       workers: number | null
-    }>(
-      `SELECT occupation_name, sex, enterprise_size,
-              age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
-       FROM occupation_wages
-       WHERE dataset_id = ?
-         AND sex = ?
-         AND enterprise_size = ?
-       ORDER BY annual_income DESC
-       LIMIT ?`,
-      [targetDatasetId, sex, enterpriseSize, limit]
-    )
+    }>
 
     // 全件中の統計
-    const statsRows = await query<{ avg_income: number; max_income: number; total_workers: number; count: number }>(
+    const statsRows = await query(
       `SELECT AVG(annual_income) as avg_income, MAX(annual_income) as max_income,
               SUM(workers) as total_workers, COUNT(*) as count
        FROM occupation_wages
        WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?`,
       [targetDatasetId, sex, enterpriseSize]
-    )
+    ) as Array<{ avg_income: number; max_income: number; total_workers: number; count: number }>
     const stats = statsRows[0]
 
     const groupInfo = years.find(y => y.dataset_id === targetDatasetId)
