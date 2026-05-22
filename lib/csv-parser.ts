@@ -208,10 +208,19 @@ export function parseOccupationWageCsv(
   // 性別ラベル付き結合セル行（"男女計\n\n職種名" 形式）も遡って処理する。
   // さらに cell_combined モードでは結合セルが DATA_START - 1 の行にある場合があるため、
   // スキャン開始行を DATA_START ではなく「結合セル行が含まれうる最初の行」から開始する。
+  const ENTERPRISE_SIZES: Array<{
+    label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
+    start: number
+  }> = [
+    { label: '企業規模計', start: rule.size1_col_start },
+    { label: '1000人以上', start: rule.size2_col_start },
+    { label: '100～999人', start: rule.size3_col_start },
+    { label: '10～99人',   start: rule.size4_col_start },
+  ]
+
   let currentSex: '計' | '男' | '女' = '計'
 
   // cell_combined モードでは DATA_START の数行前から遡ってスキャン
-  // （Excelの結合セルが論理行としてまとめられた場合に備える）
   const scanStart = SEX_LABEL_MODE === 'cell_combined'
     ? Math.max(0, DATA_START - 5)
     : DATA_START
@@ -261,16 +270,6 @@ export function parseOccupationWageCsv(
     }
     return DATA_START
   })()
-
-  const ENTERPRISE_SIZES: Array<{
-    label: '企業規模計' | '1000人以上' | '100～999人' | '10～99人'
-    start: number
-  }> = [
-    { label: '企業規模計', start: rule.size1_col_start },
-    { label: '1000人以上', start: rule.size2_col_start },
-    { label: '100～999人', start: rule.size3_col_start },
-    { label: '10～99人',   start: rule.size4_col_start },
-  ]
 
   // 性別ラベルかどうかを判定するヘルパー
   function detectSexLabel(raw: string): '計' | '男' | '女' | null {
