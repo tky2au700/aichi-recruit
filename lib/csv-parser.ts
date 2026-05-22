@@ -164,10 +164,9 @@ export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
 
   const results: OccupationWageRow[] = []
 
-  // ヘッダー行数: 論理行の先頭38行をスキップ
-  // ただしExcelのヘッダー内にも改行セルがあるため、
-  // 「職種名セル(cols[1])に数値データ(cols[3])がある」行のみ処理する
-  const DATA_START = 38
+  // ヘッダー行数: 論理行の先頭10行をスキップ（行0-9がヘッダー、行10から職種データ）
+  // Excelの結合セルにより「　男女計\n\n管理的職業従事者」が行10に来る
+  const DATA_START = 10
 
   // 現在の性別状態
   let currentSex: '計' | '男' | '女' = '計'
@@ -198,16 +197,16 @@ export function parseOccupationWageCsv(csvText: string): OccupationWageRow[] {
     let occupationName = ''
     if (parts.length === 0) continue
 
-    // 先頭要素から性別を判定
-    const firstPart = parts[0].replace(/\u3000/g, ' ').trim()
-    if (firstPart === '男女計' || firstPart.match(/^[\s　]*男女計[\s　]*$/)) {
+    // 先頭要素から性別を判定（全角スペース・半角スペース両対応）
+    // 例: "　男女計" / "男女計" / " 男 " / "女"
+    const firstPart = parts[0].replace(/[\u3000\u0020\t]/g, '').trim()
+    if (firstPart === '男女計') {
       currentSex = '計'
-      // 職種名は2番目以降
       occupationName = parts.slice(1).join(' ').trim()
-    } else if (firstPart === '男' || firstPart.match(/^[\s　]*男[\s　]*$/)) {
+    } else if (firstPart === '男') {
       currentSex = '男'
       occupationName = parts.slice(1).join(' ').trim()
-    } else if (firstPart === '女' || firstPart.match(/^[\s　]*女[\s　]*$/)) {
+    } else if (firstPart === '女') {
       currentSex = '女'
       occupationName = parts.slice(1).join(' ').trim()
     } else {
