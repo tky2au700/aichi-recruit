@@ -764,7 +764,7 @@ function DataTab() {
     if (!confirm('このデータセットと取込済みデータを削除しますか？')) return
     if (!selectedGroupId) return
     await fetch(`/api/admin/datasets/${id}`, { method: 'DELETE' })
-    if (selectedDatasetId === id) setSelectedDatasetId(null)
+    if (selectedDatasetId === Number(id)) setSelectedDatasetId(null)
     await loadDatasets(selectedGroupId)
   }
 
@@ -788,6 +788,10 @@ function DataTab() {
       if (json.success) {
         setPreview({ summary: json.summary, rows: json.preview })
         setPreviewPage(1)
+        // 調査年が未選択かつ1件だけの場合は自動選択する
+        if (!selectedDatasetId && datasets.length === 1) {
+          setSelectedDatasetId(datasets[0].id)
+        }
       } else {
         alert('プレビュー失敗: ' + json.message)
       }
@@ -981,14 +985,18 @@ function DataTab() {
                       ) : (
                         <tr
                           key={ds.id}
-                          onClick={() => { setSelectedDatasetId(ds.id); setImportMsg(null) }}
+                          onClick={() => {
+                            console.log("[v0] row clicked, ds.id:", ds.id, "type:", typeof ds.id)
+                            setSelectedDatasetId(Number(ds.id))
+                            setImportMsg(null)
+                          }}
                           className={`border-b border-border/40 cursor-pointer transition-colors ${
-                            selectedDatasetId === ds.id ? 'bg-primary/10' : 'hover:bg-muted/20'
+                            selectedDatasetId === Number(ds.id) ? 'bg-primary/10' : 'hover:bg-muted/20'
                           }`}
                         >
                           <td className="py-2 px-2">
                             <div className={`w-3 h-3 rounded-full border-2 ${
-                              selectedDatasetId === ds.id ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                              selectedDatasetId === Number(ds.id) ? 'border-primary bg-primary' : 'border-muted-foreground/30'
                             }`} />
                           </td>
                           <td className="py-2 px-2 font-semibold">{ds.survey_year}年</td>
@@ -1012,7 +1020,7 @@ function DataTab() {
                                 className="text-muted-foreground hover:text-primary transition-colors">
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={e => { e.stopPropagation(); handleDeleteDs(ds.id) }}
+                              <button onClick={e => { e.stopPropagation(); handleDeleteDs(Number(ds.id)) }}
                                 className="text-muted-foreground hover:text-destructive transition-colors">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1085,7 +1093,7 @@ function DataTab() {
                   {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
                   プレビュー確認
                 </button>
-                <button onClick={handleImport} disabled={importing || !selectedDatasetId || !preview}
+                <button onClick={() => { console.log("[v0] import btn: importing=", importing, "selectedDatasetId=", selectedDatasetId, "preview=", !!preview); handleImport() }} disabled={importing || !selectedDatasetId || !preview}
                   className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                   {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                   DBに取り込む
