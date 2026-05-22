@@ -179,7 +179,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
       if (_year) params.set('survey_year', String(_year))
       const res  = await fetch(`/api/salary/ranking/occupation?${params}`)
       const json: ApiResponse = await res.json()
-      if (!json.success) { setError(json.message ?? 'エラーが発生しました'); return }
+      if (!json.success) { setError(json.message ?? 'エラーが発���しました'); return }
       setData(json.data)
       setMeta(json.meta)
       if (json.years.length > 0) {
@@ -310,27 +310,13 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
   } else {
     dynamicHeading = baseTitle
   }
-  const currentSexLabel  = sex  !== '計'        ? (sexLabelMap[sex]   ?? null) : null
-  const currentSizeLabel = size !== '企業規模計' ? (sizeLabelMap[size] ?? null) : null
-  const currentYearStr   = surveyYear ? `${surveyYear}年` : (meta?.survey_year ? `${meta.survey_year}年` : '')
-
-  let dynamicHeading: string
-  if (currentSizeLabel) {
-    dynamicHeading = `${currentSizeLabel}の職種別平均年収ランキング${currentYearStr}${currentSexLabel ? `・${currentSexLabel}` : ''}`
-  } else if (currentSexLabel) {
-    dynamicHeading = `${currentSexLabel}の職種別平均年収ランキング${currentYearStr}`
-  } else if (currentYearStr) {
-    dynamicHeading = `職種別平均年収ランキング${currentYearStr}`
-  } else {
-    dynamicHeading = '職種別平均年収ランキング'
-  }
 
   const filterDescParts = [
     currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100〜999人' : '10〜99人'}）` : null,
     currentSexLabel,
   ].filter(Boolean)
-  const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear)
-    ? `${currentYearStr}調査の賃金構造基本統計調査に基づく${filterDescParts.length > 0 ? filterDescParts.join('・') + 'の' : ''}職種別平均年収データです。`
+  const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear || sortKey !== 'annual_income')
+    ? `${currentYearStr}調査の賃金構造基本統計調査に基づく${filterDescParts.length > 0 ? filterDescParts.join('・') + 'の' : ''}${baseTitle}データです。`
     : null
 
   // SSRで渡されたpropsを初期値とし、クライアント側の変更で上書き
