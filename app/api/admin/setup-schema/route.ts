@@ -88,6 +88,31 @@ export async function POST() {
     `)
     results.push('occupation_wages: OK')
 
+    // --- マイグレーション: occupation_wages の列拡張 ---
+    try {
+      const owCols = await query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'`
+      ) as any[]
+      const ow = owCols.map((c: any) => c.COLUMN_NAME as string)
+
+      if (!ow.includes('occupation_slug')) {
+        await query(`ALTER TABLE occupation_wages ADD COLUMN occupation_slug VARCHAR(255) NULL COMMENT 'URLスラッグ（日本語→ローマ字変換済み）' AFTER occupation_name`)
+        await query(`ALTER TABLE occupation_wages ADD INDEX idx_slug (occupation_slug)`)
+        results.push('migration: occupation_wages.occupation_slug 追加')
+      }
+      if (!ow.includes('hourly_wage')) {
+        await query(`ALTER TABLE occupation_wages ADD COLUMN hourly_wage DECIMAL(8,1) NULL COMMENT '時給換算（月給÷160時間）' AFTER annual_income`)
+        results.push('migration: occupation_wages.hourly_wage 追加')
+      }
+      // 既存レコードの hourly_wage を計算して埋める
+      await query(`UPDATE occupation_wages SET hourly_wage = ROUND(monthly_wage / 160, 1) WHERE hourly_wage IS NULL AND monthly_wage IS NOT NULL`)
+      // 既存レコードの annual_income を計算して埋める（NULLの場合）
+      await query(`UPDATE occupation_wages SET annual_income = ROUND((scheduled_wage * 12 + COALESCE(annual_bonus, 0)) / 10, 1) WHERE annual_income IS NULL AND scheduled_wage IS NOT NULL`)
+    } catch (owErr: any) {
+      results.push(`migration(occupation_wages拡張): ${owErr.message}`)
+    }
+
     // --- マイグレーション: dataset_groups の列更新 ---
     try {
       const existingCols = await query(

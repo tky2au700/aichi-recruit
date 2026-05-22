@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseOccupationWageCsv, DEFAULT_CSV_RULE, type CsvParseRule } from '@/lib/csv-parser'
 import { query } from '@/lib/db'
+import { toOccupationSlug } from '@/lib/slug'
 import iconv from 'iconv-lite'
 
 export async function POST(req: NextRequest) {
@@ -67,13 +68,16 @@ export async function POST(req: NextRequest) {
       const batch = rows.slice(i, i + BATCH)
       if (batch.length === 0) continue
 
-      const placeholders = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
+      const placeholders = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
       const values: any[] = []
 
       for (const r of batch) {
+        const slug       = toOccupationSlug(r.occupation_name)
+        const hourlyWage = r.monthly_wage != null ? Math.round((r.monthly_wage / 160) * 10) / 10 : null
         values.push(
           datasetId,
           r.occupation_name,
+          slug,
           r.sex,
           r.enterprise_size,
           r.age,
@@ -84,15 +88,16 @@ export async function POST(req: NextRequest) {
           r.scheduled_wage,
           r.annual_bonus,
           r.workers,
-          r.annual_income
+          r.annual_income,
+          hourlyWage,
         )
       }
 
       await query(
         `INSERT INTO occupation_wages
-          (dataset_id, occupation_name, sex, enterprise_size, age, tenure_years,
+          (dataset_id, occupation_name, occupation_slug, sex, enterprise_size, age, tenure_years,
            scheduled_hours, overtime_hours, monthly_wage, scheduled_wage,
-           annual_bonus, workers, annual_income)
+           annual_bonus, workers, annual_income, hourly_wage)
          VALUES ${placeholders}`,
         values
       )
