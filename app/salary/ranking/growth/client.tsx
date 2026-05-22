@@ -450,13 +450,12 @@ export function GrowthRankingClient({
 
                         {/* 職種名 */}
                         <td style={S.td}>
-                          {row.occupation_slug ? (
-                            <Link href={`/salary/occupation/${row.occupation_slug}`} className="occupation-link">
-                              {row.occupation_name}
-                            </Link>
-                          ) : (
-                            <span style={{ color: '#334155', fontWeight: 500 }}>{row.occupation_name}</span>
-                          )}
+                          <Link
+                            href={`/salary/occupation/${row.occupation_slug ?? encodeURIComponent(row.occupation_name)}`}
+                            className="occupation-link"
+                          >
+                            {row.occupation_name}
+                          </Link>
                         </td>
 
                         {/* 増加率 */}

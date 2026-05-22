@@ -335,13 +335,12 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                       >
                         <td style={{ ...S.td, width: 48 }}><RankBadge rank={idx + 1} /></td>
                         <td style={{ ...S.td }}>
-                          {row.occupation_slug ? (
-                            <Link href={`/salary/occupation/${row.occupation_slug}`} className="occupation-link">
-                              {row.occupation_name}
-                            </Link>
-                          ) : (
-                            <span style={{ color: '#334155', fontWeight: 500 }}>{row.occupation_name}</span>
-                          )}
+                          <Link
+                            href={`/salary/occupation/${row.occupation_slug ?? encodeURIComponent(row.occupation_name)}`}
+                            className="occupation-link"
+                          >
+                            {row.occupation_name}
+                          </Link>
                         </td>
                         <td style={{ ...S.td, minWidth: 130 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: isTop ? '#D97706' : '#1a73e8', fontVariantNumeric: 'tabular-nums' }}>

@@ -735,32 +735,41 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* 関連リン��� */}
+        {/* 関連ランキング */}
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>関連ランキングを見る</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+          {/* グループ: 基本 */}
+          <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>基本ランキング</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginBottom: 16 }}>
             {[
-              { href: '/salary/ranking/occupation',            label: '職種別年収ランキング',  icon: <TrendingUp size={14} color="#1a73e8" /> },
-              { href: '/salary/ranking/bonus',                 label: 'ボーナス��ンキング',      icon: <Award size={14} color="#f59e0b" /> },
-              { href: '/salary/ranking/hourly-wage',           label: '時給換算ランキング',      icon: <Clock size={14} color="#0ea5e9" /> },
-              { href: '/salary/ranking/high-income-low-overtime', label: '残業少ない高年収',    icon: <BarChart2 size={14} color="#7c3aed" /> },
+              { href: '/salary/ranking/occupation', label: '職種別年収ランキング',   icon: <TrendingUp size={14} color="#1a73e8" /> },
+              { href: '/salary/ranking/male',       label: '男性年収ランキング',      icon: <TrendingUp size={14} color="#1a73e8" /> },
+              { href: '/salary/ranking/female',     label: '女性年収ランキング',      icon: <TrendingUp size={14} color="#DB4437" /> },
+              { href: '/salary/ranking/growth',     label: '賃金上昇率ランキング',    icon: <TrendingUp size={14} color="#0F9D58" /> },
             ].map(({ href, label, icon }) => (
-              <Link
-                key={href}
-                href={href}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '12px 16px', background: '#fff',
-                  border: '1px solid #E2E8F0', borderRadius: 10,
-                  textDecoration: 'none', fontSize: 13, color: '#374151',
-                  fontWeight: 500, transition: 'border-color 0.15s',
-                }}
+              <Link key={href} href={href}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, textDecoration: 'none', fontSize: 13, color: '#374151', fontWeight: 500, transition: 'border-color 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = '#93C5FD')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#E2E8F0')}
-              >
-                {icon}
-                {label}
-                <ChevronRight size={13} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#E2E8F0')}>
+                {icon}{label}<ChevronRight size={13} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+              </Link>
+            ))}
+          </div>
+          {/* グループ: 条件・複合 */}
+          <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>条件・複合ランキング</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+            {[
+              { href: '/salary/ranking/bonus',                      label: 'ボーナスランキング',         icon: <Award size={14} color="#f59e0b" /> },
+              { href: '/salary/ranking/hourly-wage',                label: '時給換算ランキング',         icon: <Clock size={14} color="#0ea5e9" /> },
+              { href: '/salary/ranking/overtime-wage',              label: '残業・時給ランキング',       icon: <TrendingDown size={14} color="#7c3aed" /> },
+              { href: '/salary/ranking/high-income-low-overtime',   label: '残業少ない高年収',           icon: <BarChart2 size={14} color="#0891b2" /> },
+              { href: '/salary/ranking/high-income-large-workforce',label: '需要×高年収ランキング',     icon: <Users size={14} color="#0891b2" /> },
+            ].map(({ href, label, icon }) => (
+              <Link key={href} href={href}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, textDecoration: 'none', fontSize: 13, color: '#374151', fontWeight: 500, transition: 'border-color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#93C5FD')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#E2E8F0')}>
+                {icon}{label}<ChevronRight size={13} color="#94A3B8" style={{ marginLeft: 'auto' }} />
               </Link>
             ))}
           </div>
