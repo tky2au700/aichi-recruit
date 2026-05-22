@@ -288,11 +288,11 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                         <td style={{ ...S.td, width: 48 }}><RankBadge rank={idx + 1} /></td>
                         <td style={{ ...S.td }}>
                           {row.occupation_slug ? (
-                            <Link href={`/salary/occupation/${row.occupation_slug}`} className={`occupation-link${idx < 3 ? ' bold' : ''}`}>
+                            <Link href={`/salary/occupation/${row.occupation_slug}`} className="occupation-link">
                               {row.occupation_name}
                             </Link>
                           ) : (
-                            <span style={{ color: '#334155', fontWeight: idx < 3 ? 700 : 500 }}>{row.occupation_name}</span>
+                            <span style={{ color: '#334155', fontWeight: 500 }}>{row.occupation_name}</span>
                           )}
                         </td>
                         <td style={{ ...S.td, minWidth: 130 }}>

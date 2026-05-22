@@ -129,11 +129,4 @@
 .occupation-link:hover::after {
   transform: scaleX(1);
 }
-.occupation-link.bold {
-  font-weight: 700;
-  color: #1e293b;
-}
-.occupation-link.bold::after {
-  background: #1e293b;
-  height: 2px;
-}
+

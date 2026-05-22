@@ -470,7 +470,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
                         <td style={{ ...S.td }}>
                           <Link
                             href={`/salary/occupation/${row.occupation_slug ?? encodeURIComponent(row.occupation_name)}`}
-                            className={`occupation-link${idx < 3 ? ' bold' : ''}`}
+                            className="occupation-link"
                           >
                             {row.occupation_name}
                           </Link>
