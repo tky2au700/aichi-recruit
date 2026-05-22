@@ -21,9 +21,11 @@ export async function POST() {
     // 1. dataset_groups（親）テーブル
     await query(`
       CREATE TABLE IF NOT EXISTS dataset_groups (
-        id              INT AUTO_INCREMENT PRIMARY KEY,
-        name            VARCHAR(255) NOT NULL COMMENT '調査名',
-        category        VARCHAR(100) NOT NULL DEFAULT 'occupation',
+        id                  INT AUTO_INCREMENT PRIMARY KEY,
+        survey_group_name   VARCHAR(255) NOT NULL COMMENT '調査グループ名（例: 賃金構造基本統計調査）',
+        survey_table_name   VARCHAR(255) NULL     COMMENT '調査表名（例: 職種（小分類）、性別きまって支給する現金給与額...）',
+        name                VARCHAR(255) NOT NULL DEFAULT '' COMMENT '旧調査名（後方互換）',
+        category            VARCHAR(100) NOT NULL DEFAULT 'occupation',
         publisher_id    INT NULL COMMENT '提供元データソースID（例: 厚生労働省）',
         distributor_id  INT NULL COMMENT '流通元データソースID（例: e-Stat）',
         sex_label_mode  VARCHAR(20)  NOT NULL DEFAULT 'cell_combined'
@@ -93,6 +95,18 @@ export async function POST() {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dataset_groups'`
       ) as any[]
       const existing = existingCols.map((c: any) => c.COLUMN_NAME as string)
+
+      // survey_group_name / survey_table_name がなければ追加（旧 name 列から分割）
+      if (!existing.includes('survey_group_name')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN survey_group_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '調査グループ名' AFTER id`)
+        // 既存データは旧 name 列の値をそのまま survey_group_name にコピー
+        await query(`UPDATE dataset_groups SET survey_group_name = name WHERE survey_group_name = ''`)
+        results.push('migration: dataset_groups.survey_group_name 追加')
+      }
+      if (!existing.includes('survey_table_name')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN survey_table_name VARCHAR(255) NULL COMMENT '調査表名' AFTER survey_group_name`)
+        results.push('migration: dataset_groups.survey_table_name 追加')
+      }
 
       // publisher_id / distributor_id がなければ追加
       if (!existing.includes('publisher_id')) {

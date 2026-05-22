@@ -10,7 +10,8 @@ export async function PATCH(
     const { id } = await params
     const body = await req.json()
     const {
-      name, category,
+      survey_group_name, survey_table_name,
+      category,
       publisher_id, distributor_id,
       sex_label_mode,
       data_start_row, name_col_index,
@@ -18,12 +19,17 @@ export async function PATCH(
       parse_notes,
     } = body
 
-    if (!name) {
-      return NextResponse.json({ success: false, message: '調査名は必須です' }, { status: 400 })
+    if (!survey_group_name) {
+      return NextResponse.json({ success: false, message: '調査グループ名は必須です' }, { status: 400 })
     }
+
+    const legacyName = survey_table_name
+      ? `${survey_group_name}／${survey_table_name}`
+      : survey_group_name
 
     await query(
       `UPDATE dataset_groups SET
+         survey_group_name = ?, survey_table_name = ?,
          name = ?, category = ?,
          publisher_id = ?, distributor_id = ?,
          sex_label_mode = ?,
@@ -31,7 +37,8 @@ export async function PATCH(
          size1_col_start = ?, size2_col_start = ?, size3_col_start = ?, size4_col_start = ?,
          parse_notes = ?
        WHERE id = ?`,
-      [name, category,
+      [survey_group_name, survey_table_name ?? null,
+       legacyName, category,
        publisher_id ?? null, distributor_id ?? null,
        sex_label_mode ?? 'cell_combined',
        data_start_row, name_col_index,

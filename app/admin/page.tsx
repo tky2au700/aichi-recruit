@@ -18,6 +18,8 @@ interface DataSource {
 
 interface DatasetGroup {
   id: number
+  survey_group_name: string
+  survey_table_name: string | null
   name: string
   category: string
   publisher_id: number | null
@@ -343,7 +345,8 @@ function DataSourcesTab() {
 // ============================================================
 function defaultGroupForm() {
   return {
-    name: '', category: 'occupation',
+    survey_group_name: '', survey_table_name: '',
+    category: 'occupation',
     publisher_id: '', distributor_id: '',
     sex_label_mode: 'cell_combined',
     data_start_row: '10', name_col_index: '1',
@@ -386,7 +389,9 @@ function GroupsTab() {
 
   function openEdit(g: DatasetGroup) {
     setForm({
-      name: g.name, category: g.category,
+      survey_group_name: g.survey_group_name ?? g.name,
+      survey_table_name: g.survey_table_name ?? '',
+      category: g.category,
       publisher_id:   g.publisher_id   != null ? String(g.publisher_id)   : '',
       distributor_id: g.distributor_id != null ? String(g.distributor_id) : '',
       sex_label_mode: g.sex_label_mode ?? 'cell_combined',
@@ -406,7 +411,10 @@ function GroupsTab() {
     setSaving(true)
     try {
       const payload = {
-        ...form,
+        survey_group_name: form.survey_group_name,
+        survey_table_name: form.survey_table_name || null,
+        category:          form.category,
+        sex_label_mode:    form.sex_label_mode,
         publisher_id:    form.publisher_id   ? Number(form.publisher_id)   : null,
         distributor_id:  form.distributor_id ? Number(form.distributor_id) : null,
         data_start_row:  Number(form.data_start_row),
@@ -469,13 +477,26 @@ function GroupsTab() {
           <form onSubmit={handleSave} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2">
-                <label className="block text-[10px] text-muted-foreground mb-0.5">調査名 <span className="text-destructive">*</span></label>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">
+                  調査グループ名 <span className="text-destructive">*</span>
+                </label>
                 <input
-                  required value={form.name}
-                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="例: 賃金構造基本統計調査 職種（小分類）別"
+                  required value={form.survey_group_name}
+                  onChange={e => setForm(p => ({ ...p, survey_group_name: e.target.value }))}
+                  placeholder="例: 賃金構造基本統計調査"
                   className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                 />
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">統計調査の名称（共通の親グループ）</p>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] text-muted-foreground mb-0.5">調査表名（任意）</label>
+                <input
+                  value={form.survey_table_name}
+                  onChange={e => setForm(p => ({ ...p, survey_table_name: e.target.value }))}
+                  placeholder="例: 職種（小分類）、性別きまって支給する現金給与額…（産業計）"
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                />
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">表番号・集計軸など表ごとの固有名</p>
               </div>
               <div>
                 <label className="block text-[10px] text-muted-foreground mb-0.5">カテゴリ</label>
@@ -583,20 +604,29 @@ function GroupsTab() {
             <div key={g.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-semibold text-sm truncate">{g.name}</span>
-                    <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
-                      {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
-                    </span>
-                    {g.publisher_name && (
-                      <span className="shrink-0 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px]">
-                        {g.publisher_name}
+                  <div className="mb-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm">
+                        {g.survey_group_name ?? g.name}
                       </span>
-                    )}
-                    {g.distributor_name && g.distributor_name !== g.publisher_name && (
-                      <span className="shrink-0 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px]">
-                        via {g.distributor_name}
+                      <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
+                        {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
                       </span>
+                      {g.publisher_name && (
+                        <span className="shrink-0 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px]">
+                          {g.publisher_name}
+                        </span>
+                      )}
+                      {g.distributor_name && g.distributor_name !== g.publisher_name && (
+                        <span className="shrink-0 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px]">
+                          via {g.distributor_name}
+                        </span>
+                      )}
+                    </div>
+                    {g.survey_table_name && (
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                        {g.survey_table_name}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
@@ -841,8 +871,11 @@ function DataTab() {
                     : 'border-border hover:border-primary/40 text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <p className="font-semibold text-foreground text-[11px] leading-tight mb-0.5">{g.name}</p>
-                <p className="text-muted-foreground text-[10px]">
+                <p className="font-semibold text-foreground text-[11px] leading-tight">{g.survey_group_name ?? g.name}</p>
+                {g.survey_table_name && (
+                  <p className="text-muted-foreground/70 text-[10px] leading-tight mt-0.5 line-clamp-2">{g.survey_table_name}</p>
+                )}
+                <p className="text-muted-foreground text-[10px] mt-0.5">
                   {CATEGORIES.find(c => c.value === g.category)?.label} ・ {g.dataset_count}年分 ・ {(g.total_records ?? 0).toLocaleString()}件
                 </p>
               </button>
@@ -856,7 +889,11 @@ function DataTab() {
           {/* CSVルール表示 */}
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs font-semibold mb-2">
-              適用CSVパースルール: <span className="text-primary">{selectedGroup.name}</span>
+              適用CSVパースルール:
+              <span className="text-primary ml-1">{selectedGroup.survey_group_name ?? selectedGroup.name}</span>
+              {selectedGroup.survey_table_name && (
+                <span className="text-muted-foreground ml-1">／{selectedGroup.survey_table_name}</span>
+              )}
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
               <span>開始行: <strong className="text-foreground">{selectedGroup.data_start_row}</strong></span>
@@ -1344,7 +1381,7 @@ function SchemaTab() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-        <p className="text-xs font-medium">作成されるテーブル</p>
+        <p className="text-xs font-medium">作成される��ーブル</p>
         <ul className="space-y-2 text-xs text-muted-foreground">
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">dataset_groups</code>

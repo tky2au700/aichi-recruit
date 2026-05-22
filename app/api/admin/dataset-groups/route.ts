@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      name, category = 'occupation',
+      survey_group_name, survey_table_name,
+      category = 'occupation',
       publisher_id, distributor_id,
       sex_label_mode = 'cell_combined',
       data_start_row = 10, name_col_index = 1,
@@ -46,17 +47,23 @@ export async function POST(req: NextRequest) {
       parse_notes,
     } = body
 
-    if (!name) {
-      return NextResponse.json({ success: false, message: '調査名は必須です' }, { status: 400 })
+    if (!survey_group_name) {
+      return NextResponse.json({ success: false, message: '調査グループ名は必須です' }, { status: 400 })
     }
+
+    // name 列は後方互換のため survey_group_name を使用
+    const legacyName = survey_table_name
+      ? `${survey_group_name}／${survey_table_name}`
+      : survey_group_name
 
     const result = await query(
       `INSERT INTO dataset_groups
-         (name, category, publisher_id, distributor_id, sex_label_mode,
+         (survey_group_name, survey_table_name, name, category,
+          publisher_id, distributor_id, sex_label_mode,
           data_start_row, name_col_index,
           size1_col_start, size2_col_start, size3_col_start, size4_col_start, parse_notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, category,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [survey_group_name, survey_table_name ?? null, legacyName, category,
        publisher_id ?? null, distributor_id ?? null,
        sex_label_mode,
        data_start_row, name_col_index,
