@@ -274,6 +274,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                     <th style={{ ...S.th, width: 48, cursor: 'default' }}>#</th>
                     <th style={{ ...S.th, minWidth: 160, cursor: 'default' }}>職種名</th>
                     <Th label="推定年収"   k="annual_income" />
+                    {config.type === 'high-income-large-workforce' && <Th label="複合スコア" k="__composite" />}
                     <Th label="労働者数"   k="workers" />
                     <Th label="年間賞与"   k="annual_bonus" />
                     <Th label="時給換算"   k="hourly_wage" />
@@ -284,9 +285,10 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                 </thead>
                 <tbody>
                   {filtered.map((row, idx) => {
-                    const sortVal = row[config.sortKey] as number | null
-                    const ratio   = topVal && sortVal ? (sortVal / topVal) * 100 : 0
-                    const isTop   = idx === 0
+                    const isTop     = idx === 0
+                    const rowScore  = compositeScore(row)
+                    const sortVal   = sortKey === '__composite' ? rowScore : row[sortKey] as number | null
+                    const ratio     = topVal && sortVal ? (sortVal / topVal) * 100 : 0
                     return (
                       <tr key={`${row.occupation_name}-${idx}`}
                         style={{ background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}
@@ -311,6 +313,22 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                             <div style={{ width: `${config.sortKey === 'annual_income' ? ratio : (row.annual_income && meta?.max_income ? (row.annual_income / meta.max_income) * 100 : 0)}%`, height: '100%', background: '#1a73e8', borderRadius: 4 }} />
                           </div>
                         </td>
+                        {config.type === 'high-income-large-workforce' && (() => {
+                          const isSort = sortKey === '__composite'
+                          const score  = rowScore
+                          const topScore = topVal
+                          const barW   = isSort && topScore && score ? (score / topScore) * 100 : 0
+                          // 表示用: スコアを億単位で表示（workers千人 × annual_income万円）
+                          const displayScore = score != null ? `${Math.round(score / 100).toLocaleString()}億` : '−'
+                          return (
+                            <td style={{ ...S.td, color: isSort ? (isTop ? '#D97706' : '#1a73e8') : '#475569', fontWeight: isSort && isTop ? 700 : isSort ? 600 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                              {displayScore}
+                              {isSort && (
+                                <div style={S.barWrap}><div style={{ width: `${barW}%`, height: '100%', background: isTop ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} /></div>
+                              )}
+                            </td>
+                          )
+                        })()}
                         <td style={{ ...S.td, color: config.sortKey === 'workers' && isTop ? '#D97706' : '#475569', fontWeight: config.sortKey === 'workers' && isTop ? 700 : 400 }}>
                           {row.workers != null ? `${row.workers.toLocaleString()}千人` : '−'}
                           {config.sortKey === 'workers' && (
