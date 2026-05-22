@@ -258,7 +258,13 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
             <KpiCard
               icon={<Clock size={13} color="#0ea5e9" />}
               label="時給換算"
-              value={rep.hourly_wage != null ? `${Math.round(rep.hourly_wage).toLocaleString()}円` : fmtFixed(rep.monthly_wage != null ? rep.monthly_wage / 160 : null, 0, '円')}
+              value={(() => {
+                // monthly_wage は万円単位。時給(円) = monthly_wage × 10,000 ÷ 160
+                const mw = rep.monthly_wage
+                if (mw == null) return '−'
+                const hourly = Math.round(mw * 10000 / 160)
+                return `${hourly.toLocaleString()}円`
+              })()}
               sub="月給 ÷ 160時間"
             />
             <KpiCard
