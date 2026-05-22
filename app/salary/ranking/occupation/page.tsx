@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function OccupationRankingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
       <OccupationRankingClient />
     </div>
