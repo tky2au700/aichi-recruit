@@ -21,6 +21,7 @@ interface OccupationRow {
   scheduled_wage: number | null
   annual_bonus: number | null
   annual_income: number | null
+  hourly_wage: number | null
   workers: number | null
 }
 
