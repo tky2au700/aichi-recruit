@@ -120,6 +120,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [sexTab, setSexTab]   = useState('計')
+  const [sizeTab, setSizeTab] = useState('企業規模計')
 
   useEffect(() => {
     fetch(`/api/salary/occupation/${encodeURIComponent(slug)}`)
@@ -172,6 +173,11 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   const maxIncome = Math.max(...data.time_series.map(t => t.annual_income ?? 0), 1)
   const sizeRows  = ENTERPRISE_ORDER
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
+    .filter(Boolean) as DetailRow[]
+
+  // 性別別テーブル用（企業規模タブでフィルタ）
+  const sexRows = SEX_ORDER
+    .map(sex => data.latest_data.find(r => r.sex === sex && r.enterprise_size === sizeTab))
     .filter(Boolean) as DetailRow[]
 
   // 年収変化（最古→最新）
@@ -370,7 +376,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
                 <tbody>
                   {sizeRows.map((r, i) => {
                     const isTotal = r.enterprise_size === '企業規模計'
-                    const hourly = r.hourly_wage ?? (r.monthly_wage != null ? Math.round(r.monthly_wage / 160) : null)
+                    const hourly = r.hourly_wage ?? (r.monthly_wage != null ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null)
                     return (
                       <tr key={r.enterprise_size} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < sizeRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                         <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: '#0F172A', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -378,6 +384,82 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
                           {r.enterprise_size}
                         </td>
                         <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: '#1a73e8', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtWan(r.annual_income)}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.annual_bonus)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
+                          {hourly != null ? `${hourly.toLocaleString()}円/h` : '−'}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtFixed(r.age, 1, '歳')}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtFixed(r.tenure_years, 1, '年')}</td>
+                        <td style={{
+                          padding: '11px 14px', fontSize: 13, whiteSpace: 'nowrap',
+                          color: r.overtime_hours != null && r.overtime_hours > 20 ? '#dc2626' : '#374151',
+                          fontWeight: r.overtime_hours != null && r.overtime_hours > 20 ? 700 : 400,
+                        }}>
+                          {fmtFixed(r.overtime_hours, 1, 'h')}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#94A3B8', whiteSpace: 'nowrap' }}>{fmt(r.workers, '(十人)')}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* 性別別データ */}
+        <section style={{ marginBottom: 36 }}>
+          <SectionTitle>性別別データ</SectionTitle>
+
+          {/* 企業規模タブ */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            {ENTERPRISE_ORDER.map(size => (
+              <button
+                key={size}
+                onClick={() => setSizeTab(size)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 20,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: sizeTab === size ? '1.5px solid #1a73e8' : '1.5px solid #E2E8F0',
+                  background: sizeTab === size ? '#e8f0fe' : '#fff',
+                  color: sizeTab === size ? '#1a73e8' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['性別', '推定年収', '月給（所定内）', '年間賞与', '時給換算', '平均年齢', '勤続年数', '月残業', '労働者数'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sexRows.map((r, i) => {
+                    const isTotal = r.sex === '計'
+                    const hourly = r.hourly_wage ?? (r.monthly_wage != null ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null)
+                    const sexColor = SEX_COLOR[r.sex] ?? '#64748B'
+                    return (
+                      <tr key={r.sex} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < sexRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: sexColor, whiteSpace: 'nowrap' }}>
+                          {SEX_LABEL[r.sex] ?? r.sex}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: sexColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                           {fmtWan(r.annual_income)}
                         </td>
                         <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
