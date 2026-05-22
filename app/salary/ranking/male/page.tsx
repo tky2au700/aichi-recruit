@@ -1,10 +1,13 @@
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
+import { buildMetadata } from '@/lib/seo'
 
-export const metadata = {
-  title: '男性の平均年収が高い職種ランキング | AIリクルート',
-  description: '賃金構造基本統計調査をもとにした男性の平均年収ランキング。職種ごとの男性年収データを一覧で確認できます。',
-}
+export const metadata = buildMetadata({
+  title: '男性の平均年収が高い職種ランキング2025 | AIリクルート',
+  description: '2025年調査・男性労働者の平均年収が高い職種ランキング。賃金構造基本統計調査に基づく男性年収データを職種別に比較できます。',
+  keywords: ['男性 年収', '男性 平均年収', '男性 年収ランキング', '男性 高収入'],
+  path: '/salary/ranking/male',
+})
 
 export default function MaleRankingPage() {
   return (

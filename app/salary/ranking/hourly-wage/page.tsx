@@ -1,10 +1,13 @@
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
+import { buildMetadata } from '@/lib/seo'
 
-export const metadata = {
-  title: '時給換算が高い職種ランキング | AIリクルート',
-  description: '月給を月160時間で割った時給換算額が高い職種ランキング。時間効率のよい仕事を職種別に確認できます。',
-}
+export const metadata = buildMetadata({
+  title: '時給換算が高い職種ランキング2025 | AIリクルート',
+  description: '2025年調査・月給÷160時間で算出した時給換算額が高い職種ランキング。時間あたりの収入が高い職種を賃金構造基本統計調査データで確認できます。',
+  keywords: ['時給 高い', '時給換算 職種', '時給 ランキング', '高時給 仕事', '時間効率 年収'],
+  path: '/salary/ranking/hourly-wage',
+})
 
 export default function HourlyWageRankingPage() {
   return (
