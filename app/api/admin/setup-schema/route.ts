@@ -5,14 +5,27 @@ export async function POST() {
   const results: string[] = []
 
   try {
+    // 0. data_sources テーブル（提供元・流通元の両方に使う汎用ソーステーブル）
+    await query(`
+      CREATE TABLE IF NOT EXISTS data_sources (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        name        VARCHAR(255) NOT NULL COMMENT 'ソース名（例: 厚生労働省、e-Stat）',
+        url         VARCHAR(1024) COMMENT '公式サイトURL',
+        description TEXT COMMENT '説明・備考',
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+    results.push('data_sources: OK')
+
     // 1. dataset_groups（親）テーブル
     await query(`
       CREATE TABLE IF NOT EXISTS dataset_groups (
         id              INT AUTO_INCREMENT PRIMARY KEY,
         name            VARCHAR(255) NOT NULL COMMENT '調査名',
         category        VARCHAR(100) NOT NULL DEFAULT 'occupation',
-        source_type     VARCHAR(20)  NOT NULL DEFAULT 'mhlw' COMMENT 'mhlw=厚生労働省 / estat=e-Stat / other',
-        source_name     VARCHAR(255) COMMENT 'データソース名（自由記述）',
+        publisher_id    INT NULL COMMENT '提供元データソースID（例: 厚生労働省）',
+        distributor_id  INT NULL COMMENT '流通元データソースID（例: e-Stat）',
         sex_label_mode  VARCHAR(20)  NOT NULL DEFAULT 'cell_combined'
                           COMMENT 'cell_combined=性別+職種が同一セル / separate_row=性別が独立行',
         data_start_row  INT NOT NULL DEFAULT 10 COMMENT 'CSVデータ開始行（0-indexed）',
@@ -23,7 +36,9 @@ export async function POST() {
         size4_col_start INT NOT NULL DEFAULT 27 COMMENT '10～99人 開始列',
         parse_notes     TEXT COMMENT 'パースルールメモ・特記事項',
         created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (publisher_id)   REFERENCES data_sources(id) ON DELETE SET NULL,
+        FOREIGN KEY (distributor_id) REFERENCES data_sources(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `)
     results.push('dataset_groups: OK')
@@ -71,21 +86,39 @@ export async function POST() {
     `)
     results.push('occupation_wages: OK')
 
-    // --- マイグレーション: dataset_groups に新列がなければ追加 ---
+    // --- マイグレーション: dataset_groups の列更新 ---
     try {
       const existingCols = await query(
         `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dataset_groups'
-         AND COLUMN_NAME IN ('source_type','sex_label_mode')`
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dataset_groups'`
       ) as any[]
-      const existing = existingCols.map((c: any) => c.COLUMN_NAME)
-      if (!existing.includes('source_type')) {
-        await query(`ALTER TABLE dataset_groups ADD COLUMN source_type VARCHAR(20) NOT NULL DEFAULT 'mhlw' AFTER category`)
-        results.push('migration: dataset_groups.source_type 追加')
+      const existing = existingCols.map((c: any) => c.COLUMN_NAME as string)
+
+      // publisher_id / distributor_id がなければ追加
+      if (!existing.includes('publisher_id')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN publisher_id INT NULL AFTER category`)
+        try {
+          await query(`ALTER TABLE dataset_groups ADD CONSTRAINT fk_dg_publisher FOREIGN KEY (publisher_id) REFERENCES data_sources(id) ON DELETE SET NULL`)
+        } catch { /* FK既存ならスキップ */ }
+        results.push('migration: dataset_groups.publisher_id 追加')
+      }
+      if (!existing.includes('distributor_id')) {
+        await query(`ALTER TABLE dataset_groups ADD COLUMN distributor_id INT NULL AFTER publisher_id`)
+        try {
+          await query(`ALTER TABLE dataset_groups ADD CONSTRAINT fk_dg_distributor FOREIGN KEY (distributor_id) REFERENCES data_sources(id) ON DELETE SET NULL`)
+        } catch { /* FK既存ならスキップ */ }
+        results.push('migration: dataset_groups.distributor_id 追加')
       }
       if (!existing.includes('sex_label_mode')) {
-        await query(`ALTER TABLE dataset_groups ADD COLUMN sex_label_mode VARCHAR(20) NOT NULL DEFAULT 'cell_combined' AFTER source_name`)
+        await query(`ALTER TABLE dataset_groups ADD COLUMN sex_label_mode VARCHAR(20) NOT NULL DEFAULT 'cell_combined' AFTER distributor_id`)
         results.push('migration: dataset_groups.sex_label_mode 追加')
+      }
+      // 旧 source_type / source_name 列を削除（存在する場合）
+      for (const col of ['source_type', 'source_name'] as const) {
+        if (existing.includes(col)) {
+          await query(`ALTER TABLE dataset_groups DROP COLUMN \`${col}\``)
+          results.push(`migration: dataset_groups.${col} 削除`)
+        }
       }
     } catch (altErr: any) {
       results.push(`migration(ALTER): ${altErr.message}`)

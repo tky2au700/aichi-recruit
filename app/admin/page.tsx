@@ -4,16 +4,28 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Database, Upload, FileText, CheckCircle2, AlertCircle,
   Loader2, Eye, Trash2, Plus, X, Pencil, ChevronLeft,
-  ChevronRight, Settings, FolderOpen, RefreshCw,
+  ChevronRight, Settings, FolderOpen, RefreshCw, BookOpen, ExternalLink,
 } from 'lucide-react'
 
 // ---- 型定義 ----
+interface DataSource {
+  id: number
+  name: string
+  url: string | null
+  description: string | null
+  created_at: string
+}
+
 interface DatasetGroup {
   id: number
   name: string
   category: string
-  source_type: 'mhlw' | 'estat' | 'other'
-  source_name: string | null
+  publisher_id: number | null
+  publisher_name: string | null
+  publisher_url: string | null
+  distributor_id: number | null
+  distributor_name: string | null
+  distributor_url: string | null
   sex_label_mode: 'cell_combined' | 'separate_row'
   data_start_row: number
   name_col_index: number
@@ -79,7 +91,7 @@ function fmt(v: number | null): string {
 // メインページ
 // ============================================================
 export default function AdminPage() {
-  const [tab, setTab] = useState<'groups' | 'data' | 'schema'>('groups')
+  const [tab, setTab] = useState<'sources' | 'groups' | 'data' | 'schema'>('sources')
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
@@ -97,9 +109,10 @@ export default function AdminPage() {
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex">
             {([
-              { key: 'groups', label: '調査グループ管理', icon: FolderOpen },
-              { key: 'data',   label: 'データ登録・CSV取込', icon: Upload },
-              { key: 'schema', label: 'DB初期化', icon: Settings },
+              { key: 'sources', label: 'データソース管理', icon: BookOpen },
+              { key: 'groups',  label: '調査グループ管理', icon: FolderOpen },
+              { key: 'data',    label: 'データ登録・CSV取込', icon: Upload },
+              { key: 'schema',  label: 'DB初期化', icon: Settings },
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -119,21 +132,209 @@ export default function AdminPage() {
       </div>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        {tab === 'groups' && <GroupsTab />}
-        {tab === 'data'   && <DataTab />}
-        {tab === 'schema' && <SchemaTab />}
+        {tab === 'sources' && <DataSourcesTab />}
+        {tab === 'groups'  && <GroupsTab />}
+        {tab === 'data'    && <DataTab />}
+        {tab === 'schema'  && <SchemaTab />}
       </main>
     </div>
   )
 }
 
 // ============================================================
-// タブ1: 調査グループ管理
+// タブ1: データソース管理
+// ============================================================
+function defaultSourceForm() {
+  return { name: '', url: '', description: '' }
+}
+
+function DataSourcesTab() {
+  const [sources, setSources]     = useState<DataSource[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [editingId, setEditingId] = useState<number | 'new' | null>(null)
+  const [form, setForm]           = useState(defaultSourceForm())
+  const [saving, setSaving]       = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/data-sources')
+      const j   = await res.json()
+      if (j.success) setSources(j.data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  function openNew() {
+    setForm(defaultSourceForm())
+    setEditingId('new')
+    setDeleteError(null)
+  }
+
+  function openEdit(s: DataSource) {
+    setForm({ name: s.name, url: s.url ?? '', description: s.description ?? '' })
+    setEditingId(s.id)
+    setDeleteError(null)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const payload = { name: form.name, url: form.url || null, description: form.description || null }
+      const url    = editingId === 'new' ? '/api/admin/data-sources' : `/api/admin/data-sources/${editingId}`
+      const method = editingId === 'new' ? 'POST' : 'PATCH'
+      const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const j      = await res.json()
+      if (j.success) { setEditingId(null); await load() }
+      else alert('保存失敗: ' + j.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm('このデータソースを削除しますか？')) return
+    setDeletingId(id)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`/api/admin/data-sources/${id}`, { method: 'DELETE' })
+      const j   = await res.json()
+      if (j.success) { await load() }
+      else setDeleteError(j.message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold">データソース管理</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            提供元（例: 厚生労働省）と流通元（例: e-Stat）を登録します。調査グループから参照します。
+          </p>
+        </div>
+        <button
+          onClick={openNew}
+          className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90"
+        >
+          <Plus className="w-3.5 h-3.5" />新規ソース
+        </button>
+      </div>
+
+      {deleteError && (
+        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg px-3 py-2 text-xs">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {deleteError}
+        </div>
+      )}
+
+      {editingId !== null && (
+        <div className="bg-card border border-primary/30 rounded-xl p-5">
+          <h3 className="text-xs font-bold mb-4">{editingId === 'new' ? '新規データソース作成' : 'データソース編集'}</h3>
+          <form onSubmit={handleSave} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">名前 <span className="text-destructive">*</span></label>
+                <input
+                  required value={form.name}
+                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="例: 厚生労働省、e-Stat"
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">公式URL（任意）</label>
+                <input
+                  type="url" value={form.url}
+                  onChange={e => setForm(p => ({ ...p, url: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] text-muted-foreground mb-0.5">説明・備考（任意）</label>
+              <textarea
+                rows={2} value={form.description}
+                onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="このデータソースについての補足情報"
+                className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={saving}
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-md text-xs font-semibold hover:opacity-90 disabled:opacity-50">
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}保存
+              </button>
+              <button type="button" onClick={() => setEditingId(null)}
+                className="flex items-center gap-1.5 border border-border text-muted-foreground px-4 py-1.5 rounded-md text-xs hover:text-foreground">
+                <X className="w-3 h-3" />キャンセル
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : sources.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          データソースがまだありません。「新規ソース」から追加してください。
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sources.map(s => (
+            <div key={s.id} className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm">{s.name}</span>
+                  {s.url && (
+                    <a href={s.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-0.5 text-[10px] text-primary hover:opacity-80">
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      {s.url.replace(/^https?:\/\//, '').split('/')[0]}
+                    </a>
+                  )}
+                </div>
+                {s.description && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{s.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => openEdit(s)} className="text-muted-foreground hover:text-primary transition-colors" title="編集">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(s.id)} disabled={deletingId === s.id}
+                  className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50" title="削除">
+                  {deletingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// タブ2: 調査グループ管理
 // ============================================================
 function defaultGroupForm() {
   return {
     name: '', category: 'occupation',
-    source_type: 'mhlw', source_name: '',
+    publisher_id: '', distributor_id: '',
     sex_label_mode: 'cell_combined',
     data_start_row: '10', name_col_index: '1',
     size1_col_start: '3', size2_col_start: '11',
@@ -143,19 +344,24 @@ function defaultGroupForm() {
 }
 
 function GroupsTab() {
-  const [groups, setGroups]       = useState<DatasetGroup[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [editingId, setEditingId] = useState<number | 'new' | null>(null)
-  const [form, setForm]           = useState(defaultGroupForm())
-  const [saving, setSaving]       = useState(false)
+  const [groups, setGroups]         = useState<DatasetGroup[]>([])
+  const [dataSources, setDataSources] = useState<DataSource[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [editingId, setEditingId]   = useState<number | 'new' | null>(null)
+  const [form, setForm]             = useState(defaultGroupForm())
+  const [saving, setSaving]         = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/dataset-groups')
-      const j   = await res.json()
-      if (j.success) setGroups(j.data)
+      const [grRes, dsRes] = await Promise.all([
+        fetch('/api/admin/dataset-groups'),
+        fetch('/api/admin/data-sources'),
+      ])
+      const [grJ, dsJ] = await Promise.all([grRes.json(), dsRes.json()])
+      if (grJ.success) setGroups(grJ.data)
+      if (dsJ.success) setDataSources(dsJ.data)
     } finally {
       setLoading(false)
     }
@@ -171,8 +377,8 @@ function GroupsTab() {
   function openEdit(g: DatasetGroup) {
     setForm({
       name: g.name, category: g.category,
-      source_type: g.source_type ?? 'mhlw',
-      source_name: g.source_name ?? '',
+      publisher_id:   g.publisher_id   != null ? String(g.publisher_id)   : '',
+      distributor_id: g.distributor_id != null ? String(g.distributor_id) : '',
       sex_label_mode: g.sex_label_mode ?? 'cell_combined',
       data_start_row:  String(g.data_start_row),
       name_col_index:  String(g.name_col_index),
@@ -191,13 +397,14 @@ function GroupsTab() {
     try {
       const payload = {
         ...form,
+        publisher_id:    form.publisher_id   ? Number(form.publisher_id)   : null,
+        distributor_id:  form.distributor_id ? Number(form.distributor_id) : null,
         data_start_row:  Number(form.data_start_row),
         name_col_index:  Number(form.name_col_index),
         size1_col_start: Number(form.size1_col_start),
         size2_col_start: Number(form.size2_col_start),
         size3_col_start: Number(form.size3_col_start),
         size4_col_start: Number(form.size4_col_start),
-        source_name: form.source_name || null,
         parse_notes: form.parse_notes || null,
       }
       const url    = editingId === 'new' ? '/api/admin/dataset-groups' : `/api/admin/dataset-groups/${editingId}`
@@ -271,25 +478,28 @@ function GroupsTab() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース種別</label>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">提供元（データの所有者）</label>
                 <select
-                  value={form.source_type}
-                  onChange={e => setForm(p => ({ ...p, source_type: e.target.value }))}
+                  value={form.publisher_id}
+                  onChange={e => setForm(p => ({ ...p, publisher_id: e.target.value }))}
                   className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
                 >
-                  <option value="mhlw">厚生労働省</option>
-                  <option value="estat">e-Stat</option>
-                  <option value="other">その他</option>
+                  <option value="">未設定</option>
+                  {dataSources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">例: 厚生労働省</p>
               </div>
               <div>
-                <label className="block text-[10px] text-muted-foreground mb-0.5">データソース名（任意）</label>
-                <input
-                  value={form.source_name}
-                  onChange={e => setForm(p => ({ ...p, source_name: e.target.value }))}
-                  placeholder="例: 賃金構造基本統計調査"
-                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
+                <label className="block text-[10px] text-muted-foreground mb-0.5">流通元（ファイル取得先）</label>
+                <select
+                  value={form.distributor_id}
+                  onChange={e => setForm(p => ({ ...p, distributor_id: e.target.value }))}
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  <option value="">未設定</option>
+                  {dataSources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">例: e-Stat（提供元と同じ場合は未設定可）</p>
               </div>
             </div>
 
@@ -368,15 +578,15 @@ function GroupsTab() {
                     <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
                       {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
                     </span>
-                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] ${
-                      g.source_type === 'mhlw'  ? 'bg-blue-500/10 text-blue-400' :
-                      g.source_type === 'estat' ? 'bg-green-500/10 text-green-400' :
-                                                   'bg-muted text-muted-foreground'
-                    }`}>
-                      {g.source_type === 'mhlw' ? '厚生労働省' : g.source_type === 'estat' ? 'e-Stat' : 'その他'}
-                    </span>
-                    {g.source_name && (
-                      <span className="shrink-0 text-[10px] text-muted-foreground">{g.source_name}</span>
+                    {g.publisher_name && (
+                      <span className="shrink-0 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px]">
+                        {g.publisher_name}
+                      </span>
+                    )}
+                    {g.distributor_name && g.distributor_name !== g.publisher_name && (
+                      <span className="shrink-0 bg-green-500/10 text-green-400 px-2 py-0.5 rounded text-[10px]">
+                        via {g.distributor_name}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">

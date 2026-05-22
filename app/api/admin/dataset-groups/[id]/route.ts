@@ -11,7 +11,7 @@ export async function PATCH(
     const body = await req.json()
     const {
       name, category,
-      source_type, source_name,
+      publisher_id, distributor_id,
       sex_label_mode,
       data_start_row, name_col_index,
       size1_col_start, size2_col_start, size3_col_start, size4_col_start,
@@ -24,20 +24,29 @@ export async function PATCH(
 
     await query(
       `UPDATE dataset_groups SET
-         name = ?, category = ?, source_type = ?, source_name = ?,
+         name = ?, category = ?,
+         publisher_id = ?, distributor_id = ?,
          sex_label_mode = ?,
          data_start_row = ?, name_col_index = ?,
          size1_col_start = ?, size2_col_start = ?, size3_col_start = ?, size4_col_start = ?,
          parse_notes = ?
        WHERE id = ?`,
-      [name, category, source_type ?? 'mhlw', source_name ?? null,
+      [name, category,
+       publisher_id ?? null, distributor_id ?? null,
        sex_label_mode ?? 'cell_combined',
        data_start_row, name_col_index,
        size1_col_start, size2_col_start, size3_col_start, size4_col_start,
        parse_notes ?? null, id]
     )
 
-    const rows = await query(`SELECT * FROM dataset_groups WHERE id = ?`, [id])
+    const rows = await query(
+      `SELECT g.*, pub.name AS publisher_name, dist.name AS distributor_name
+       FROM dataset_groups g
+       LEFT JOIN data_sources pub  ON pub.id  = g.publisher_id
+       LEFT JOIN data_sources dist ON dist.id = g.distributor_id
+       WHERE g.id = ?`,
+      [id]
+    )
     return NextResponse.json({ success: true, data: (rows as any[])[0] })
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 })
