@@ -1181,7 +1181,7 @@ function PreviewTable({
               className="px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed">
               最初
             </button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            <button onClick={() => setPage((p: number) => Math.max(1, p - 1))} disabled={page === 1}
               className="p-1 border border-border rounded text-muted-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed">
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -1198,7 +1198,7 @@ function PreviewTable({
                 {p}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            <button onClick={() => setPage((p: number) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
               className="p-1 border border-border rounded text-muted-foreground hover:bg-muted/30 disabled:opacity-40 disabled:cursor-not-allowed">
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
