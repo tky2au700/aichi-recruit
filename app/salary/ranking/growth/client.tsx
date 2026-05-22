@@ -151,7 +151,7 @@ export function GrowthRankingClient({
   useEffect(() => {
     setLoading(true)
     setError(null)
-    fetch(`/api/salary/ranking/growth?years=${years}`)
+    fetch(`/api/salary/ranking/growth?years=${years}&_=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
       .then((json: ApiResponse) => {
         if (!json.success) { setError(json.message ?? 'エラー'); return }
