@@ -69,17 +69,23 @@ export async function GET(
     const latestYear = allYears[0]
     const latestRows = rows.filter((r: any) => r.survey_year === latestYear)
 
-    // 時系列（男女計・企業規模計のみ）
-    const timeSeries = rows
-      .filter((r: any) => r.sex === '計' && r.enterprise_size === '企業規模計')
+    // 時系列（全 sex × enterprise_size の組み合わせ）
+    // 後方互換のため time_series（男女計・企業規模計のみ）も残す
+    const timeSeriesAll = rows
       .map((r: any) => ({
-        survey_year:   r.survey_year,
-        annual_income: r.annual_income,
-        monthly_wage:  r.monthly_wage,
+        survey_year:     r.survey_year,
+        sex:             r.sex,
+        enterprise_size: r.enterprise_size,
+        annual_income:   r.annual_income,
+        monthly_wage:    r.monthly_wage,
+        scheduled_wage:  r.scheduled_wage,
+        annual_bonus:    r.annual_bonus,
         // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
-        hourly_wage:   r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
+        hourly_wage:     r.hourly_wage ?? (r.monthly_wage ? Math.round(Number(r.monthly_wage) * 1000 / 160) : null),
       }))
       .sort((a: any, b: any) => a.survey_year - b.survey_year)
+
+    const timeSeries = timeSeriesAll.filter((r: any) => r.sex === '計' && r.enterprise_size === '企業規模計')
 
     return NextResponse.json({
       success: true,
@@ -91,6 +97,7 @@ export async function GET(
       all_years:         allYears,
       latest_data:       latestRows,
       time_series:       timeSeries,
+      time_series_all:   timeSeriesAll,
     })
   } catch (error: any) {
     if (error.message?.includes("doesn't exist") || error.code === 'ER_NO_SUCH_TABLE') {

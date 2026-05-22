@@ -7,6 +7,10 @@ import {
   BarChart2, ArrowLeft, TrendingDown, Building2,
   Info,
 } from 'lucide-react'
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from 'recharts'
 
 // ---------- 型定義 ----------
 interface DetailRow {
@@ -27,8 +31,12 @@ interface DetailRow {
 
 interface TimePoint {
   survey_year: number
+  sex: string
+  enterprise_size: string
   annual_income: number | null
   monthly_wage: number | null
+  scheduled_wage: number | null
+  annual_bonus: number | null
   hourly_wage: number | null
 }
 
@@ -42,6 +50,7 @@ interface ApiResponse {
   all_years: number[]
   latest_data: DetailRow[]
   time_series: TimePoint[]
+  time_series_all: TimePoint[]
   message?: string
 }
 
@@ -114,6 +123,150 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ---------- 推移グラフ ----------
+const METRIC_TABS = [
+  { key: 'annual_income',  label: '推定年収',   unit: '万円', divisor: 10 },
+  { key: 'scheduled_wage', label: '月給（所定内）', unit: '万円', divisor: 10 },
+  { key: 'annual_bonus',   label: '年間賞与',   unit: '万円', divisor: 10 },
+  { key: 'hourly_wage',    label: '時給換算',   unit: '円',   divisor: 1 },
+] as const
+
+type MetricKey = typeof METRIC_TABS[number]['key']
+
+// 比較軸：企業規模別 or 男女別
+const COMPARE_MODES = [
+  { key: 'sex',  label: '男女別' },
+  { key: 'size', label: '企業規模別' },
+] as const
+type CompareMode = typeof COMPARE_MODES[number]['key']
+
+// 色パレット（最大6本）
+const LINE_COLORS = ['#1a73e8', '#db2777', '#16a34a', '#d97706', '#7c3aed', '#64748b']
+
+const SEX_LINES    = ['計', '男', '女']
+const SEX_LABELS: Record<string, string>  = { '計': '男女計', '男': '男性', '女': '女性' }
+const SIZE_LINES   = ['企業規模計', '1000人以上', '100〜999人', '10〜99人']
+
+function TrendChart({ timeSeriesAll, allYears, growthStr, growthPositive, oldest, latest }: {
+  timeSeriesAll: TimePoint[]
+  allYears: number[]
+  growthStr: string
+  growthPositive: boolean
+  oldest: TimePoint | undefined
+  latest: TimePoint | undefined
+}) {
+  const [metric, setMetric]          = useState<MetricKey>('annual_income')
+  const [compareMode, setCompareMode] = useState<CompareMode>('sex')
+
+  const metricDef = METRIC_TABS.find(m => m.key === metric)!
+  const lines = compareMode === 'sex' ? SEX_LINES : SIZE_LINES
+  const lineLabel = (key: string) => compareMode === 'sex' ? (SEX_LABELS[key] ?? key) : key
+
+  // Recharts用データ: { year: 2021, '男女計': 1632, '男性': 1800, ... }
+  const years = [...new Set(timeSeriesAll.map(t => t.survey_year))].sort((a, b) => a - b)
+  const chartData = years.map(year => {
+    const row: Record<string, number | string> = { year: `${year}年` }
+    lines.forEach(lineKey => {
+      const found = compareMode === 'sex'
+        ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lineKey && t.enterprise_size === '企業規模計')
+        : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lineKey)
+      const raw = found ? (found as any)[metric] : null
+      if (raw != null) {
+        row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
+      }
+    })
+    return row
+  })
+
+  const TabBtn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button onClick={onClick} style={{
+      padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+      background: active ? '#fff' : 'transparent',
+      color: active ? '#1a73e8' : '#64748B',
+      boxShadow: active ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+      transition: 'all 0.15s',
+    }}>
+      {children}
+    </button>
+  )
+
+  const formatTick = (v: number) => metricDef.unit === '円' ? `${v.toLocaleString()}円` : `${v.toLocaleString()}万`
+  const formatTooltip = (v: number) => metricDef.unit === '円' ? `${v.toLocaleString()}円` : `${v.toLocaleString()}万円`
+
+  return (
+    <section style={{ marginBottom: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ marginBottom: 0 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #1a73e8', paddingLeft: 10, margin: 0 }}>
+            推移グラフ
+          </h2>
+        </div>
+        {/* 比較軸タブ */}
+        <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2 }}>
+          {COMPARE_MODES.map(m => (
+            <TabBtn key={m.key} active={compareMode === m.key} onClick={() => setCompareMode(m.key)}>
+              {m.label}
+            </TabBtn>
+          ))}
+        </div>
+      </div>
+
+      {/* 指標タブ */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {METRIC_TABS.map(m => (
+          <button key={m.key} onClick={() => setMetric(m.key)} style={{
+            padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            border: metric === m.key ? '1.5px solid #1a73e8' : '1.5px solid #E2E8F0',
+            background: metric === m.key ? '#e8f0fe' : '#fff',
+            color: metric === m.key ? '#1a73e8' : '#475569',
+            transition: 'all 0.15s',
+          }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748B' }} />
+            <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={56} />
+            <Tooltip
+              formatter={(value: number, name: string) => [formatTooltip(value), name]}
+              labelStyle={{ fontSize: 12, color: '#0F172A', fontWeight: 700 }}
+              contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12 }}
+            />
+            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+            {lines.map((lineKey, idx) => (
+              <Line
+                key={lineKey}
+                type="monotone"
+                dataKey={lineLabel(lineKey)}
+                stroke={LINE_COLORS[idx % LINE_COLORS.length]}
+                strokeWidth={lineKey === '計' || lineKey === '企業規模計' ? 2.5 : 1.8}
+                dot={{ r: 4, fill: LINE_COLORS[idx % LINE_COLORS.length] }}
+                activeDot={{ r: 6 }}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+
+        {growthStr !== '−' && metric === 'annual_income' && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B' }}>
+            <span>{oldest?.survey_year}年→{latest?.survey_year}年の変化（男女計）:</span>
+            <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
+              {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {growthStr}
+            </strong>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ---------- メインコンポーネント ----------
 export function OccupationDetailClient({ slug }: { slug: string }) {
   const [data, setData]       = useState<ApiResponse | null>(null)
@@ -157,7 +310,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           {error ?? 'データが見つかりません'}
         </p>
         <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 24 }}>
-          DB マイグレーション未実行の場合、管理画面から setup-schema を実行してください。
+          DB マイグレーション未実行の場合、���理画面から setup-schema を実行してください。
         </p>
         <Link
           href="/salary/ranking/occupation"
@@ -173,7 +326,6 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
   // --- データ整形 ---
   const repFixed = data.latest_data.find(r => r.sex === '計' && r.enterprise_size === '企業規模計')
   const rep      = data.latest_data.find(r => r.sex === kpiSexTab && r.enterprise_size === kpiSizeTab) ?? repFixed
-  const maxIncome = Math.max(...data.time_series.map(t => t.annual_income ?? 0), 1)
   const sizeRows  = ENTERPRISE_ORDER
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
     .filter(Boolean) as DetailRow[]
@@ -368,48 +520,16 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
         )}
         </section>
 
-        {/* 年収推移 */}
-        {data.time_series.length > 1 && (
-          <section style={{ marginBottom: 36 }}>
-            <SectionTitle>年収推移（男女計・企業規模計）</SectionTitle>
-            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              {data.time_series.map((t, i) => {
-                const pct = t.annual_income ? (t.annual_income / maxIncome) * 100 : 0
-                const isLatest = i === data.time_series.length - 1
-                return (
-                  <div key={t.survey_year} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: i < data.time_series.length - 1 ? 10 : 0 }}>
-                    <span style={{ fontSize: 12, color: isLatest ? '#0F172A' : '#64748B', fontWeight: isLatest ? 700 : 400, minWidth: 40 }}>
-                      {t.survey_year}年
-                    </span>
-                    <div style={{ flex: 1, height: 20, background: '#F1F5F9', borderRadius: 6, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${pct}%`,
-                        height: '100%',
-                        background: isLatest ? '#1a73e8' : '#93C5FD',
-                        borderRadius: 6,
-                        transition: 'width 0.6s ease',
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: isLatest ? 700 : 400, color: isLatest ? '#0F172A' : '#64748B', minWidth: 72, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtWan(t.annual_income)}
-                    </span>
-                  </div>
-                )
-              })}
-              {growthStr !== '−' && (
-                <div style={{
-                  marginTop: 16, paddingTop: 14, borderTop: '1px solid #F1F5F9',
-                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B',
-                }}>
-                  <span>{data.time_series[0]?.survey_year}年→{latest?.survey_year}年の変化:</span>
-                  <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    {growthPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                    {growthStr}
-                  </strong>
-                </div>
-              )}
-            </div>
-          </section>
+        {/* 推移グラフ */}
+        {(data.time_series_all ?? data.time_series).length > 1 && (
+          <TrendChart
+            timeSeriesAll={data.time_series_all ?? data.time_series.map(t => ({ ...t, sex: '計', enterprise_size: '企業規模計' }))}
+            allYears={data.all_years}
+            growthStr={growthStr}
+            growthPositive={growthPositive}
+            oldest={oldest}
+            latest={latest}
+          />
         )}
 
         {/* 企業規模別データ */}
