@@ -26,9 +26,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: [], available_years: allYears.map(y => y.survey_year), message: '比較に必要な年度数のデータがありません' })
     }
 
+    // occupation_slug / hourly_wage はマイグレーション後に追加される列なので存在チェック
+    const colCheck = await query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
+       AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
+    ) as Array<{ COLUMN_NAME: string }>
+    const existingCols = new Set(colCheck.map((r: any) => r.COLUMN_NAME))
+    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
+    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
+
     // 最新年度データ（男女計・企業規模計）
     const latestRows = await query(
-      `SELECT occupation_name, occupation_slug, annual_income, monthly_wage, hourly_wage, workers
+      `SELECT occupation_name, ${slugCol}, annual_income, monthly_wage, ${hourlyCol}, workers
        FROM occupation_wages
        WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計' AND annual_income IS NOT NULL`,
       [latestDs.dataset_id]
