@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // プレビュー用に先頭20件 + 集計情報を返す
+    // 集計情報 + 全件プレビューを返す
     const occupations = [...new Set(rows.filter(r => r.sex === '計' && r.enterprise_size === '企業規模計').map(r => r.occupation_name))]
     const sexBreakdown = {
       計: rows.filter(r => r.sex === '計').length,
@@ -54,10 +54,8 @@ export async function POST(req: NextRequest) {
         file_name: file.name,
         file_size: file.size,
       },
-      preview: rows
-        .filter(r => r.sex === '計' && r.enterprise_size === '企業規模計')
-        .slice(0, 20),
-      all_occupations: occupations.slice(0, 50),
+      preview: rows,
+      all_occupations: occupations,
     })
   } catch (error: any) {
     return NextResponse.json(
