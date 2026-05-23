@@ -23,28 +23,51 @@ function detectYearFromText(text: string): number | null {
   return null
 }
 
-/** シートから産業名を取得（行3〜8の C 列付近） */
+/** ファイル内のセルテキストから調査年を推定（タイトル行を走査） */
+function detectYearFromSheet(sheet: XLSX.WorkSheet): number | null {
+  // 行1〜3、列2〜4 あたりにタイトルがある
+  for (let r = 0; r <= 4; r++) {
+    for (let c = 0; c <= 6; c++) {
+      const v = String(sheet[XLSX.utils.encode_cell({ r, c })]?.v ?? '')
+      const mReiwa = v.match(/令和\s*(\d+)/)
+      if (mReiwa) return 2018 + parseInt(mReiwa[1], 10)
+      const mHeisei = v.match(/平成\s*(\d+)/)
+      if (mHeisei) return 1988 + parseInt(mHeisei[1], 10)
+    }
+  }
+  return null
+}
+
+/**
+ * シートから産業名を取得。
+ * 実データ構造: row6(0-indexed)=「産業」ラベル行, col2 に産業名が入る
+ * 例: row6=[産業, "", 産業計]
+ */
 function detectIndustryName(sheet: XLSX.WorkSheet, sheetName: string): string {
-  // C6 (r=5, c=2) が最も多い
-  for (const [r, c] of [[5, 2], [5, 3], [6, 2], [4, 2], [5, 1]]) {
+  // row6 col2 が産業名（最も確実）
+  for (const [r, c] of [[6, 2], [6, 3], [7, 2], [5, 2], [6, 1]]) {
     const cell = sheet[XLSX.utils.encode_cell({ r, c })]
-    const val  = cell?.v?.toString().trim() ?? ''
-    if (val && val.length > 1 && !/^\d+$/.test(val)) return val
+    const val  = (cell?.v?.toString() ?? '').replace(/\s+/g, '').trim()
+    if (val && val.length > 1 && !/^\d+$/.test(val)
+      && !val.includes('調査') && !val.includes('第') && !val.includes('表')
+      && !val.includes('民営') && !val.includes('公営') && val !== '産業') {
+      return val
+    }
   }
   return sheetName
 }
 
-/** データ行数を大まかに数える（行9〜200 を走査） */
+/**
+ * データ行数をカウント（col2 に値がある行 = ラベル行）。
+ * 実構造では col2 にすべてのラベルが入る。
+ */
 function countDataRows(sheet: XLSX.WorkSheet): number {
-  const range   = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1:A1')
-  const maxRow  = Math.min(range.e.r, 200)
+  const range  = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1:A1')
+  const maxRow = Math.min(range.e.r, 400)
   let count = 0
-  for (let r = 9; r <= maxRow; r++) {
-    // A〜F列のどこかに値があれば有効行
-    for (let c = 0; c <= 5; c++) {
-      const cell = sheet[XLSX.utils.encode_cell({ r, c })]
-      if (cell?.v !== undefined && cell.v !== '') { count++; break }
-    }
+  for (let r = 12; r <= maxRow; r++) {
+    const cell = sheet[XLSX.utils.encode_cell({ r, c: 2 })]
+    if (cell?.v !== undefined && String(cell.v).trim() !== '') count++
   }
   return count
 }
@@ -64,8 +87,12 @@ export async function POST(req: NextRequest) {
     const buf = Buffer.from(await file.arrayBuffer())
     const wb  = XLSX.read(buf, { type: 'buffer', cellDates: false })
 
-    // ファイル名から調査年を推定
-    const detectedYear = detectYearFromText(file.name)
+    // ファイル名 → 最初のシート内テキスト の優先順位で調査年を推定
+    let detectedYear = detectYearFromText(file.name)
+    if (!detectedYear && wb.SheetNames.length > 0) {
+      const firstWs = wb.Sheets[wb.SheetNames[0]]
+      if (firstWs) detectedYear = detectYearFromSheet(firstWs)
+    }
 
     const sheets = wb.SheetNames.map(name => {
       const ws = wb.Sheets[name]

@@ -1,17 +1,21 @@
 /**
  * POST /api/admin/xlsx-import
  *
- * 業種別XLSXの全シートを industry_wages テーブルへ一括インポートする。
+ * 賃金構造基本統計調査 第1表（業種別・年齢階級別）XLSX を
+ * industry_wages テーブルへ一括インポートする。
  *
- * XLSXフォーマット（賃金構造基本統計調査 第1表）:
- *   タブ = 業種（産業計・C鉱業・D建設業 など）
- *   行   = 年齢階級 × 性別（計/男/女）
- *   列   = 企業規模 × 指標（年齢・勤続・所定内時間・超過時間・月給・所定内給与・賞与・労働者数）
+ * XLSXフォーマット:
+ *   タブ  = 業種（産業計・C鉱業・D建設業 など）
+ *   行    = 性別（計/男/女）× 学歴 × 年齢階級 の3層ネスト
+ *   列    = 企業規模 × 8指標
  *
- * リクエストボディ（multipart/form-data）:
- *   file       : XLSX ファイル
- *   survey_year: 調査年（西暦4桁）※ユーザーが手動入力
- *   group_id   : dataset_groups.id（省略時は category='industry' のグループを自動選択）
+ * 確定レイアウト（実データから検証済み）:
+ *   col2  : ラベル（性別+学歴が改行結合 or 年齢階級）
+ *   col3-10: 企業規模計
+ *   col11-18: 1,000人以上
+ *   col19-26: 100〜999人
+ *   col27-34: 10〜99人
+ *   各8列 = 年齢, 勤続年数, 所定内時間, 超過時間, 月給, 所定内給与, 賞与, 労働者数（十人）
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -19,50 +23,147 @@ import * as XLSX from 'xlsx'
 import { query } from '@/lib/db'
 
 // -------------------------------------------------------
-// 列ブロック定義（e-Stat 賃金構造基本統計調査 第1表 標準レイアウト）
-// A列(0): 区分ラベル
-// 各サイズブロック: 8列幅
-//   offset 0: 年齢
-//   offset 1: 勤続年数
-//   offset 2: 所定内労働時間
-//   offset 3: 超過労働時間
-//   offset 4: きまって支給する現金給与額
-//   offset 5: 所定内給与額
-//   offset 6: 年間賞与その他特別給与額
-//   offset 7: 労働者数（十人）
+// 定数
 // -------------------------------------------------------
 
-const SIZE_NAMES = ['企業規模計', '1000人以上', '100〜999人', '10〜99人'] as const
-type EntSize = typeof SIZE_NAMES[number]
-const DB_SIZE_MAP: Record<string, EntSize> = {
-  '企業規模計': '企業規模計',
-  '1000人以上': '1000人以上',
-  '1,000人以上': '1000人以上',
-  '100～999人': '100〜999人',
-  '100〜999人': '100〜999人',
-  '10～99人': '10〜99人',
-  '10〜99人': '10〜99人',
+type EntSize = '企業規模計' | '1000人以上' | '100〜999人' | '10〜99人'
+type Sex     = '計' | '男' | '女'
+
+// 固定列レイアウト（実データで確定）
+const SIZE_BLOCKS: Array<{ name: EntSize; col: number }> = [
+  { name: '企業規模計', col: 3  },
+  { name: '1000人以上', col: 11 },
+  { name: '100〜999人', col: 19 },
+  { name: '10〜99人',   col: 27 },
+]
+
+// 学歴ラベルの正規化マップ（前後スペース・全半角揺れを吸収）
+const EDU_MAP: Record<string, string> = {
+  '学歴計':       '学歴計',
+  '中学':         '中学',
+  '高校':         '高校',
+  '専門学校':     '専門学校',
+  '高専・短大':   '高専・短大',
+  '高専短大':     '高専・短大',
+  '大学':         '大学',
+  '大学院':       '大学院',
+  '不明':         '不明',
 }
 
-const SEX_MAP: Record<string, '計' | '男' | '女'> = {
-  '男女計': '計', '計': '計',
-  '男　 計': '男', '男  計': '男', '男　計': '男', '男 計': '男', '男': '男',
-  '女　 計': '女', '女  計': '女', '女　計': '女', '女 計': '女', '女': '女',
-}
+// 性別ラベルの正規化マップ
+const SEX_TOKENS = new Map<string, Sex>([
+  ['男女計', '計'],
+  ['計',     '計'],
+  ['男',     '男'],
+  ['女',     '女'],
+])
 
+// -------------------------------------------------------
+// ユーティリティ
+// -------------------------------------------------------
+
+/** 数値変換（ハイフン・スペース区切り数値・空白 → null） */
 function n(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null
-  const num = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''))
+  if (v === null || v === undefined) return null
+  const s = String(v).replace(/,| /g, '').trim()
+  if (s === '' || s === '-' || s === '−') return null
+  const num = parseFloat(s)
   return isNaN(num) ? null : num
 }
 
-function cellVal(ws: XLSX.WorkSheet, r: number, c: number): unknown {
+/** XLSXシートのセル値を取得 */
+function cv(ws: XLSX.WorkSheet, r: number, c: number): unknown {
   return ws[XLSX.utils.encode_cell({ r, c })]?.v ?? ''
 }
 
+/** セル文字列を正規化（全角スペース・改行を半角スペースに統一して trim） */
+function norm(v: unknown): string {
+  return String(v ?? '').replace(/[\u3000\r\n]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// -------------------------------------------------------
+// ラベル解析
+// -------------------------------------------------------
+
+interface ParsedLabel {
+  sex?:       Sex
+  education?: string
+  age_group?: string
+}
+
+/**
+ * col2 のラベルセルを解析する。
+ *
+ * セルには以下のパターンが存在する:
+ *   "男　女　計\n学　歴　計"  → sex='計', education='学歴計'
+ *   "　　男\n学　歴　計"      → sex='男', education='学歴計'
+ *   "男女計\n大　学"          → sex='計', education='大学'
+ *   "中　学"                  → education='中学'（sexは維持）
+ *   "　　～１９歳"            → age_group='〜19歳'
+ *   "２０～２４歳"            → age_group='20〜24歳'
+ */
+function parseLabel(raw: unknown): ParsedLabel {
+  if (raw === null || raw === undefined) return {}
+  const s = String(raw)
+
+  // 改行で分割してそれぞれ処理
+  const parts = s.split(/[\r\n]/).map(p => p.replace(/[\u3000\s]/g, '').trim()).filter(Boolean)
+
+  let sex: Sex | undefined
+  let education: string | undefined
+  let age_group: string | undefined
+
+  for (const part of parts) {
+    // 性別判定
+    const sexMatch = SEX_TOKENS.get(part)
+    if (sexMatch !== undefined) { sex = sexMatch; continue }
+
+    // 「男女計」が含まれる場合
+    if (part.includes('男女計')) { sex = '計'; continue }
+    if (/^男/.test(part) && !part.includes('歳')) { sex = '男'; continue }
+    if (/^女/.test(part) && !part.includes('歳')) { sex = '女'; continue }
+
+    // 学歴判定
+    const eduKey = Object.keys(EDU_MAP).find(k => part.includes(k.replace(/\s/g, '')))
+    if (eduKey) { education = EDU_MAP[eduKey]; continue }
+
+    // 年齢階級判定（数字か ～ を含む）
+    const ageNorm = part
+      .replace(/～|〜/g, '〜')
+      .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))  // 全角数字→半角
+    if (/\d/.test(ageNorm) || ageNorm.includes('〜') || ageNorm.includes('歳')) {
+      age_group = ageNorm.replace(/^〜/, '〜')
+      continue
+    }
+  }
+
+  return { sex, education, age_group }
+}
+
+// -------------------------------------------------------
+// 産業名検出
+// -------------------------------------------------------
+
+/** シート内の産業名を取得（行7のC列 = row6, col2 in 0-indexed） */
+function detectIndustryName(ws: XLSX.WorkSheet, fallback: string): string {
+  // 行5〜8、列2〜4 の範囲でテキストを探す
+  for (const [r, c] of [[6, 2], [6, 3], [7, 2], [5, 2], [6, 1]]) {
+    const v = norm(cv(ws, r, c))
+    if (v && v.length > 1 && !/^\d+$/.test(v) && !v.includes('調査') && !v.includes('第')) {
+      return v
+    }
+  }
+  return fallback
+}
+
+// -------------------------------------------------------
+// メインパーサー
+// -------------------------------------------------------
+
 interface IndustryWageRow {
   industry_name:   string
-  sex:             '計' | '男' | '女'
+  sex:             Sex
+  education:       string
   age_group:       string
   enterprise_size: EntSize
   age:             number | null
@@ -79,94 +180,69 @@ interface IndustryWageRow {
 function parseIndustrySheet(ws: XLSX.WorkSheet, sheetName: string): IndustryWageRow[] {
   const ref    = ws['!ref'] ?? 'A1:A1'
   const range  = XLSX.utils.decode_range(ref)
-  const maxRow = Math.min(range.e.r, 300)
-  const maxCol = Math.min(range.e.c, 60)
+  const maxRow = range.e.r
 
-  // --- 1. 産業名（C6 付近）---
-  let industryName = sheetName
-  for (const [r, c] of [[5, 2], [5, 3], [6, 2], [4, 2], [5, 1]]) {
-    const v = String(cellVal(ws, r, c)).trim()
-    if (v && v.length > 1 && !/^\d+$/.test(v)) { industryName = v; break }
-  }
-
-  // --- 2. 企業規模ブロックの開始列を検出（ヘッダー行を走査）---
-  const sizeColStarts: Partial<Record<EntSize, number>> = {}
-  for (let r = 7; r <= 14; r++) {
-    for (let c = 0; c <= maxCol; c++) {
-      const v = String(cellVal(ws, r, c)).replace(/\s+/g, '').trim()
-      const mapped = DB_SIZE_MAP[v]
-      if (mapped && sizeColStarts[mapped] === undefined) {
-        sizeColStarts[mapped] = c
-      }
-    }
-    if (Object.keys(sizeColStarts).length >= 2) break
-  }
-
-  // フォールバック: 標準レイアウトを仮定
-  if (sizeColStarts['企業規模計'] === undefined) sizeColStarts['企業規模計'] = 1
-  if (sizeColStarts['1000人以上']  === undefined) sizeColStarts['1000人以上']  = 9
-  if (sizeColStarts['100〜999人']  === undefined) sizeColStarts['100〜999人']  = 17
-  if (sizeColStarts['10〜99人']    === undefined) sizeColStarts['10〜99人']    = 25
-
-  // --- 3. データ開始行（性別ラベルが現れる行）---
-  let dataStart = 12
-  for (let r = 10; r <= 20; r++) {
-    const v = String(cellVal(ws, r, 0)).replace(/\s+/g, '').trim()
-    if (SEX_MAP[v] !== undefined) { dataStart = r; break }
-  }
-
-  // --- 4. 行パース ---
+  const industryName = detectIndustryName(ws, sheetName)
   const rows: IndustryWageRow[] = []
-  let currentSex: '計' | '男' | '女' = '計'
 
-  for (let r = dataStart; r <= maxRow; r++) {
-    const label = String(cellVal(ws, r, 0)).replace(/\s+/g, ' ').trim()
-    if (!label) continue
+  // 状態（前の行から引き継ぐ）
+  let currentSex: Sex   = '計'
+  let currentEdu        = '学歴計'
+  let inDataSection     = false
 
-    // 性別ラベル行
-    const sexMapped = SEX_MAP[label.replace(/\s/g, '')]
-    if (sexMapped !== undefined) {
-      currentSex = sexMapped
-      continue
+  for (let r = 0; r <= maxRow; r++) {
+    // col2 のラベルを取得（XLSXでは結合セルの値が col2 に入る）
+    const rawLabel = ws[XLSX.utils.encode_cell({ r, c: 2 })]?.v
+
+    // col2 が空の行はスキップ
+    if (rawLabel === undefined || rawLabel === null || String(rawLabel).trim() === '') continue
+
+    const parsed = parseLabel(rawLabel)
+
+    // 性別・学歴の更新（年齢階級でない行）
+    if (parsed.sex !== undefined || parsed.education !== undefined) {
+      if (parsed.sex      !== undefined) currentSex = parsed.sex
+      if (parsed.education !== undefined) currentEdu = parsed.education
+      inDataSection = true
+
+      // 年齢階級も同時に含む場合はそのまま続行
+      if (!parsed.age_group) continue
     }
 
-    // 年齢階級ラベルかどうか（数字・〜・歳 を含む）
-    const isAgeGroup = /\d/.test(label) || label.includes('〜') || label.includes('～') || label.includes('歳') || label === '合計' || label === '総数'
-    if (!isAgeGroup) continue
+    // 年齢階級行のみデータを抽出
+    if (!parsed.age_group) continue
+    if (!inDataSection) continue
 
-    const ageGroup = label
+    const ageGroup = parsed.age_group
 
-    for (const [sizeName, startCol] of Object.entries(sizeColStarts) as [EntSize, number][]) {
-      const c = startCol
-      const ageVal       = n(cellVal(ws, r, c))
-      const tenureVal    = n(cellVal(ws, r, c + 1))
-      const schedHours   = n(cellVal(ws, r, c + 2))
-      const overtimeHrs  = n(cellVal(ws, r, c + 3))
-      const monthlyWage  = n(cellVal(ws, r, c + 4))
-      const schedWage    = n(cellVal(ws, r, c + 5))
-      const bonus        = n(cellVal(ws, r, c + 6))
-      const workers      = n(cellVal(ws, r, c + 7))
+    for (const { name: sizeName, col: c } of SIZE_BLOCKS) {
+      const monthly  = n(cv(ws, r, c + 4))
+      const sched    = n(cv(ws, r, c + 5))
+      const bonus    = n(cv(ws, r, c + 6))
+      const wrkRaw   = n(cv(ws, r, c + 7))
 
-      // 有効データが1つもなければスキップ
-      if ([monthlyWage, schedWage, bonus, workers].every(v => v === null)) continue
+      // 有効データがなければスキップ（"-" のみの行）
+      if (monthly === null && sched === null && bonus === null && wrkRaw === null) continue
 
-      const annualIncome = monthlyWage != null && bonus != null
-        ? Math.round(monthlyWage * 12 + bonus)
-        : monthlyWage != null ? Math.round(monthlyWage * 12) : null
+      const workers     = wrkRaw !== null ? Math.round(wrkRaw * 10) : null  // 十人 → 人
+      const annualIncome = monthly !== null
+        ? Math.round(monthly * 12 + (bonus ?? 0))
+        : null
 
       rows.push({
         industry_name:   industryName,
         sex:             currentSex,
+        education:       currentEdu,
         age_group:       ageGroup,
         enterprise_size: sizeName,
-        age:             ageVal,
-        tenure_years:    tenureVal,
-        scheduled_hours: schedHours,
-        overtime_hours:  overtimeHrs,
-        monthly_wage:    monthlyWage,
-        scheduled_wage:  schedWage,
+        age:             n(cv(ws, r, c)),
+        tenure_years:    n(cv(ws, r, c + 1)),
+        scheduled_hours: n(cv(ws, r, c + 2)),
+        overtime_hours:  n(cv(ws, r, c + 3)),
+        monthly_wage:    monthly,
+        scheduled_wage:  sched,
         annual_bonus:    bonus,
-        workers:         workers != null ? Math.round(workers * 10) : null, // 十人単位 → 人
+        workers,
         annual_income:   annualIncome,
       })
     }
@@ -175,6 +251,10 @@ function parseIndustrySheet(ws: XLSX.WorkSheet, sheetName: string): IndustryWage
   return rows
 }
 
+// -------------------------------------------------------
+// DB挿入
+// -------------------------------------------------------
+
 const BATCH_SIZE = 200
 
 async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[]): Promise<number> {
@@ -182,18 +262,19 @@ async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[]): P
   let inserted = 0
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE)
-    const ph = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
+    const ph    = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
     const vals: unknown[] = []
-    for (const r of batch) {
+    for (const row of batch) {
       vals.push(
-        datasetId, r.industry_name, r.sex, r.age_group, r.enterprise_size,
-        r.age, r.tenure_years, r.scheduled_hours, r.overtime_hours,
-        r.monthly_wage, r.scheduled_wage, r.annual_bonus, r.workers, r.annual_income,
+        datasetId,
+        row.industry_name, row.sex, row.education, row.age_group, row.enterprise_size,
+        row.age, row.tenure_years, row.scheduled_hours, row.overtime_hours,
+        row.monthly_wage, row.scheduled_wage, row.annual_bonus, row.workers, row.annual_income,
       )
     }
     await query(
       `INSERT INTO industry_wages
-        (dataset_id, industry_name, sex, age_group, enterprise_size,
+        (dataset_id, industry_name, sex, education, age_group, enterprise_size,
          age, tenure_years, scheduled_hours, overtime_hours,
          monthly_wage, scheduled_wage, annual_bonus, workers, annual_income)
        VALUES ${ph}`,
