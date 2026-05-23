@@ -69,21 +69,20 @@ export async function GET(req: NextRequest) {
       total_workers: number | null
     }>
 
-    // 全体統計
-    const statsRows = await query(
-      `SELECT
-         AVG(w.annual_income) AS avg_income,
-         MAX(w.annual_income) AS max_income,
-         SUM(w.workers)       AS total_workers,
-         COUNT(DISTINCT w.industry_name) AS industry_count
-       FROM industry_wages w
-       WHERE w.dataset_id = ?
-         AND w.sex = ?
-         AND w.enterprise_size = ?
-         AND w.education = ?`,
-      [targetDatasetId, sex, enterpriseSize, education]
-    ) as Array<{ avg_income: number; max_income: number; total_workers: number; industry_count: number }>
-    const stats = statsRows[0]
+    // 全体統計: rankingRows（workers加重平均済み）から導出する
+    // MAX(annual_income) を直接使うと age_group 別の最高齢行が混入するため
+    const validRows = rankingRows.filter(r => r.avg_annual_income != null)
+    const maxIncome   = validRows.length > 0 ? Math.max(...validRows.map(r => Number(r.avg_annual_income))) : null
+    const avgIncome   = validRows.length > 0
+      ? validRows.reduce((s, r) => s + Number(r.avg_annual_income), 0) / validRows.length
+      : null
+    const totalWorkers = rankingRows.reduce((s, r) => s + (r.total_workers ? Number(r.total_workers) : 0), 0)
+    const stats = {
+      avg_income:     avgIncome,
+      max_income:     maxIncome,
+      total_workers:  totalWorkers,
+      industry_count: rankingRows.length,
+    }
 
     // 千円 → 万円変換
     const toWan = (v: any) => v != null ? Math.round(Number(v) / 10) : null
@@ -117,8 +116,8 @@ export async function GET(req: NextRequest) {
         education,
         survey_group_name: targetRow.survey_group_name,
         survey_table_name: targetRow.survey_table_name,
-        avg_income:        toWan(stats?.avg_income),
-        max_income:        toWan(stats?.max_income),
+        avg_income:        stats.avg_income != null ? Math.round(stats.avg_income / 10) : null,
+        max_income:        stats.max_income != null ? Math.round(stats.max_income / 10) : null,
         total_workers:     stats?.total_workers ? Number(stats.total_workers) : null,
         industry_count:    stats?.industry_count ? Number(stats.industry_count) : 0,
       },
