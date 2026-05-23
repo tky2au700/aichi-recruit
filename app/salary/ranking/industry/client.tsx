@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Building2, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
 
@@ -104,28 +105,32 @@ function industryLabel(name: string) {
   return name.replace(/^[A-ZＡ-Ｚ]\s*/, '').replace(/^\(民[＋+]公\)\s*[A-ZＡ-Ｚ]?\s*/, '(民+公) ')
 }
 
-interface Props {
-  initialSex?:  string
-  initialSize?: string
-  initialYear?: number | null
-  initialSort?: SortKey
-  pageHeading?: string
-}
+export function IndustryRankingClient() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
-export function IndustryRankingClient({ initialSex, initialSize, initialYear, initialSort, pageHeading }: Props = {}) {
-  const [data, setData]         = useState<IndustryRow[]>([])
-  const [meta, setMeta]         = useState<Meta | null>(null)
-  const [years, setYears]       = useState<YearOption[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState<string | null>(null)
+  const [data, setData]       = useState<IndustryRow[]>([])
+  const [meta, setMeta]       = useState<Meta | null>(null)
+  const [years, setYears]     = useState<YearOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [search, setSearch]   = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('avg_annual_income')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  const [sex, setSex]           = useState(initialSex  ?? '計')
-  const [size, setSize]         = useState(initialSize ?? '企業規模計')
-  const [education, setEdu]     = useState('学歴計')
-  const [surveyYear, setYear]   = useState<number | null>(initialYear ?? null)
-  const [search, setSearch]     = useState('')
-  const [sortKey, setSortKey]   = useState<SortKey>(initialSort ?? 'avg_annual_income')
-  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc')
+  // URLパラメータを読み取り
+  const sex        = searchParams.get('sex')       ?? '計'
+  const size       = searchParams.get('size')      ?? '企業規模計'
+  const education  = searchParams.get('education') ?? '学歴計'
+  const yearParam  = searchParams.get('year')
+  const surveyYear = yearParam ? parseInt(yearParam, 10) : null
+
+  // URLパラメータを更新するヘルパー
+  function updateParam(key: string, value: string, defaultValue: string) {
+    const p = new URLSearchParams(searchParams.toString())
+    if (value === defaultValue) { p.delete(key) } else { p.set(key, value) }
+    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
+  }
 
   const fetchData = useCallback(async (_sex: string, _size: string, _edu: string, _year: number | null) => {
     setLoading(true); setError(null)
@@ -137,10 +142,7 @@ export function IndustryRankingClient({ initialSex, initialSize, initialYear, in
       if (!json.success) { setError(json.message ?? 'エラーが発生しました'); return }
       setData(json.data)
       setMeta(json.meta)
-      if (json.years.length > 0) {
-        setYears(json.years)
-        if (_year === null && json.meta) setYear(json.meta.survey_year)
-      }
+      if (json.years.length > 0) setYears(json.years)
     } catch { setError('データ取得に失敗しました') }
     finally  { setLoading(false) }
   }, [])
@@ -249,8 +251,8 @@ export function IndustryRankingClient({ initialSex, initialSize, initialYear, in
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {years.map(y => (
                 <button key={y.survey_year}
-                  style={surveyYear === y.survey_year ? S.chipActive : S.chip}
-                  onClick={() => setYear(y.survey_year)}>
+                  style={surveyYear === y.survey_year || (surveyYear === null && meta?.survey_year === y.survey_year) ? S.chipActive : S.chip}
+                  onClick={() => updateParam('year', String(y.survey_year), '')}>
                   {y.survey_year}年
                 </button>
               ))}
@@ -266,7 +268,7 @@ export function IndustryRankingClient({ initialSex, initialSize, initialYear, in
                   style={sex === o.value
                     ? { ...S.chipActive, border: o.value === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8', color: o.value === '女' ? '#DB4437' : '#1a73e8', background: o.value === '女' ? '#FCECEA' : '#EBF3FE' }
                     : S.chip}
-                  onClick={() => setSex(o.value)}>
+                  onClick={() => updateParam('sex', o.value, '計')}>
                   {o.label}
                 </button>
               ))}
@@ -278,7 +280,7 @@ export function IndustryRankingClient({ initialSex, initialSize, initialYear, in
             <span style={S.filterLabel}>企業規模</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {SIZE_OPTIONS.map(o => (
-                <button key={o.value} style={size === o.value ? S.chipActive : S.chip} onClick={() => setSize(o.value)}>
+                <button key={o.value} style={size === o.value ? S.chipActive : S.chip} onClick={() => updateParam('size', o.value, '企業規模計')}>
                   {o.label}
                 </button>
               ))}
@@ -290,7 +292,7 @@ export function IndustryRankingClient({ initialSex, initialSize, initialYear, in
             <span style={S.filterLabel}>学歴</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {EDU_OPTIONS.map(o => (
-                <button key={o.value} style={education === o.value ? S.chipActive : S.chip} onClick={() => setEdu(o.value)}>
+                <button key={o.value} style={education === o.value ? S.chipActive : S.chip} onClick={() => updateParam('education', o.value, '学歴計')}>
                   {o.label}
                 </button>
               ))}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { IndustryRankingClient } from './client'
 import { buildMetadata } from '@/lib/seo'
@@ -14,7 +15,9 @@ export default function IndustryRankingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
-      <IndustryRankingClient />
+      <Suspense fallback={<div style={{ padding: 80, textAlign: 'center', color: '#94A3B8' }}>読み込み中...</div>}>
+        <IndustryRankingClient />
+      </Suspense>
     </div>
   )
 }

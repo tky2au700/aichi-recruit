@@ -105,7 +105,7 @@ export function Nav() {
   const industryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isOccupationActive = pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation')
-  const isIndustryActive   = pathname.startsWith('/salary/industry')
+  const isIndustryActive   = pathname.startsWith('/salary/industry') || pathname.startsWith('/salary/ranking/industry')
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()

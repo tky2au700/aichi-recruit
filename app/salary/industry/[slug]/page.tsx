@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { IndustryDetailClient } from './client'
 import { buildMetadata } from '@/lib/seo'
@@ -23,7 +24,9 @@ export default async function IndustryDetailPage({ params }: { params: Params })
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       <Nav />
-      <IndustryDetailClient slug={slug} />
+      <Suspense fallback={<div style={{ padding: 80, textAlign: 'center', color: '#94A3B8' }}>読み込み中...</div>}>
+        <IndustryDetailClient slug={slug} />
+      </Suspense>
     </div>
   )
 }
