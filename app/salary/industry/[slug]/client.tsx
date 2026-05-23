@@ -41,11 +41,10 @@ interface AgeRow {
   annual_bonus: number | null; annual_income: number | null; workers: number | null
 }
 interface KpiRow {
-  sex: string; education: string; age_group: string; enterprise_size: string
-  age: number | null; tenure_years: number | null
-  scheduled_hours: number | null; overtime_hours: number | null
-  monthly_wage: number | null; scheduled_wage: number | null
-  annual_bonus: number | null; annual_income: number | null; workers: number | null
+  avg_age: number | null; avg_tenure: number | null
+  avg_sched_hours: number | null; avg_ot_hours: number | null
+  avg_monthly_wage: number | null; avg_sched_wage: number | null
+  avg_bonus: number | null; avg_annual_income: number | null; total_workers: number | null
 }
 interface IndustrySummary {
   industry_name: string
@@ -406,8 +405,8 @@ export function IndustryDetailClient({ slug }: { slug: string }) {
             </h1>
             <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 20px' }}>
               {data.survey_group_name} / {data.latest_year}年調査
-              {rep?.annual_income != null && (
-                <>— 推定年収 <strong style={{ color: '#1a73e8', fontSize: 15 }}>{fmtWan(toWan(rep.annual_income))}</strong></>
+              {rep?.avg_annual_income != null && (
+                <>— 推定年収 <strong style={{ color: '#1a73e8', fontSize: 15 }}>{fmtWan(toWan(rep.avg_annual_income))}</strong></>
               )}
             </p>
 
@@ -451,18 +450,18 @@ export function IndustryDetailClient({ slug }: { slug: string }) {
         {/* KPI サマリー */}
         <section style={{ marginBottom: 36 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-            <KpiCard icon={<Award size={15} color="#1a73e8" />}     label="推定年収"      value={fmtWan(toWan(rep?.annual_income))}        sub={`${SEX_LABEL[spSex] ?? spSex} / ${spSize}`} accent="#1a73e8" />
-            <KpiCard icon={<BarChart2 size={15} color="#0F9D58" />}  label="月給（所定内）" value={fmtWan(toWan(rep?.scheduled_wage))}       sub="所定内給与" />
-            <KpiCard icon={<Award size={15} color="#F4B400" />}     label="年間賞与"      value={fmtWan(toWan(rep?.annual_bonus))}         sub="年間賞与総額" />
-            <KpiCard icon={<Clock size={15} color="#0ea5e9" />}     label="残業時間"      value={fmtFixed(rep?.overtime_hours, 1, 'h/月')} sub="月平均残業時間" />
-            <KpiCard icon={<Users size={15} color="#DB4437" />}     label="平均年齢"      value={fmtFixed(rep?.age, 1, '歳')}               sub="" />
-            <KpiCard icon={<Building2 size={15} color="#7c3aed" />} label="勤続年数"      value={fmtFixed(rep?.tenure_years, 1, '年')}      sub="" />
+            <KpiCard icon={<Award size={15} color="#1a73e8" />}     label="推定年収"      value={fmtWan(toWan(rep?.avg_annual_income))}        sub={`${SEX_LABEL[spSex] ?? spSex} / ${spSize}`} accent="#1a73e8" />
+            <KpiCard icon={<BarChart2 size={15} color="#0F9D58" />}  label="月給（所定内）" value={fmtWan(toWan(rep?.avg_sched_wage))}           sub="所定内給与" />
+            <KpiCard icon={<Award size={15} color="#F4B400" />}     label="年間賞与"      value={fmtWan(toWan(rep?.avg_bonus))}                sub="年間賞与総額" />
+            <KpiCard icon={<Clock size={15} color="#0ea5e9" />}     label="残業時間"      value={fmtFixed(rep?.avg_ot_hours, 1, 'h/月')}      sub="月平均残業時間" />
+            <KpiCard icon={<Users size={15} color="#DB4437" />}     label="平均年齢"      value={fmtFixed(rep?.avg_age, 1, '歳')}              sub="" />
+            <KpiCard icon={<Building2 size={15} color="#7c3aed" />} label="勤続年数"      value={fmtFixed(rep?.avg_tenure, 1, '年')}           sub="" />
           </div>
-          {allAvg && rep?.annual_income != null && (
+          {allAvg && rep?.avg_annual_income != null && (
             <div style={{ marginTop: 14, padding: '10px 16px', background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0', fontSize: 12, color: '#64748B', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <span>産業計の平均年収: <strong style={{ color: '#0F172A' }}>{fmtWan(allAvg.avg_annual_income)}</strong></span>
-              {rep.annual_income != null && allAvg.avg_annual_income != null && (() => {
-                const myVal  = toWan(rep.annual_income)!
+              {rep.avg_annual_income != null && allAvg.avg_annual_income != null && (() => {
+                const myVal  = toWan(rep.avg_annual_income)!
                 const avgVal = allAvg.avg_annual_income!
                 const diff   = myVal - avgVal
                 return (
