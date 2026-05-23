@@ -68,6 +68,20 @@ interface ApiResponse {
   message?: string
 }
 
+// ---------- URL パラメータ↔DB値変換マップ（職種別と統一） ----------
+const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
+const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
+const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100〜999人', small: '10〜99人' }
+const SIZE_TO_PARAM: Record<string, string> = { '1000人以上': 'large', '100〜999人': 'medium', '10〜99人': 'small' }
+const PARAM_TO_EDU:  Record<string, string> = {
+  total: '学歴計', junior: '中学', high: '高校',
+  vocational: '専門学校', college: '高専・短大', university: '大学', grad: '大学院',
+}
+const EDU_TO_PARAM:  Record<string, string> = {
+  '学歴計': 'total', '中学': 'junior', '高校': 'high',
+  '専門学校': 'vocational', '高専・短大': 'college', '大学': 'university', '大学院': 'grad',
+}
+
 // ---------- 定数 ----------
 const ENTERPRISE_OPTIONS = ['企業規模計', '1000人以上', '100〜999人', '10〜99人']
 const SEX_OPTIONS        = ['計', '男', '女']
@@ -273,23 +287,28 @@ export function IndustryDetailClient({ slug }: { slug: string }) {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
-  const spYear = searchParams.get('year')
-  const spSex  = searchParams.get('sex')  ?? '計'
-  const spSize = searchParams.get('size') ?? '企業規模計'
-  const spEdu  = searchParams.get('education') ?? '学歴計'
+  // URL パラメータ（英数字）を読み取り → DB値（日本語）に変換
+  const spYear    = searchParams.get('year')
+  const sexParam  = searchParams.get('sex')       ?? ''
+  const sizeParam = searchParams.get('size')      ?? ''
+  const eduParam  = searchParams.get('education') ?? ''
+  const spSex     = PARAM_TO_SEX[sexParam]  ?? '計'
+  const spSize    = PARAM_TO_SIZE[sizeParam] ?? '企業規模計'
+  const spEdu     = PARAM_TO_EDU[eduParam]  ?? '学歴計'
 
   const [data, setData]       = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [ageSex, setAgeSex]   = useState(spSex === '計' ? '計' : spSex)
 
+  // DB値 → URL値に変換して URL を組み立て
   const buildUrl = useCallback((overrides: Record<string, string>) => {
     const p = new URLSearchParams()
     const merged = { year: spYear ?? '', sex: spSex, size: spSize, education: spEdu, ...overrides }
-    if (merged.year)              p.set('year', merged.year)
-    if (merged.sex !== '計')      p.set('sex', merged.sex)
-    if (merged.size !== '企業規模計') p.set('size', merged.size)
-    if (merged.education !== '学歴計') p.set('education', merged.education)
+    if (merged.year) p.set('year', merged.year)
+    const sP = SEX_TO_PARAM[merged.sex];  if (sP) p.set('sex', sP)
+    const szP = SIZE_TO_PARAM[merged.size]; if (szP) p.set('size', szP)
+    const eP = EDU_TO_PARAM[merged.education]; if (eP && eP !== 'total') p.set('education', eP)
     const qs = p.toString()
     return `/salary/industry/${slug}${qs ? `?${qs}` : ''}`
   }, [slug, spYear, spSex, spSize, spEdu])

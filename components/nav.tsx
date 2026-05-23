@@ -16,7 +16,7 @@ const industryRankingItems = [
   { href: '/salary/ranking/industry?sex=female',   label: '女性産業別ランキング',         description: '女性労働者の産業別',       icon: Users,       color: '#e8336d' },
   { href: '/salary/ranking/industry?sort=avg_bonus', label: '産業別賞与ランキング',       description: '賞与が多い業界',           icon: Award,       color: '#f59e0b' },
   { href: '/salary/ranking/industry?size=large',   label: '大企業の産業別ランキング',     description: '1000人以上企業の産業別',   icon: BarChart2,   color: '#7c3aed' },
-  { href: '/salary/ranking/industry?education=大学', label: '大卒の産業別ランキング',    description: '大学卒業者の産業別年収',   icon: GradIcon,    color: '#16a34a' },
+  { href: '/salary/ranking/industry?education=university', label: '大卒の産業別ランキング', description: '大学卒業者の産業別年収', icon: GradIcon, color: '#16a34a' },
 ]
 
 const industryQuickLinks = [

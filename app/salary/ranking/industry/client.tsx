@@ -52,25 +52,39 @@ interface ApiResponse {
 // ---------------------------------------------------------------------------
 // 定数
 // ---------------------------------------------------------------------------
+// URL パラメータ（英数字）↔ DB値（日本語）変換マップ — 職種別と統一
+const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
+const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
+const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100〜999人', small: '10〜99人' }
+const SIZE_TO_PARAM: Record<string, string> = { '1000人以上': 'large', '100〜999人': 'medium', '10〜99人': 'small' }
+const PARAM_TO_EDU:  Record<string, string> = {
+  total: '学歴計', junior: '中学', high: '高校',
+  vocational: '専門学校', college: '高専・短大', university: '大学', grad: '大学院',
+}
+const EDU_TO_PARAM:  Record<string, string> = {
+  '学歴計': 'total', '中学': 'junior', '高校': 'high',
+  '専門学校': 'vocational', '高専・短大': 'college', '大学': 'university', '大学院': 'grad',
+}
+
 const SEX_OPTIONS = [
-  { value: '計', label: '男女計' },
-  { value: '男', label: '男性' },
-  { value: '女', label: '女性' },
+  { param: '',       db: '計',    label: '男女計' },
+  { param: 'male',   db: '男',   label: '男性' },
+  { param: 'female', db: '女',   label: '女性' },
 ]
 const SIZE_OPTIONS = [
-  { value: '企業規模計', label: '企業規模計' },
-  { value: '1000人以上', label: '1000人以上' },
-  { value: '100〜999人', label: '100〜999人' },
-  { value: '10〜99人',   label: '10〜99人' },
+  { param: '',        db: '企業規模計', label: '企業規模計' },
+  { param: 'large',   db: '1000人以上', label: '1000人以上' },
+  { param: 'medium',  db: '100〜999人', label: '100〜999人' },
+  { param: 'small',   db: '10〜99人',   label: '10〜99人' },
 ]
 const EDU_OPTIONS = [
-  { value: '学歴計',   label: '学歴計' },
-  { value: '中学',     label: '中学' },
-  { value: '高校',     label: '高校' },
-  { value: '専門学校', label: '専門学校' },
-  { value: '高専・短大', label: '高専・短大' },
-  { value: '大学',     label: '大学' },
-  { value: '大学院',   label: '大学院' },
+  { param: '',           db: '学歴計',   label: '学歴計' },
+  { param: 'junior',     db: '中学',     label: '中学' },
+  { param: 'high',       db: '高校',     label: '高校' },
+  { param: 'vocational', db: '専門学校', label: '専門学校' },
+  { param: 'college',    db: '高専・短大', label: '高専・短大' },
+  { param: 'university', db: '大学',     label: '大学' },
+  { param: 'grad',       db: '大学院',   label: '大学院' },
 ]
 
 type SortKey = 'avg_annual_income' | 'avg_monthly_wage' | 'avg_bonus' | 'avg_age' | 'avg_tenure' | 'avg_ot_hours'
@@ -117,15 +131,37 @@ export function IndustryRankingClient() {
   const [search, setSearch]   = useState('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // URLパラメータを読み取り（フィルタ＋ソートをURL同期）
-  const sex        = searchParams.get('sex')       ?? '計'
-  const size       = searchParams.get('size')      ?? '企業規模計'
-  const education  = searchParams.get('education') ?? '学歴計'
-  const yearParam  = searchParams.get('year')
+  // URL パラメータ（英数字）を読み取り → DB値（日本語）に変換
+  const sexParam  = searchParams.get('sex')       ?? ''
+  const sizeParam = searchParams.get('size')      ?? ''
+  const eduParam  = searchParams.get('education') ?? ''
+  const yearParam = searchParams.get('year')
   const surveyYear = yearParam ? parseInt(yearParam, 10) : null
   const sortKey    = (searchParams.get('sort') as SortKey | null) ?? 'avg_annual_income'
 
-  // URLパラメータを更新するヘルパー
+  const dbSex  = PARAM_TO_SEX[sexParam]  ?? '計'
+  const dbSize = PARAM_TO_SIZE[sizeParam] ?? '企業規模計'
+  const dbEdu  = PARAM_TO_EDU[eduParam]  ?? '学歴計'
+
+  // URL パラメータを更新するヘルパー（DB値 → URL値に変換して set）
+  function updateSex(dbVal: string) {
+    const p = new URLSearchParams(searchParams.toString())
+    const pVal = SEX_TO_PARAM[dbVal]
+    pVal ? p.set('sex', pVal) : p.delete('sex')
+    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
+  }
+  function updateSize(dbVal: string) {
+    const p = new URLSearchParams(searchParams.toString())
+    const pVal = SIZE_TO_PARAM[dbVal]
+    pVal ? p.set('size', pVal) : p.delete('size')
+    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
+  }
+  function updateEdu(dbVal: string) {
+    const p = new URLSearchParams(searchParams.toString())
+    const pVal = EDU_TO_PARAM[dbVal]
+    pVal && pVal !== 'total' ? p.set('education', pVal) : p.delete('education')
+    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
+  }
   function updateParam(key: string, value: string, defaultValue: string) {
     const p = new URLSearchParams(searchParams.toString())
     if (value === defaultValue) { p.delete(key) } else { p.set(key, value) }
@@ -147,7 +183,7 @@ export function IndustryRankingClient() {
     finally  { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchData(sex, size, education, surveyYear) }, [sex, size, education, surveyYear, fetchData])
+  useEffect(() => { fetchData(dbSex, dbSize, dbEdu, surveyYear) }, [dbSex, dbSize, dbEdu, surveyYear, fetchData])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -223,7 +259,7 @@ export function IndustryRankingClient() {
         <div style={S.heroInner}>
           <h1 style={S.h1}>{heading}</h1>
           <p style={S.subtitle}>
-            賃金構造基本統計調査に基づく産業別年収データ
+            賃��構造基本統計調査に基づく産業別年収データ
             {meta && <span style={{ marginLeft: 12, color: '#94A3B8' }}>{meta.survey_year}年調査 ・ {meta.survey_group_name}</span>}
           </p>
         </div>
@@ -269,11 +305,11 @@ export function IndustryRankingClient() {
             <span style={S.filterLabel}>性別</span>
             <div style={{ display: 'flex', gap: 6 }}>
               {SEX_OPTIONS.map(o => (
-                <button key={o.value}
-                  style={sex === o.value
-                    ? { ...S.chipActive, border: o.value === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8', color: o.value === '女' ? '#DB4437' : '#1a73e8', background: o.value === '女' ? '#FCECEA' : '#EBF3FE' }
+                <button key={o.param}
+                  style={dbSex === o.db
+                    ? { ...S.chipActive, border: o.db === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8', color: o.db === '女' ? '#DB4437' : '#1a73e8', background: o.db === '女' ? '#FCECEA' : '#EBF3FE' }
                     : S.chip}
-                  onClick={() => updateParam('sex', o.value, '計')}>
+                  onClick={() => updateSex(o.db)}>
                   {o.label}
                 </button>
               ))}
@@ -285,7 +321,7 @@ export function IndustryRankingClient() {
             <span style={S.filterLabel}>企業規模</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {SIZE_OPTIONS.map(o => (
-                <button key={o.value} style={size === o.value ? S.chipActive : S.chip} onClick={() => updateParam('size', o.value, '企業規模計')}>
+                <button key={o.param} style={dbSize === o.db ? S.chipActive : S.chip} onClick={() => updateSize(o.db)}>
                   {o.label}
                 </button>
               ))}
@@ -297,7 +333,7 @@ export function IndustryRankingClient() {
             <span style={S.filterLabel}>学歴</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {EDU_OPTIONS.map(o => (
-                <button key={o.value} style={education === o.value ? S.chipActive : S.chip} onClick={() => updateParam('education', o.value, '学歴計')}>
+                <button key={o.param} style={dbEdu === o.db ? S.chipActive : S.chip} onClick={() => updateEdu(o.db)}>
                   {o.label}
                 </button>
               ))}
