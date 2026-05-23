@@ -740,10 +740,17 @@ function DataTab() {
     inserted:      number
     error?:        string
   }
+  interface XlsxSheetDetail {
+    sheet_name:    string
+    industry_name: string
+    preview:       Record<string, unknown>[]
+  }
   const [xlsxSheets, setXlsxSheets]           = useState<XlsxSheet[] | null>(null)
   const [xlsxPreviewing, setXlsxPreviewing]   = useState(false)
   const [xlsxImporting, setXlsxImporting]     = useState(false)
   const [xlsxResults, setXlsxResults]         = useState<XlsxImportResult[] | null>(null)
+  const [sheetDetail, setSheetDetail]         = useState<XlsxSheetDetail | null>(null)
+  const [sheetDetailLoading, setSheetDetailLoading] = useState(false)
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId) ?? null
 
@@ -773,6 +780,7 @@ function DataTab() {
     setIsXlsx(false)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setSheetDetail(null)
     setShowAddDs(false)
     setEditingDsId(null)
     loadDatasets(gid)
@@ -853,6 +861,7 @@ function DataTab() {
     setImportMsg(null)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setSheetDetail(null)
   }
 
   function onDrop(e: React.DragEvent) {
@@ -879,6 +888,29 @@ function DataTab() {
       }
     } finally {
       setXlsxPreviewing(false)
+    }
+  }
+
+  async function handleSheetDetail(sheetName: string) {
+    if (!csvFile) return
+    // 同じシートを再クリックしたら閉じる
+    if (sheetDetail?.sheet_name === sheetName) {
+      setSheetDetail(null)
+      return
+    }
+    setSheetDetailLoading(true)
+    setSheetDetail(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      fd.append('sheet_name', sheetName)
+      const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success) {
+        setSheetDetail(json)
+      }
+    } finally {
+      setSheetDetailLoading(false)
     }
   }
 
@@ -1278,7 +1310,7 @@ function DataTab() {
                       <Eye className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-semibold">シート一覧（{xlsxSheets.length}タブ）</span>
                       <span className="text-[10px] text-muted-foreground ml-auto">
-                        有効: {xlsxSheets.filter(s => s.parseable).length}タブ
+                        有効: {xlsxSheets.filter(s => s.parseable).length}タブ ・ 行クリックで中身を確認
                       </span>
                     </div>
                     <table className="w-full text-xs border-collapse">
@@ -1290,20 +1322,83 @@ function DataTab() {
                         </tr>
                       </thead>
                       <tbody>
-                        {xlsxSheets.map((s, i) => (
-                          <tr key={i} className="border-b border-border/40 last:border-0">
-                            <td className="py-2 px-3 font-semibold">{s.sheet_name}</td>
-                            <td className="py-2 px-3 text-muted-foreground">{s.industry_name}</td>
-                            <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}行</td>
-                            <td className="py-2 px-3">
-                              {s.parseable
-                                ? <span className="text-success text-[10px] font-semibold">OK</span>
-                                : <span className="text-muted-foreground text-[10px]">スキップ</span>}
-                            </td>
-                          </tr>
-                        ))}
+                        {xlsxSheets.map((s, i) => {
+                          const isSelected = sheetDetail?.sheet_name === s.sheet_name
+                          const isLoading  = sheetDetailLoading && !sheetDetail && isSelected
+                          return (
+                            <tr
+                              key={i}
+                              onClick={() => s.parseable && handleSheetDetail(s.sheet_name)}
+                              className={[
+                                'border-b border-border/40 last:border-0 transition-colors',
+                                s.parseable ? 'cursor-pointer hover:bg-primary/5' : 'opacity-50',
+                                isSelected ? 'bg-primary/10' : '',
+                              ].join(' ')}
+                            >
+                              <td className="py-2 px-3 font-semibold">{s.sheet_name}</td>
+                              <td className="py-2 px-3 text-muted-foreground">{s.industry_name}</td>
+                              <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}行</td>
+                              <td className="py-2 px-3">
+                                {isLoading
+                                  ? <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                                  : s.parseable
+                                    ? <span className={`text-[10px] font-semibold ${isSelected ? 'text-primary' : 'text-success'}`}>
+                                        {isSelected ? '表示中' : 'OK'}
+                                      </span>
+                                    : <span className="text-muted-foreground text-[10px]">スキップ</span>
+                                }
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
+
+                    {/* シート詳細パネル */}
+                    {sheetDetail && (
+                      <div className="border-t border-border bg-muted/5">
+                        <div className="px-3 py-2 bg-primary/5 border-b border-border flex items-center gap-2">
+                          <span className="text-xs font-semibold text-primary">{sheetDetail.sheet_name}</span>
+                          <span className="text-[10px] text-muted-foreground">— {sheetDetail.industry_name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">先頭{sheetDetail.preview.length}件</span>
+                          <button
+                            onClick={() => setSheetDetail(null)}
+                            className="text-[10px] text-muted-foreground hover:text-foreground ml-2"
+                          >
+                            閉じる
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                          <table className="w-full text-[10px] border-collapse whitespace-nowrap">
+                            <thead className="sticky top-0 bg-background z-10">
+                              <tr className="border-b border-border bg-muted/20">
+                                {['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)'].map(h => (
+                                  <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sheetDetail.preview.map((row, i) => (
+                                <tr key={i} className="border-b border-border/30 last:border-0 hover:bg-muted/10">
+                                  <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
+                                  <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
+                                  <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
+                                  <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
+                                  <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                                  <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
