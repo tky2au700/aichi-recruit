@@ -209,7 +209,7 @@ export function IndustryRankingClient() {
     )
   }
 
-  const heading = pageHeading ?? `産業別平均年収ランキング${meta?.survey_year ? `${meta.survey_year}年` : ''}`
+  const heading = `産業別平均年収ランキング${meta?.survey_year ? `${meta.survey_year}年` : ''}`
 
   return (
     <div style={S.page}>
