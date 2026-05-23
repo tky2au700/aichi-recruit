@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const enterpriseSize = searchParams.get('enterprise_size') || '企業規模計'
   const surveyYear     = searchParams.get('survey_year') ? Number(searchParams.get('survey_year')) : null
   const education      = searchParams.get('education')       || '学歴計'
+  const ageGroup       = searchParams.get('age_group')       || null  // null = 全年齢加重平均
   try {
     // 利用可能な年度一覧（industry_wages に紐づく datasets のみ）
     const yearsRows = await query(
@@ -29,14 +30,20 @@ export async function GET(req: NextRequest) {
     const targetDatasetId = targetRow.dataset_id
     const targetYear      = targetRow.survey_year
 
-    // 業種ごとの集計（workers加重平均 — age_group別の行しか存在しないため）
+    // 業種ごとの集計
+    // age_group 指定あり → その年齢階級の値をそのまま使用
+    // age_group 指定なし → workers加重平均で全年齢を集計
+    const ageCondition = ageGroup ? 'AND age_group = ?' : ''
+    const ageParams    = ageGroup ? [ageGroup] : []
     const rankingRows = await query(
       `SELECT
          industry_name,
          sex,
          education,
          enterprise_size,
-         SUM(workers * age)             / NULLIF(SUM(workers), 0) AS avg_age,
+         ${ageGroup
+           ? 'age AS avg_age, tenure_years AS avg_tenure, scheduled_hours AS avg_sched_hours, overtime_hours AS avg_ot_hours, monthly_wage AS avg_monthly_wage, scheduled_wage AS avg_sched_wage, annual_bonus AS avg_bonus, annual_income AS avg_annual_income, workers AS total_workers'
+           : `SUM(workers * age)             / NULLIF(SUM(workers), 0) AS avg_age,
          SUM(workers * tenure_years)    / NULLIF(SUM(workers), 0) AS avg_tenure,
          SUM(workers * scheduled_hours) / NULLIF(SUM(workers), 0) AS avg_sched_hours,
          SUM(workers * overtime_hours)  / NULLIF(SUM(workers), 0) AS avg_ot_hours,
@@ -44,15 +51,17 @@ export async function GET(req: NextRequest) {
          SUM(workers * scheduled_wage)  / NULLIF(SUM(workers), 0) AS avg_sched_wage,
          SUM(workers * annual_bonus)    / NULLIF(SUM(workers), 0) AS avg_bonus,
          SUM(workers * annual_income)   / NULLIF(SUM(workers), 0) AS avg_annual_income,
-         SUM(workers)                                              AS total_workers
+         SUM(workers)                                              AS total_workers`
+         }
        FROM industry_wages
        WHERE dataset_id = ?
          AND sex = ?
          AND enterprise_size = ?
          AND education = ?
+         ${ageCondition}
        GROUP BY industry_name, sex, education, enterprise_size
        ORDER BY avg_annual_income DESC`,
-      [targetDatasetId, sex, enterpriseSize, education]
+      [targetDatasetId, sex, enterpriseSize, education, ...ageParams]
     ) as Array<{
       industry_name: string
       sex: string

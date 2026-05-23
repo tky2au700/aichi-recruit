@@ -64,6 +64,31 @@ const EDU_TO_PARAM:  Record<string, string> = {
   '学歴計': 'total', '中学': 'junior', '高校': 'high',
   '専門学校': 'vocational', '高専・短大': 'college', '大学': 'university', '大学院': 'grad',
 }
+const PARAM_TO_AGE: Record<string, string> = {
+  'u19': '〜19歳', '20': '20〜24歳', '25': '25〜29歳', '30': '30〜34歳',
+  '35': '35〜39歳', '40': '40〜44歳', '45': '45〜49歳', '50': '50〜54歳',
+  '55': '55〜59歳', '60': '60〜64歳', '65': '65〜69歳', 'o70': '70歳〜',
+}
+const AGE_TO_PARAM: Record<string, string> = {
+  '〜19歳': 'u19', '20〜24歳': '20', '25〜29歳': '25', '30〜34歳': '30',
+  '35〜39歳': '35', '40〜44歳': '40', '45〜49歳': '45', '50〜54歳': '50',
+  '55〜59歳': '55', '60〜64歳': '60', '65〜69歳': '65', '70歳〜': 'o70',
+}
+const AGE_OPTIONS = [
+  { param: '',     db: '',       label: '全年齢計' },
+  { param: 'u19',  db: '〜19歳',  label: '〜19歳' },
+  { param: '20',   db: '20〜24歳', label: '20〜24歳' },
+  { param: '25',   db: '25〜29歳', label: '25〜29歳' },
+  { param: '30',   db: '30〜34歳', label: '30〜34歳' },
+  { param: '35',   db: '35〜39歳', label: '35〜39歳' },
+  { param: '40',   db: '40〜44歳', label: '40〜44歳' },
+  { param: '45',   db: '45〜49歳', label: '45〜49歳' },
+  { param: '50',   db: '50〜54歳', label: '50〜54歳' },
+  { param: '55',   db: '55〜59歳', label: '55〜59歳' },
+  { param: '60',   db: '60〜64歳', label: '60〜64歳' },
+  { param: '65',   db: '65〜69歳', label: '65〜69歳' },
+  { param: 'o70',  db: '70歳〜',   label: '70歳〜' },
+]
 
 const SEX_OPTIONS = [
   { param: '',       db: '計',  label: '男女計' },
@@ -142,6 +167,7 @@ export function IndustryRankingClient() {
   const sexParam   = searchParams.get('sex')       ?? ''
   const sizeParam  = searchParams.get('size')      ?? ''
   const eduParam   = searchParams.get('education') ?? ''
+  const ageParam   = searchParams.get('age')       ?? ''
   const yearParam  = searchParams.get('year')
   const sortParam  = (searchParams.get('sort') as SortKey | null) ?? 'avg_annual_income'
   const dirParam   = (searchParams.get('dir')  as SortDir | null) ?? 'desc'
@@ -149,6 +175,7 @@ export function IndustryRankingClient() {
   const dbSex      = PARAM_TO_SEX[sexParam]  ?? '計'
   const dbSize     = PARAM_TO_SIZE[sizeParam] ?? '企業規模計'
   const dbEdu      = PARAM_TO_EDU[eduParam]  ?? '学歴計'
+  const dbAge      = PARAM_TO_AGE[ageParam]  ?? ''   // '' = 全年齢加重平均
   const surveyYear = yearParam ? parseInt(yearParam, 10) : null
   const sortKey    = sortParam
   const sortDir    = dirParam
@@ -156,6 +183,7 @@ export function IndustryRankingClient() {
   // URL を push（職種別と同じ pushUrl パターン）
   const pushUrl = useCallback((
     newSex: string, newSize: string, newEdu: string,
+    newAge: string,
     newYear: number | null,
     newSort: SortKey = 'avg_annual_income', newDir: SortDir = 'desc'
   ) => {
@@ -163,6 +191,7 @@ export function IndustryRankingClient() {
     const sP  = SEX_TO_PARAM[newSex];  if (sP)  p.set('sex',  sP)
     const szP = SIZE_TO_PARAM[newSize]; if (szP) p.set('size', szP)
     const eP  = EDU_TO_PARAM[newEdu];  if (eP && eP !== 'total') p.set('education', eP)
+    const aP  = AGE_TO_PARAM[newAge];  if (aP)  p.set('age',  aP)
     if (newYear !== null)                         p.set('year', String(newYear))
     if (newSort !== 'avg_annual_income')           p.set('sort', newSort)
     if (newSort !== 'avg_annual_income' && newDir !== 'desc') p.set('dir', newDir)
@@ -170,10 +199,11 @@ export function IndustryRankingClient() {
     router.push(q ? `${pathname}?${q}` : pathname, { scroll: false })
   }, [router, pathname])
 
-  const fetchData = useCallback(async (_sex: string, _size: string, _edu: string, _year: number | null) => {
+  const fetchData = useCallback(async (_sex: string, _size: string, _edu: string, _age: string, _year: number | null) => {
     setLoading(true); setError(null)
     try {
       const params = new URLSearchParams({ sex: _sex, enterprise_size: _size, education: _edu })
+      if (_age)  params.set('age_group', _age)
       if (_year) params.set('survey_year', String(_year))
       const res  = await fetch(`/api/salary/ranking/industry?${params}`)
       const json: ApiResponse = await res.json()
@@ -185,14 +215,14 @@ export function IndustryRankingClient() {
     finally  { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchData(dbSex, dbSize, dbEdu, surveyYear) }, [dbSex, dbSize, dbEdu, surveyYear, fetchData])
+  useEffect(() => { fetchData(dbSex, dbSize, dbEdu, dbAge, surveyYear) }, [dbSex, dbSize, dbEdu, dbAge, surveyYear, fetchData])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       const newDir: SortDir = sortDir === 'desc' ? 'asc' : 'desc'
-      pushUrl(dbSex, dbSize, dbEdu, surveyYear, key, newDir)
+      pushUrl(dbSex, dbSize, dbEdu, dbAge, surveyYear, key, newDir)
     } else {
-      pushUrl(dbSex, dbSize, dbEdu, surveyYear, key, 'desc')
+      pushUrl(dbSex, dbSize, dbEdu, dbAge, surveyYear, key, 'desc')
     }
   }
 
@@ -334,7 +364,7 @@ export function IndustryRankingClient() {
               {years.map(y => (
                 <button key={y.survey_year}
                   style={surveyYear === y.survey_year || (surveyYear === null && meta?.survey_year === y.survey_year) ? S.chipActive : S.chip}
-                  onClick={() => pushUrl(dbSex, dbSize, dbEdu, y.survey_year, sortKey, sortDir)}>
+                  onClick={() => pushUrl(dbSex, dbSize, dbEdu, dbAge, y.survey_year, sortKey, sortDir)}>
                   {y.survey_year}年
                 </button>
               ))}
@@ -354,7 +384,7 @@ export function IndustryRankingClient() {
                         background: o.db === '男' ? '#EBF3FE' : o.db === '女' ? '#FCECEA' : '#EBF3FE',
                       }
                     : S.chip}
-                  onClick={() => pushUrl(o.db, dbSize, dbEdu, surveyYear, sortKey, sortDir)}>
+                  onClick={() => pushUrl(o.db, dbSize, dbEdu, dbAge, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
@@ -368,7 +398,7 @@ export function IndustryRankingClient() {
               {SIZE_OPTIONS.map(o => (
                 <button key={o.param}
                   style={dbSize === o.db ? S.chipActive : S.chip}
-                  onClick={() => pushUrl(dbSex, o.db, dbEdu, surveyYear, sortKey, sortDir)}>
+                  onClick={() => pushUrl(dbSex, o.db, dbEdu, dbAge, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
@@ -382,7 +412,21 @@ export function IndustryRankingClient() {
               {EDU_OPTIONS.map(o => (
                 <button key={o.param}
                   style={dbEdu === o.db ? S.chipActive : S.chip}
-                  onClick={() => pushUrl(dbSex, dbSize, o.db, surveyYear, sortKey, sortDir)}>
+                  onClick={() => pushUrl(dbSex, dbSize, o.db, dbAge, surveyYear, sortKey, sortDir)}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={S.divider} />
+          {/* 年齢 */}
+          <div style={S.filterGroup}>
+            <span style={S.filterLabel}>年齢</span>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {AGE_OPTIONS.map(o => (
+                <button key={o.param}
+                  style={dbAge === o.db ? S.chipActive : S.chip}
+                  onClick={() => pushUrl(dbSex, dbSize, dbEdu, o.db, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
