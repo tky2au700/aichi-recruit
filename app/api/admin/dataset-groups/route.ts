@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     const {
       survey_group_name, survey_table_name,
       category = 'occupation',
+      target_table = 'occupation_wages',
       publisher_id, distributor_id,
       sex_label_mode = 'cell_combined',
       data_start_row = 10, name_col_index = 1,
@@ -58,12 +59,12 @@ export async function POST(req: NextRequest) {
 
     const result = await query(
       `INSERT INTO dataset_groups
-         (survey_group_name, survey_table_name, name, category,
+         (survey_group_name, survey_table_name, name, category, target_table,
           publisher_id, distributor_id, sex_label_mode,
           data_start_row, name_col_index,
           size1_col_start, size2_col_start, size3_col_start, size4_col_start, parse_notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [survey_group_name, survey_table_name ?? null, legacyName, category,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [survey_group_name, survey_table_name ?? null, legacyName, category, target_table,
        publisher_id ?? null, distributor_id ?? null,
        sex_label_mode,
        data_start_row, name_col_index,

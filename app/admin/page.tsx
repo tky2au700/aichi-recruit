@@ -22,6 +22,7 @@ interface DatasetGroup {
   survey_table_name: string | null
   name: string
   category: string
+  target_table: string
   publisher_id: number | null
   publisher_name: string | null
   publisher_url: string | null
@@ -83,6 +84,11 @@ const CATEGORIES = [
   { value: 'prefecture',  label: '都道府県別' },
   { value: 'education',   label: '学歴別' },
   { value: 'age',         label: '年齢別' },
+]
+
+const TARGET_TABLES = [
+  { value: 'occupation_wages', label: 'occupation_wages（職種別）' },
+  { value: 'industry_wages',   label: 'industry_wages（業種・年齢階級別）' },
 ]
 
 function fmt(v: number | null): string {
@@ -347,6 +353,7 @@ function defaultGroupForm() {
   return {
     survey_group_name: '', survey_table_name: '',
     category: 'occupation',
+    target_table: 'occupation_wages',
     publisher_id: '', distributor_id: '',
     sex_label_mode: 'cell_combined',
     data_start_row: '10', name_col_index: '1',
@@ -392,6 +399,7 @@ function GroupsTab() {
       survey_group_name: g.survey_group_name ?? g.name,
       survey_table_name: g.survey_table_name ?? '',
       category: g.category,
+      target_table: g.target_table ?? 'occupation_wages',
       publisher_id:   g.publisher_id   != null ? String(g.publisher_id)   : '',
       distributor_id: g.distributor_id != null ? String(g.distributor_id) : '',
       sex_label_mode: g.sex_label_mode ?? 'cell_combined',
@@ -414,6 +422,7 @@ function GroupsTab() {
         survey_group_name: form.survey_group_name,
         survey_table_name: form.survey_table_name || null,
         category:          form.category,
+        target_table:      form.target_table,
         sex_label_mode:    form.sex_label_mode,
         publisher_id:    form.publisher_id   ? Number(form.publisher_id)   : null,
         distributor_id:  form.distributor_id ? Number(form.distributor_id) : null,
@@ -507,6 +516,19 @@ function GroupsTab() {
                 >
                   {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">
+                  インポート先テーブル <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={form.target_table}
+                  onChange={e => setForm(p => ({ ...p, target_table: e.target.value }))}
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  {TARGET_TABLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">CSVまたはXLSXのデータを書き込むテーブル</p>
               </div>
               <div>
                 <label className="block text-[10px] text-muted-foreground mb-0.5">提供元（データの所有者）</label>
@@ -611,6 +633,9 @@ function GroupsTab() {
                       </span>
                       <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
                         {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
+                      </span>
+                      <span className="shrink-0 bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-mono">
+                        {g.target_table ?? 'occupation_wages'}
                       </span>
                       {g.publisher_name && (
                         <span className="shrink-0 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px]">
@@ -869,7 +894,7 @@ function DataTab() {
   }
 
   async function handleXlsxImport() {
-    if (!csvFile) return
+    if (!csvFile || !selectedGroupId) return
     const year = xlsxSurveyYear.trim()
     if (!year || !/^\d{4}$/.test(year)) {
       alert('調査年を西暦4桁で入力してください（例: 2025）')
@@ -881,6 +906,7 @@ function DataTab() {
       const fd = new FormData()
       fd.append('file', csvFile)
       fd.append('survey_year', year)
+      fd.append('group_id', String(selectedGroupId))
       const res  = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
@@ -968,6 +994,7 @@ function DataTab() {
                 <p className="text-muted-foreground text-[10px] mt-0.5">
                   {CATEGORIES.find(c => c.value === g.category)?.label} ・ {g.dataset_count}年分 ・ {(g.total_records ?? 0).toLocaleString()}件
                 </p>
+                <p className="text-muted-foreground/50 text-[9px] font-mono mt-0.5">{g.target_table ?? 'occupation_wages'}</p>
               </button>
             ))}
           </div>
@@ -986,6 +1013,10 @@ function DataTab() {
               )}
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+              <span>
+                インポート先:
+                <strong className="text-foreground font-mono ml-1">{selectedGroup.target_table ?? 'occupation_wages'}</strong>
+              </span>
               <span>開始行: <strong className="text-foreground">{selectedGroup.data_start_row}</strong></span>
               <span>職種名列: <strong className="text-foreground">{selectedGroup.name_col_index}</strong></span>
               <span>企業規模計: <strong className="text-foreground">{selectedGroup.size1_col_start}列〜</strong></span>
@@ -1586,7 +1617,7 @@ function SchemaTab() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-        <p className="text-xs font-medium">作成される��ーブル</p>
+        <p className="text-xs font-medium">��成される��ーブル</p>
         <ul className="space-y-2 text-xs text-muted-foreground">
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">dataset_groups</code>

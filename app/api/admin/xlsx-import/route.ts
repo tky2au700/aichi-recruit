@@ -257,7 +257,7 @@ function parseIndustrySheet(ws: XLSX.WorkSheet, sheetName: string): IndustryWage
 
 const BATCH_SIZE = 200
 
-async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[]): Promise<number> {
+async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[], targetTable: string): Promise<number> {
   if (rows.length === 0) return 0
   let inserted = 0
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -273,7 +273,7 @@ async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[]): P
       )
     }
     await query(
-      `INSERT INTO industry_wages
+      `INSERT INTO \`${targetTable}\`
         (dataset_id, industry_name, sex, education, age_group, enterprise_size,
          age, tenure_years, scheduled_hours, overtime_hours,
          monthly_wage, scheduled_wage, annual_bonus, workers, annual_income)
@@ -307,19 +307,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: '調査年が不正です' }, { status: 400 })
     }
 
-    // グループIDを解決（指定がなければ category='industry' を自動選択）
-    let groupId: number
-    if (groupIdRaw) {
-      groupId = parseInt(groupIdRaw, 10)
-    } else {
-      const groups = await query(
-        "SELECT id FROM dataset_groups WHERE category = 'industry' LIMIT 1"
-      ) as any[]
-      if (groups.length === 0) {
-        return NextResponse.json({ success: false, message: 'industryグループが未作成です' }, { status: 500 })
-      }
-      groupId = groups[0].id
+    // グループを取得して target_table を確認
+    if (!groupIdRaw) {
+      return NextResponse.json({ success: false, message: 'グループを選択してください' }, { status: 400 })
     }
+    const groupId = parseInt(groupIdRaw, 10)
+    const groupRows = await query(
+      'SELECT id, target_table FROM dataset_groups WHERE id = ?',
+      [groupId]
+    ) as any[]
+    if (groupRows.length === 0) {
+      return NextResponse.json({ success: false, message: '指定されたグループが存在しません' }, { status: 404 })
+    }
+    const targetTable: string = groupRows[0].target_table || 'industry_wages'
 
     // datasets に該当年のレコードを取得 or 新規作成
     const existing = await query(
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 既存データ削除（再インポート対応）
-    await query('DELETE FROM industry_wages WHERE dataset_id = ?', [datasetId])
+    await query(`DELETE FROM \`${targetTable}\` WHERE dataset_id = ?`, [datasetId])
 
     // XLSX パース＆インポート
     const buf = Buffer.from(await file.arrayBuffer())
@@ -368,7 +368,7 @@ export async function POST(req: NextRequest) {
           results.push({ sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: 'データ行なし' })
           continue
         }
-        const inserted = await insertIndustryRows(datasetId, rows)
+        const inserted = await insertIndustryRows(datasetId, rows, targetTable)
         totalInserted += inserted
         results.push({ sheet_name: sheetName, industry_name: rows[0].industry_name, inserted })
       } catch (e) {

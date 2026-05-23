@@ -12,6 +12,7 @@ export async function PATCH(
     const {
       survey_group_name, survey_table_name,
       category,
+      target_table,
       publisher_id, distributor_id,
       sex_label_mode,
       data_start_row, name_col_index,
@@ -30,7 +31,7 @@ export async function PATCH(
     await query(
       `UPDATE dataset_groups SET
          survey_group_name = ?, survey_table_name = ?,
-         name = ?, category = ?,
+         name = ?, category = ?, target_table = ?,
          publisher_id = ?, distributor_id = ?,
          sex_label_mode = ?,
          data_start_row = ?, name_col_index = ?,
@@ -38,7 +39,7 @@ export async function PATCH(
          parse_notes = ?
        WHERE id = ?`,
       [survey_group_name, survey_table_name ?? null,
-       legacyName, category,
+       legacyName, category, target_table ?? 'occupation_wages',
        publisher_id ?? null, distributor_id ?? null,
        sex_label_mode ?? 'cell_combined',
        data_start_row, name_col_index,
