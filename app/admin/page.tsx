@@ -744,8 +744,6 @@ function DataTab() {
   const [xlsxPreviewing, setXlsxPreviewing]   = useState(false)
   const [xlsxImporting, setXlsxImporting]     = useState(false)
   const [xlsxResults, setXlsxResults]         = useState<XlsxImportResult[] | null>(null)
-  const [xlsxSurveyYear, setXlsxSurveyYear]   = useState('')       // ユーザー手動入力
-  const [xlsxDetectedYear, setXlsxDetectedYear] = useState<number | null>(null)  // ファイル名から推定
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId) ?? null
 
@@ -775,8 +773,6 @@ function DataTab() {
     setIsXlsx(false)
     setXlsxSheets(null)
     setXlsxResults(null)
-    setXlsxSurveyYear('')
-    setXlsxDetectedYear(null)
     setShowAddDs(false)
     setEditingDsId(null)
     loadDatasets(gid)
@@ -857,8 +853,6 @@ function DataTab() {
     setImportMsg(null)
     setXlsxSheets(null)
     setXlsxResults(null)
-    setXlsxSurveyYear('')
-    setXlsxDetectedYear(null)
   }
 
   function onDrop(e: React.DragEvent) {
@@ -880,11 +874,6 @@ function DataTab() {
       const json = await res.json()
       if (json.success) {
         setXlsxSheets(json.sheets)
-        // ファイル名から推定した年を調査年欄に自動セット
-        if (json.detected_year && !xlsxSurveyYear) {
-          setXlsxSurveyYear(String(json.detected_year))
-          setXlsxDetectedYear(json.detected_year)
-        }
       } else {
         alert('プレビュー失敗: ' + json.message)
       }
@@ -894,19 +883,13 @@ function DataTab() {
   }
 
   async function handleXlsxImport() {
-    if (!csvFile || !selectedGroupId) return
-    const year = xlsxSurveyYear.trim()
-    if (!year || !/^\d{4}$/.test(year)) {
-      alert('調査年を西暦4桁で入力してください（例: 2025）')
-      return
-    }
+    if (!csvFile || !selectedDatasetId) return
     setXlsxImporting(true)
     setXlsxResults(null)
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
-      fd.append('survey_year', year)
-      fd.append('group_id', String(selectedGroupId))
+      fd.append('dataset_id', String(selectedDatasetId))
       const res  = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
@@ -1270,27 +1253,6 @@ function DataTab() {
             {csvFile && isXlsx && (
               <div className="mt-4 space-y-3">
 
-                {/* 調査年入力（必須） */}
-                <div className="flex items-center gap-3 p-3 bg-muted/20 border border-border rounded-lg">
-                  <label className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    調査年（西暦）<span className="text-destructive ml-0.5">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={xlsxSurveyYear}
-                    onChange={e => setXlsxSurveyYear(e.target.value)}
-                    placeholder="例: 2025"
-                    min={2000}
-                    max={2100}
-                    className="w-28 px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-background"
-                  />
-                  {xlsxDetectedYear && (
-                    <span className="text-[10px] text-muted-foreground">
-                      ファイル名から {xlsxDetectedYear} 年を推定しました
-                    </span>
-                  )}
-                </div>
-
                 <div className="flex items-center gap-3 flex-wrap">
                   <button onClick={handleXlsxPreview} disabled={xlsxPreviewing}
                     className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
@@ -1299,13 +1261,13 @@ function DataTab() {
                   </button>
                   <button
                     onClick={handleXlsxImport}
-                    disabled={xlsxImporting || !xlsxSurveyYear}
+                    disabled={xlsxImporting || !selectedDatasetId}
                     className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                     {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                     全タブを一括インポート
                   </button>
-                  {!xlsxSurveyYear && (
-                    <span className="text-[10px] text-muted-foreground">調査年を入力してからインポートできます</span>
+                  {!selectedDatasetId && (
+                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                   )}
                 </div>
 

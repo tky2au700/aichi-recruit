@@ -292,52 +292,47 @@ async function insertIndustryRows(datasetId: number, rows: IndustryWageRow[], ta
 export async function POST(req: NextRequest) {
   try {
     const fd = await req.formData()
-    const file       = fd.get('file')        as File   | null
-    const surveyYear = fd.get('survey_year') as string | null
-    const groupIdRaw = fd.get('group_id')    as string | null
+    const file         = fd.get('file')       as File   | null
+    const datasetIdRaw = fd.get('dataset_id') as string | null
+    const groupIdRaw   = fd.get('group_id')   as string | null
 
-    if (!file)       return NextResponse.json({ success: false, message: 'ファイルがありません' }, { status: 400 })
-    if (!surveyYear) return NextResponse.json({ success: false, message: '調査年を入力してください' }, { status: 400 })
+    if (!file) return NextResponse.json({ success: false, message: 'ファイルがありません' }, { status: 400 })
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
       return NextResponse.json({ success: false, message: '.xlsx / .xls ファイルのみ対応しています' }, { status: 400 })
     }
 
-    const year = parseInt(surveyYear, 10)
-    if (isNaN(year) || year < 1900 || year > 2100) {
-      return NextResponse.json({ success: false, message: '調査年が不正です' }, { status: 400 })
-    }
-
-    // グループを取得して target_table を確認
-    if (!groupIdRaw) {
-      return NextResponse.json({ success: false, message: 'グループを選択してください' }, { status: 400 })
-    }
-    const groupId = parseInt(groupIdRaw, 10)
-    const groupRows = await query(
-      'SELECT id, target_table FROM dataset_groups WHERE id = ?',
-      [groupId]
-    ) as any[]
-    if (groupRows.length === 0) {
-      return NextResponse.json({ success: false, message: '指定されたグループが存在しません' }, { status: 404 })
-    }
-    const targetTable: string = groupRows[0].target_table || 'industry_wages'
-
-    // datasets に該当年のレコードを取得 or 新規作成
-    const existing = await query(
-      'SELECT id FROM datasets WHERE group_id = ? AND survey_year = ?',
-      [groupId, year]
-    ) as any[]
-
+    // dataset_id が指定されていればそれを使い、なければ group_id から解決
     let datasetId: number
-    let datasetCreated = false
-    if (existing.length > 0) {
-      datasetId = existing[0].id
+    let targetTable: string
+    let surveyYear: number
+
+    if (datasetIdRaw) {
+      // 調査年データ一覧で選択済みの dataset を使う
+      const dsRows = await query(
+        'SELECT d.id, d.survey_year, g.target_table FROM datasets d JOIN dataset_groups g ON g.id = d.group_id WHERE d.id = ?',
+        [parseInt(datasetIdRaw, 10)]
+      ) as any[]
+      if (dsRows.length === 0) {
+        return NextResponse.json({ success: false, message: '指定されたデータセットが存在しません' }, { status: 404 })
+      }
+      datasetId   = dsRows[0].id
+      surveyYear  = dsRows[0].survey_year
+      targetTable = dsRows[0].target_table || 'industry_wages'
     } else {
-      const ins = await query(
-        'INSERT INTO datasets (group_id, survey_year, record_count) VALUES (?, ?, 0)',
-        [groupId, year]
-      ) as any
-      datasetId = ins.insertId
-      datasetCreated = true
+      // group_id のみの場合（後方互換）
+      if (!groupIdRaw) {
+        return NextResponse.json({ success: false, message: '調査年データ一覧から取込先を選択してください' }, { status: 400 })
+      }
+      const groupId = parseInt(groupIdRaw, 10)
+      const groupRows = await query(
+        'SELECT id, target_table FROM dataset_groups WHERE id = ?',
+        [groupId]
+      ) as any[]
+      if (groupRows.length === 0) {
+        return NextResponse.json({ success: false, message: '指定されたグループが存在しません' }, { status: 404 })
+      }
+      targetTable = groupRows[0].target_table || 'industry_wages'
+      return NextResponse.json({ success: false, message: '調査年データ一覧から取込先を選択してください' }, { status: 400 })
     }
 
     // 既存データ削除（再インポート対応）
@@ -384,11 +379,10 @@ export async function POST(req: NextRequest) {
     )
 
     return NextResponse.json({
-      success:       true,
-      message:       `${results.filter(r => r.inserted > 0).length}シート・${totalInserted.toLocaleString()}件を取り込みました`,
-      survey_year:   year,
-      dataset_id:    datasetId,
-      dataset_created: datasetCreated,
+      success:         true,
+      message:         `${results.filter(r => r.inserted > 0).length}シート・${totalInserted.toLocaleString()}件を取り込みました`,
+      survey_year:     surveyYear,
+      dataset_id:      datasetId,
       total_inserted:  totalInserted,
       results,
     })
