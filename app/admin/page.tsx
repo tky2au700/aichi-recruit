@@ -704,18 +704,23 @@ function DataTab() {
 
   // XLSX 専用
   interface XlsxSheet {
-    sheet_name: string
-    detected_year: number | null
-    dataset_id: number | null
-    row_count: number
-    occupation_count: number
-    parseable: boolean
+    sheet_name:    string
+    industry_name: string
+    row_count:     number
+    parseable:     boolean
+  }
+  interface XlsxImportResult {
+    sheet_name:    string
+    industry_name: string
+    inserted:      number
+    error?:        string
   }
   const [xlsxSheets, setXlsxSheets]           = useState<XlsxSheet[] | null>(null)
   const [xlsxPreviewing, setXlsxPreviewing]   = useState(false)
   const [xlsxImporting, setXlsxImporting]     = useState(false)
-  interface XlsxImportResult { sheet_name: string; survey_year: number | null; inserted: number; created: boolean; error?: string }
   const [xlsxResults, setXlsxResults]         = useState<XlsxImportResult[] | null>(null)
+  const [xlsxSurveyYear, setXlsxSurveyYear]   = useState('')       // ユーザー手動入力
+  const [xlsxDetectedYear, setXlsxDetectedYear] = useState<number | null>(null)  // ファイル名から推定
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId) ?? null
 
@@ -745,6 +750,8 @@ function DataTab() {
     setIsXlsx(false)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setXlsxSurveyYear('')
+    setXlsxDetectedYear(null)
     setShowAddDs(false)
     setEditingDsId(null)
     loadDatasets(gid)
@@ -825,6 +832,8 @@ function DataTab() {
     setImportMsg(null)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setXlsxSurveyYear('')
+    setXlsxDetectedYear(null)
   }
 
   function onDrop(e: React.DragEvent) {
@@ -835,20 +844,24 @@ function DataTab() {
   }
 
   async function handleXlsxPreview() {
-    if (!csvFile || !selectedGroupId) return
+    if (!csvFile) return
     setXlsxPreviewing(true)
     setXlsxSheets(null)
     setXlsxResults(null)
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
-      fd.append('group_id', String(selectedGroupId))
       const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
         setXlsxSheets(json.sheets)
+        // ファイル名から推定した年を調査年欄に自動セット
+        if (json.detected_year && !xlsxSurveyYear) {
+          setXlsxSurveyYear(String(json.detected_year))
+          setXlsxDetectedYear(json.detected_year)
+        }
       } else {
-        alert('XLSXプレビュー失敗: ' + json.message)
+        alert('プレビュー失敗: ' + json.message)
       }
     } finally {
       setXlsxPreviewing(false)
@@ -856,20 +869,24 @@ function DataTab() {
   }
 
   async function handleXlsxImport() {
-    if (!csvFile || !selectedGroupId) return
+    if (!csvFile) return
+    const year = xlsxSurveyYear.trim()
+    if (!year || !/^\d{4}$/.test(year)) {
+      alert('調査年を西暦4桁で入力してください（例: 2025）')
+      return
+    }
     setXlsxImporting(true)
     setXlsxResults(null)
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
-      fd.append('group_id', String(selectedGroupId))
-      fd.append('sheets', 'all')
+      fd.append('survey_year', year)
       const res  = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
         setXlsxResults(json.results)
         setImportMsg({ ok: true, text: json.message })
-        await loadDatasets(selectedGroupId)
+        if (selectedGroupId) await loadDatasets(selectedGroupId)
       } else {
         setImportMsg({ ok: false, text: json.message })
       }
@@ -1221,30 +1238,60 @@ function DataTab() {
 
             {csvFile && isXlsx && (
               <div className="mt-4 space-y-3">
+
+                {/* 調査年入力（必須） */}
+                <div className="flex items-center gap-3 p-3 bg-muted/20 border border-border rounded-lg">
+                  <label className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                    調査年（西暦）<span className="text-destructive ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={xlsxSurveyYear}
+                    onChange={e => setXlsxSurveyYear(e.target.value)}
+                    placeholder="例: 2025"
+                    min={2000}
+                    max={2100}
+                    className="w-28 px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-background"
+                  />
+                  {xlsxDetectedYear && (
+                    <span className="text-[10px] text-muted-foreground">
+                      ファイル名から {xlsxDetectedYear} 年を推定しました
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-3 flex-wrap">
                   <button onClick={handleXlsxPreview} disabled={xlsxPreviewing}
                     className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
                     {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
-                    シート内容を確認
+                    シート一覧を確認
                   </button>
-                  <button onClick={handleXlsxImport} disabled={xlsxImporting || !selectedGroupId}
+                  <button
+                    onClick={handleXlsxImport}
+                    disabled={xlsxImporting || !xlsxSurveyYear}
                     className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                     {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                     全タブを一括インポート
                   </button>
+                  {!xlsxSurveyYear && (
+                    <span className="text-[10px] text-muted-foreground">調査年を入力してからインポートできます</span>
+                  )}
                 </div>
 
-                {/* XLSXシートプレビュー */}
+                {/* シートプレビュー */}
                 {xlsxSheets && (
                   <div className="border border-border rounded-lg overflow-hidden">
                     <div className="px-3 py-2 bg-muted/20 border-b border-border flex items-center gap-2">
                       <Eye className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-semibold">シート一覧（{xlsxSheets.length}タブ）</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        有効: {xlsxSheets.filter(s => s.parseable).length}タブ
+                      </span>
                     </div>
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-border bg-muted/10">
-                          {['シート名', '調査年(推定)', '対応データセット', 'レコード数', '職種数', '状態'].map(h => (
+                          {['シート名', '業種名', 'データ行数', '状態'].map(h => (
                             <th key={h} className="text-left py-2 px-3 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -1253,18 +1300,12 @@ function DataTab() {
                         {xlsxSheets.map((s, i) => (
                           <tr key={i} className="border-b border-border/40 last:border-0">
                             <td className="py-2 px-3 font-semibold">{s.sheet_name}</td>
-                            <td className="py-2 px-3">{s.detected_year ?? <span className="text-muted-foreground">未検出</span>}</td>
-                            <td className="py-2 px-3">
-                              {s.dataset_id
-                                ? <span className="text-primary">既存 (ID:{s.dataset_id})</span>
-                                : <span className="text-muted-foreground">新規作成</span>}
-                            </td>
-                            <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}件</td>
-                            <td className="py-2 px-3 text-right">{s.occupation_count}職種</td>
+                            <td className="py-2 px-3 text-muted-foreground">{s.industry_name}</td>
+                            <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}行</td>
                             <td className="py-2 px-3">
                               {s.parseable
                                 ? <span className="text-success text-[10px] font-semibold">OK</span>
-                                : <span className="text-destructive text-[10px] font-semibold">データなし</span>}
+                                : <span className="text-muted-foreground text-[10px]">スキップ</span>}
                             </td>
                           </tr>
                         ))}
@@ -1273,7 +1314,7 @@ function DataTab() {
                   </div>
                 )}
 
-                {/* XLSXインポート結果 */}
+                {/* インポート結果 */}
                 {xlsxResults && (
                   <div className="border border-border rounded-lg overflow-hidden">
                     <div className="px-3 py-2 bg-success/10 border-b border-border flex items-center gap-2">
@@ -1283,7 +1324,7 @@ function DataTab() {
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-border bg-muted/10">
-                          {['シート名', '調査年', '取込件数', '新規作成', '備考'].map(h => (
+                          {['シート名', '業種名', '取込件数', '備考'].map(h => (
                             <th key={h} className="text-left py-2 px-3 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -1292,14 +1333,9 @@ function DataTab() {
                         {xlsxResults.map((r, i) => (
                           <tr key={i} className="border-b border-border/40 last:border-0">
                             <td className="py-2 px-3 font-semibold">{r.sheet_name}</td>
-                            <td className="py-2 px-3">{r.survey_year ?? '-'}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{r.industry_name}</td>
                             <td className="py-2 px-3 text-right font-semibold">{r.inserted.toLocaleString()}件</td>
-                            <td className="py-2 px-3">
-                              {r.created
-                                ? <span className="text-primary text-[10px] font-semibold">作成</span>
-                                : <span className="text-muted-foreground text-[10px]">既存</span>}
-                            </td>
-                            <td className="py-2 px-3 text-destructive">{r.error ?? ''}</td>
+                            <td className="py-2 px-3 text-destructive text-[10px]">{r.error ?? ''}</td>
                           </tr>
                         ))}
                       </tbody>
