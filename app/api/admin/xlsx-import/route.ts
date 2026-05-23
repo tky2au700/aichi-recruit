@@ -144,13 +144,21 @@ function parseLabel(raw: unknown): ParsedLabel {
 // 産業名検出
 // -------------------------------------------------------
 
-/** シート内の産業名を取得（行7のC列 = row6, col2 in 0-indexed） */
+/**
+ * シート内の産業名を取得（行7のC列 = row6, col2 in 0-indexed）。
+ * シート名に「(民＋公)」「(民+公)」が含まれる場合は、
+ * シート内から取得した産業名にそのプレフィックスを付与して返す。
+ */
 function detectIndustryName(ws: XLSX.WorkSheet, fallback: string): string {
+  // シート名から「(民＋公)」プレフィックスを抽出
+  const prefixMatch = fallback.match(/^(\(民[＋+]公\))\s*/)
+  const prefix = prefixMatch ? prefixMatch[1] : ''
+
   // 行5〜8、列2〜4 の範囲でテキストを探す
   for (const [r, c] of [[6, 2], [6, 3], [7, 2], [5, 2], [6, 1]]) {
     const v = norm(cv(ws, r, c))
     if (v && v.length > 1 && !/^\d+$/.test(v) && !v.includes('調査') && !v.includes('第')) {
-      return v
+      return prefix ? `${prefix}${v}` : v
     }
   }
   return fallback

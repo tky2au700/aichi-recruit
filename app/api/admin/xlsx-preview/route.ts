@@ -44,6 +44,10 @@ function detectYearFromSheet(sheet: XLSX.WorkSheet): number | null {
  * 例: row6=[産業, "", 産業計]
  */
 function detectIndustryName(sheet: XLSX.WorkSheet, sheetName: string): string {
+  // シート名から「(民＋公)」プレフィックスを抽出
+  const prefixMatch = sheetName.match(/^(\(民[＋+]公\))\s*/)
+  const prefix = prefixMatch ? prefixMatch[1] : ''
+
   // row6 col2 が産業名（最も確実）
   for (const [r, c] of [[6, 2], [6, 3], [7, 2], [5, 2], [6, 1]]) {
     const cell = sheet[XLSX.utils.encode_cell({ r, c })]
@@ -51,7 +55,7 @@ function detectIndustryName(sheet: XLSX.WorkSheet, sheetName: string): string {
     if (val && val.length > 1 && !/^\d+$/.test(val)
       && !val.includes('調査') && !val.includes('第') && !val.includes('表')
       && !val.includes('民営') && !val.includes('公営') && val !== '産業') {
-      return val
+      return prefix ? `${prefix}${val}` : val
     }
   }
   return sheetName
