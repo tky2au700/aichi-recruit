@@ -11,12 +11,15 @@ import {
 import { useState, useRef, useEffect } from 'react'
 
 const industryRankingItems = [
-  { href: '/salary/ranking/industry',              label: '産業別年収ランキング',        description: '全産業の年収を一覧',       icon: Building2,   color: '#0891b2' },
-  { href: '/salary/ranking/industry?sex=male',     label: '男性産業別ランキング',         description: '男性労働者の産業別',       icon: Users,       color: '#1a73e8' },
-  { href: '/salary/ranking/industry?sex=female',   label: '女性産業別ランキング',         description: '女性労働者の産業別',       icon: Users,       color: '#e8336d' },
-  { href: '/salary/ranking/industry?sort=avg_bonus', label: '産業別賞与ランキング',       description: '賞与が多い業界',           icon: Award,       color: '#f59e0b' },
-  { href: '/salary/ranking/industry?size=large',   label: '大企業の産業別ランキング',     description: '1000人以上企業の産業別',   icon: BarChart2,   color: '#7c3aed' },
-  { href: '/salary/ranking/industry?education=university', label: '大卒の産業別ランキング', description: '大学卒業者の産業別年収', icon: GradIcon, color: '#16a34a' },
+  { href: '/salary/ranking/industry',                                   label: '産業別年収ランキング',       description: '全産業の年収を一覧',       icon: Building2, color: '#0891b2' },
+  { href: '/salary/ranking/industry?sex=male',                          label: '男性産業別ランキング',        description: '男性労働者の産業別',       icon: Users,     color: '#1a73e8' },
+  { href: '/salary/ranking/industry?sex=female',                        label: '女性産業別ランキング',        description: '女性労働者の産業別',       icon: Users,     color: '#e8336d' },
+  { href: '/salary/ranking/industry?sort=avg_bonus',                    label: '産業別賞与ランキング',        description: '賞与が多い業界',           icon: Award,     color: '#f59e0b' },
+  { href: '/salary/ranking/industry?size=large',                        label: '大企業の産業別ランキング',    description: '1000人以上企業の産業別',  icon: BarChart2, color: '#7c3aed' },
+  { href: '/salary/ranking/industry?education=university',              label: '大卒の産業別ランキング',      description: '大学卒業者の産業別年収',  icon: GradIcon,  color: '#16a34a' },
+  { href: '/salary/ranking/industry?age=30',                            label: '30代の産業別ランキング',      description: '30〜34歳の産業別年収',    icon: Users,     color: '#0891b2' },
+  { href: '/salary/ranking/industry?age=40',                            label: '40代の産業別ランキング',      description: '40〜44歳の産業別年収',    icon: Users,     color: '#7c3aed' },
+  { href: '/salary/ranking/industry?sex=male&age=40',                   label: '40代男性の産業別ランキング',  description: '40代男性の産業別年収',    icon: Users,     color: '#1a73e8' },
 ]
 
 const industryQuickLinks = [
