@@ -110,8 +110,8 @@ function NavInner() {
   const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
   const industryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isOccupationActive = pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation')
   const isIndustryActive   = pathname.startsWith('/salary/industry') || pathname.startsWith('/salary/ranking/industry')
+  const isOccupationActive = !isIndustryActive && (pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation'))
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
