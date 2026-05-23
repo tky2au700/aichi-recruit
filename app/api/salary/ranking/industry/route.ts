@@ -7,8 +7,6 @@ export async function GET(req: NextRequest) {
   const enterpriseSize = searchParams.get('enterprise_size') || '企業規模計'
   const surveyYear     = searchParams.get('survey_year') ? Number(searchParams.get('survey_year')) : null
   const education      = searchParams.get('education')       || '学歴計'
-  const ageGroup       = searchParams.get('age_group')       || null
-
   try {
     // 利用可能な年度一覧（industry_wages に紐づく datasets のみ）
     const yearsRows = await query(
@@ -31,12 +29,7 @@ export async function GET(req: NextRequest) {
     const targetDatasetId = targetRow.dataset_id
     const targetYear      = targetRow.survey_year
 
-    // 業種ごとの集計（age_group フィルタあり / なし 分岐）
-    const ageGroupCondition = ageGroup
-      ? 'AND age_group = ?'
-      : "AND age_group = '〜19歳'"  // ダミー行排除のために実際は全年齢計が必要
-    // age_group がない場合は全年齢の代表行として "学歴計・企業規模計・性別" で集計
-
+    // 業種ごとの集計（全age_groupをAVG集計 — age_group別の代表行は存在しないため）
     const rankingRows = await query(
       `SELECT
          industry_name,
@@ -57,12 +50,9 @@ export async function GET(req: NextRequest) {
          AND sex = ?
          AND enterprise_size = ?
          AND education = ?
-         ${ageGroup ? 'AND age_group = ?' : ''}
        GROUP BY industry_name, sex, education, enterprise_size
        ORDER BY avg_annual_income DESC`,
-      ageGroup
-        ? [targetDatasetId, sex, enterpriseSize, education, ageGroup]
-        : [targetDatasetId, sex, enterpriseSize, education]
+      [targetDatasetId, sex, enterpriseSize, education]
     ) as Array<{
       industry_name: string
       sex: string
@@ -90,11 +80,8 @@ export async function GET(req: NextRequest) {
        WHERE w.dataset_id = ?
          AND w.sex = ?
          AND w.enterprise_size = ?
-         AND w.education = ?
-         ${ageGroup ? 'AND w.age_group = ?' : ''}`,
-      ageGroup
-        ? [targetDatasetId, sex, enterpriseSize, education, ageGroup]
-        : [targetDatasetId, sex, enterpriseSize, education]
+         AND w.education = ?`,
+      [targetDatasetId, sex, enterpriseSize, education]
     ) as Array<{ avg_income: number; max_income: number; total_workers: number; industry_count: number }>
     const stats = statsRows[0]
 

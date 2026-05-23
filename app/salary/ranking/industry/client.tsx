@@ -115,15 +115,15 @@ export function IndustryRankingClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [search, setSearch]   = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('avg_annual_income')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // URLパラメータを読み取り
+  // URLパラメータを読み取り（フィルタ＋ソートをURL同期）
   const sex        = searchParams.get('sex')       ?? '計'
   const size       = searchParams.get('size')      ?? '企業規模計'
   const education  = searchParams.get('education') ?? '学歴計'
   const yearParam  = searchParams.get('year')
   const surveyYear = yearParam ? parseInt(yearParam, 10) : null
+  const sortKey    = (searchParams.get('sort') as SortKey | null) ?? 'avg_annual_income'
 
   // URLパラメータを更新するヘルパー
   function updateParam(key: string, value: string, defaultValue: string) {
@@ -150,8 +150,13 @@ export function IndustryRankingClient() {
   useEffect(() => { fetchData(sex, size, education, surveyYear) }, [sex, size, education, surveyYear, fetchData])
 
   function handleSort(key: SortKey) {
-    if (sortKey === key) { setSortDir(d => d === 'desc' ? 'asc' : 'desc') }
-    else { setSortKey(key); setSortDir('desc') }
+    if (sortKey === key) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortDir('desc')
+      updateParam('sort', key, 'avg_annual_income')
+    }
+    // sortKey はURL由来なので setSortKey は不要
   }
 
   const filteredData = data
