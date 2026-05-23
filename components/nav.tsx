@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   TrendingUp, Building2, MapPin, GraduationCap, BarChart3,
   Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search,
@@ -92,9 +93,14 @@ const categoryItems = [
   { href: '/salary/age',        label: '年齢・勤続別', icon: BarChart3,     description: '年齢・経験年数と年収の関係' },
 ]
 
-export function Nav() {
-  const pathname   = usePathname()
-  const router     = useRouter()
+function NavInner() {
+  const pathname        = usePathname()
+  const router          = useRouter()
+  const navSearchParams = useSearchParams()
+  const fullPath        = navSearchParams.toString()
+    ? `${pathname}?${navSearchParams.toString()}`
+    : pathname
+
   const [mobileOpen, setMobileOpen]       = useState(false)
   const [megaOpen, setMegaOpen]           = useState(false)
   const [industryMegaOpen, setIndustryMegaOpen] = useState(false)
@@ -436,5 +442,13 @@ export function Nav() {
         </div>
       )}
     </header>
+  )
+}
+
+export function Nav() {
+  return (
+    <Suspense fallback={<header style={{ height: 56, borderBottom: '1px solid #e5e7eb' }} />}>
+      <NavInner />
+    </Suspense>
   )
 }
