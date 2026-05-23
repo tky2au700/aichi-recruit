@@ -295,8 +295,10 @@ export function IndustryRankingClient() {
           {meta ? (
             <p style={S.subtitle}>
               {meta.survey_group_name}
-              {meta.survey_table_name && <span style={{ color: '#94A3B8' }}>　{meta.survey_table_name}</span>}
-              <span style={{ marginLeft: 12, color: '#94A3B8' }}>{meta.survey_year}年調査</span>
+              <span style={{ color: '#94A3B8' }}>　{meta.survey_year}年調査</span>
+              {meta.survey_table_name && (
+                <span style={{ color: '#94A3B8' }}>・{meta.survey_table_name.replace(/^[\s\u3000]+/, '').replace(/[\s\u3000]+$/, '')}</span>
+              )}
             </p>
           ) : (
             <p style={S.subtitle}>賃金構造基本統計調査に基づく産業別年収データ</p>
