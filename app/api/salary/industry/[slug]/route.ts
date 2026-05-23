@@ -64,27 +64,64 @@ export async function GET(
       workers: number | null
     }>
 
-    // KPI 代表値（年齢階級なし = 単一行のはず）
-    const kpiRow = mainData.find(r => !r.age_group || r.age_group === '') ?? mainData[0] ?? null
+    // KPI 代表値: workers加重平均（age_group別行しか存在しないため）
+    const kpiAgg = await query(
+      `SELECT
+         SUM(workers * age)             / NULLIF(SUM(workers), 0) AS avg_age,
+         SUM(workers * tenure_years)    / NULLIF(SUM(workers), 0) AS avg_tenure,
+         SUM(workers * scheduled_hours) / NULLIF(SUM(workers), 0) AS avg_sched_hours,
+         SUM(workers * overtime_hours)  / NULLIF(SUM(workers), 0) AS avg_ot_hours,
+         SUM(workers * monthly_wage)    / NULLIF(SUM(workers), 0) AS avg_monthly_wage,
+         SUM(workers * scheduled_wage)  / NULLIF(SUM(workers), 0) AS avg_sched_wage,
+         SUM(workers * annual_bonus)    / NULLIF(SUM(workers), 0) AS avg_bonus,
+         SUM(workers * annual_income)   / NULLIF(SUM(workers), 0) AS avg_annual_income,
+         SUM(workers)                                              AS total_workers
+       FROM industry_wages
+       WHERE dataset_id = ? AND industry_name = ?
+         AND sex = ? AND enterprise_size = ? AND education = ?`,
+      [datasetId, industryName, sex, size, education]
+    ) as Array<{
+      avg_age: number | null; avg_tenure: number | null
+      avg_sched_hours: number | null; avg_ot_hours: number | null
+      avg_monthly_wage: number | null; avg_sched_wage: number | null
+      avg_bonus: number | null; avg_annual_income: number | null; total_workers: number | null
+    }>
+    const kpiRow = kpiAgg[0] ?? null
 
-    // 企業規模別テーブル（選択した性別・学歴固定、企業規模を全種類）
+    // 企業規模別テーブル（選択した性別・学歴固定、企業規模を全種類 — workers加重平均）
     const sizeRows = await query(
-      `SELECT enterprise_size, age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
+      `SELECT enterprise_size,
+         SUM(workers * age)             / NULLIF(SUM(workers), 0) AS age,
+         SUM(workers * tenure_years)    / NULLIF(SUM(workers), 0) AS tenure_years,
+         SUM(workers * scheduled_hours) / NULLIF(SUM(workers), 0) AS scheduled_hours,
+         SUM(workers * overtime_hours)  / NULLIF(SUM(workers), 0) AS overtime_hours,
+         SUM(workers * monthly_wage)    / NULLIF(SUM(workers), 0) AS monthly_wage,
+         SUM(workers * scheduled_wage)  / NULLIF(SUM(workers), 0) AS scheduled_wage,
+         SUM(workers * annual_bonus)    / NULLIF(SUM(workers), 0) AS annual_bonus,
+         SUM(workers * annual_income)   / NULLIF(SUM(workers), 0) AS annual_income,
+         SUM(workers)                                              AS workers
        FROM industry_wages
        WHERE dataset_id = ? AND industry_name = ? AND sex = ? AND education = ?
-         AND age_group = ''
+       GROUP BY enterprise_size
        ORDER BY FIELD(enterprise_size, '企業規模計', '1000人以上', '100〜999人', '10〜99人')`,
       [datasetId, industryName, sex, education]
     ) as Array<{ enterprise_size: string; age: number | null; tenure_years: number | null; scheduled_hours: number | null; overtime_hours: number | null; monthly_wage: number | null; scheduled_wage: number | null; annual_bonus: number | null; annual_income: number | null; workers: number | null }>
 
-    // 男女別テーブル（選択した企業規模・学歴固定、性別を全種類）
+    // 男女別テーブル（選択した企業規模・学歴固定、性別を全種類 — workers加重平均）
     const sexRows = await query(
-      `SELECT sex, age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
+      `SELECT sex,
+         SUM(workers * age)             / NULLIF(SUM(workers), 0) AS age,
+         SUM(workers * tenure_years)    / NULLIF(SUM(workers), 0) AS tenure_years,
+         SUM(workers * scheduled_hours) / NULLIF(SUM(workers), 0) AS scheduled_hours,
+         SUM(workers * overtime_hours)  / NULLIF(SUM(workers), 0) AS overtime_hours,
+         SUM(workers * monthly_wage)    / NULLIF(SUM(workers), 0) AS monthly_wage,
+         SUM(workers * scheduled_wage)  / NULLIF(SUM(workers), 0) AS scheduled_wage,
+         SUM(workers * annual_bonus)    / NULLIF(SUM(workers), 0) AS annual_bonus,
+         SUM(workers * annual_income)   / NULLIF(SUM(workers), 0) AS annual_income,
+         SUM(workers)                                              AS workers
        FROM industry_wages
        WHERE dataset_id = ? AND industry_name = ? AND enterprise_size = ? AND education = ?
-         AND age_group = ''
+       GROUP BY sex
        ORDER BY FIELD(sex, '計', '男', '女')`,
       [datasetId, industryName, size, education]
     ) as Array<{ sex: string; age: number | null; tenure_years: number | null; scheduled_hours: number | null; overtime_hours: number | null; monthly_wage: number | null; scheduled_wage: number | null; annual_bonus: number | null; annual_income: number | null; workers: number | null }>
@@ -111,24 +148,21 @@ export async function GET(
       annual_bonus: number | null; annual_income: number | null; workers: number | null
     }>
 
-    // 時系列（推移グラフ用 — パラメータ問わず全年・学歴計・全性別×全企業規模）
+    // 時系列（推移グラフ用 — workers加重平均）
     const timeSeries = await query(
       `SELECT d.survey_year, w.sex, w.enterprise_size,
-              AVG(w.age)             AS age,
-              AVG(w.tenure_years)    AS tenure_years,
-              AVG(w.scheduled_hours) AS scheduled_hours,
-              AVG(w.overtime_hours)  AS overtime_hours,
-              AVG(w.monthly_wage)    AS monthly_wage,
-              AVG(w.scheduled_wage)  AS scheduled_wage,
-              AVG(w.annual_bonus)    AS annual_bonus,
-              AVG(w.annual_income)   AS annual_income,
-              SUM(w.workers)         AS workers
+              SUM(w.workers * w.age)           / NULLIF(SUM(w.workers), 0) AS age,
+              SUM(w.workers * w.tenure_years)  / NULLIF(SUM(w.workers), 0) AS tenure_years,
+              SUM(w.workers * w.monthly_wage)  / NULLIF(SUM(w.workers), 0) AS monthly_wage,
+              SUM(w.workers * w.scheduled_wage)/ NULLIF(SUM(w.workers), 0) AS scheduled_wage,
+              SUM(w.workers * w.annual_bonus)  / NULLIF(SUM(w.workers), 0) AS annual_bonus,
+              SUM(w.workers * w.annual_income) / NULLIF(SUM(w.workers), 0) AS annual_income,
+              SUM(w.workers)                                                AS workers
        FROM industry_wages w
        JOIN datasets d ON d.id = w.dataset_id
        JOIN dataset_groups dg ON dg.id = d.group_id
        WHERE w.industry_name = ?
          AND w.education = ?
-         AND w.age_group = ''
          AND dg.target_table = 'industry_wages'
        GROUP BY d.survey_year, w.sex, w.enterprise_size
        ORDER BY d.survey_year, w.sex, w.enterprise_size`,
@@ -136,21 +170,19 @@ export async function GET(
     ) as Array<{
       survey_year: number; sex: string; enterprise_size: string
       age: number | null; tenure_years: number | null
-      scheduled_hours: number | null; overtime_hours: number | null
       monthly_wage: number | null; scheduled_wage: number | null
       annual_bonus: number | null; annual_income: number | null; workers: number | null
     }>
 
-    // 他産業との比較（選択パラメータと同条件）
+    // 他産業との比較（workers加重平均）
     const allIndustrySummary = await query(
       `SELECT industry_name,
-              AVG(annual_income) AS avg_annual_income,
-              AVG(monthly_wage)  AS avg_monthly_wage,
-              AVG(annual_bonus)  AS avg_bonus
+              SUM(workers * annual_income) / NULLIF(SUM(workers), 0) AS avg_annual_income,
+              SUM(workers * monthly_wage)  / NULLIF(SUM(workers), 0) AS avg_monthly_wage,
+              SUM(workers * annual_bonus)  / NULLIF(SUM(workers), 0) AS avg_bonus
        FROM industry_wages
        WHERE dataset_id = ?
          AND sex = ? AND enterprise_size = ? AND education = ?
-         AND age_group = ''
        GROUP BY industry_name
        ORDER BY avg_annual_income DESC`,
       [datasetId, sex, size, education]
