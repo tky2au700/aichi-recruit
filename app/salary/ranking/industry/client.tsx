@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { Building2, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -50,9 +50,8 @@ interface ApiResponse {
 }
 
 // ---------------------------------------------------------------------------
-// 定数
+// 定数・変換マップ（職種別と統一）
 // ---------------------------------------------------------------------------
-// URL パラメータ（英数字）↔ DB値（日本語）変換マップ — 職種別と統一
 const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
 const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
 const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100〜999人', small: '10〜99人' }
@@ -67,28 +66,30 @@ const EDU_TO_PARAM:  Record<string, string> = {
 }
 
 const SEX_OPTIONS = [
-  { param: '',       db: '計',    label: '男女計' },
-  { param: 'male',   db: '男',   label: '男性' },
-  { param: 'female', db: '女',   label: '女性' },
+  { param: '',       db: '計',  label: '男女計' },
+  { param: 'male',   db: '男',  label: '男性' },
+  { param: 'female', db: '女',  label: '女性' },
 ]
 const SIZE_OPTIONS = [
-  { param: '',        db: '企業規模計', label: '企業規模計' },
-  { param: 'large',   db: '1000人以上', label: '1000人以上' },
-  { param: 'medium',  db: '100〜999人', label: '100〜999人' },
-  { param: 'small',   db: '10〜99人',   label: '10〜99人' },
+  { param: '',       db: '企業規模計', label: '企業規模計' },
+  { param: 'large',  db: '1000人以上', label: '1000人以上' },
+  { param: 'medium', db: '100〜999人', label: '100〜999人' },
+  { param: 'small',  db: '10〜99人',   label: '10〜99人' },
 ]
 const EDU_OPTIONS = [
-  { param: '',           db: '学歴計',   label: '学歴計' },
-  { param: 'junior',     db: '中学',     label: '中学' },
-  { param: 'high',       db: '高校',     label: '高校' },
-  { param: 'vocational', db: '専門学校', label: '専門学校' },
+  { param: '',           db: '学歴計',    label: '学歴計' },
+  { param: 'junior',     db: '中学',      label: '中学' },
+  { param: 'high',       db: '高校',      label: '高校' },
+  { param: 'vocational', db: '専門学校',  label: '専門学校' },
   { param: 'college',    db: '高専・短大', label: '高専・短大' },
-  { param: 'university', db: '大学',     label: '大学' },
-  { param: 'grad',       db: '大学院',   label: '大学院' },
+  { param: 'university', db: '大学',      label: '大学' },
+  { param: 'grad',       db: '大学院',    label: '大学院' },
 ]
 
 type SortKey = 'avg_annual_income' | 'avg_monthly_wage' | 'avg_bonus' | 'avg_age' | 'avg_tenure' | 'avg_ot_hours'
-const SORT_LABELS: Record<SortKey, string> = {
+type SortDir = 'asc' | 'desc'
+
+const SORT_KEY_LABEL: Record<SortKey, string> = {
   avg_annual_income: '年収',
   avg_monthly_wage:  '月給',
   avg_bonus:         '賞与',
@@ -97,6 +98,9 @@ const SORT_LABELS: Record<SortKey, string> = {
   avg_ot_hours:      '残業時間',
 }
 
+// ---------------------------------------------------------------------------
+// ユーティリティ
+// ---------------------------------------------------------------------------
 function fmtWan(v: number | null) {
   if (v == null) return '−'
   return `${Math.round(v).toLocaleString()}万円`
@@ -114,13 +118,17 @@ function RankBadge({ rank }: { rank: number }) {
   return <span style={{ display: 'inline-block', width: 24, textAlign: 'center', fontSize: 12, color: '#9CA3AF', fontVariantNumeric: 'tabular-nums' }}>{rank}</span>
 }
 
-// 産業名からアルファベット記号を除いてスラグ化（表示用）
+// 産業名からアルファベット記号を除いてすっきり表示
 function industryLabel(name: string) {
   return name.replace(/^[A-ZＡ-Ｚ]\s*/, '').replace(/^\(民[＋+]公\)\s*[A-ZＡ-Ｚ]?\s*/, '(民+公) ')
 }
 
+// ---------------------------------------------------------------------------
+// メインコンポーネント
+// ---------------------------------------------------------------------------
 export function IndustryRankingClient() {
   const router       = useRouter()
+  const pathname     = usePathname()
   const searchParams = useSearchParams()
 
   const [data, setData]       = useState<IndustryRow[]>([])
@@ -129,44 +137,38 @@ export function IndustryRankingClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [search, setSearch]   = useState('')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  // URL パラメータ（英数字）を読み取り → DB値（日本語）に変換
-  const sexParam  = searchParams.get('sex')       ?? ''
-  const sizeParam = searchParams.get('size')      ?? ''
-  const eduParam  = searchParams.get('education') ?? ''
-  const yearParam = searchParams.get('year')
+  // URL パラメータ（英数字）→ DB値（日本語）に変換
+  const sexParam   = searchParams.get('sex')       ?? ''
+  const sizeParam  = searchParams.get('size')      ?? ''
+  const eduParam   = searchParams.get('education') ?? ''
+  const yearParam  = searchParams.get('year')
+  const sortParam  = (searchParams.get('sort') as SortKey | null) ?? 'avg_annual_income'
+  const dirParam   = (searchParams.get('dir')  as SortDir | null) ?? 'desc'
+
+  const dbSex      = PARAM_TO_SEX[sexParam]  ?? '計'
+  const dbSize     = PARAM_TO_SIZE[sizeParam] ?? '企業規模計'
+  const dbEdu      = PARAM_TO_EDU[eduParam]  ?? '学歴計'
   const surveyYear = yearParam ? parseInt(yearParam, 10) : null
-  const sortKey    = (searchParams.get('sort') as SortKey | null) ?? 'avg_annual_income'
+  const sortKey    = sortParam
+  const sortDir    = dirParam
 
-  const dbSex  = PARAM_TO_SEX[sexParam]  ?? '計'
-  const dbSize = PARAM_TO_SIZE[sizeParam] ?? '企業規模計'
-  const dbEdu  = PARAM_TO_EDU[eduParam]  ?? '学歴計'
-
-  // URL パラメータを更新するヘルパー（DB値 → URL値に変換して set）
-  function updateSex(dbVal: string) {
-    const p = new URLSearchParams(searchParams.toString())
-    const pVal = SEX_TO_PARAM[dbVal]
-    pVal ? p.set('sex', pVal) : p.delete('sex')
-    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
-  }
-  function updateSize(dbVal: string) {
-    const p = new URLSearchParams(searchParams.toString())
-    const pVal = SIZE_TO_PARAM[dbVal]
-    pVal ? p.set('size', pVal) : p.delete('size')
-    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
-  }
-  function updateEdu(dbVal: string) {
-    const p = new URLSearchParams(searchParams.toString())
-    const pVal = EDU_TO_PARAM[dbVal]
-    pVal && pVal !== 'total' ? p.set('education', pVal) : p.delete('education')
-    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
-  }
-  function updateParam(key: string, value: string, defaultValue: string) {
-    const p = new URLSearchParams(searchParams.toString())
-    if (value === defaultValue) { p.delete(key) } else { p.set(key, value) }
-    router.replace(`/salary/ranking/industry?${p.toString()}`, { scroll: false })
-  }
+  // URL を push（職種別と同じ pushUrl パターン）
+  const pushUrl = useCallback((
+    newSex: string, newSize: string, newEdu: string,
+    newYear: number | null,
+    newSort: SortKey = 'avg_annual_income', newDir: SortDir = 'desc'
+  ) => {
+    const p = new URLSearchParams()
+    const sP  = SEX_TO_PARAM[newSex];  if (sP)  p.set('sex',  sP)
+    const szP = SIZE_TO_PARAM[newSize]; if (szP) p.set('size', szP)
+    const eP  = EDU_TO_PARAM[newEdu];  if (eP && eP !== 'total') p.set('education', eP)
+    if (newYear !== null)                         p.set('year', String(newYear))
+    if (newSort !== 'avg_annual_income')           p.set('sort', newSort)
+    if (newSort !== 'avg_annual_income' && newDir !== 'desc') p.set('dir', newDir)
+    const q = p.toString()
+    router.push(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }, [router, pathname])
 
   const fetchData = useCallback(async (_sex: string, _size: string, _edu: string, _year: number | null) => {
     setLoading(true); setError(null)
@@ -187,12 +189,11 @@ export function IndustryRankingClient() {
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
-      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+      const newDir: SortDir = sortDir === 'desc' ? 'asc' : 'desc'
+      pushUrl(dbSex, dbSize, dbEdu, surveyYear, key, newDir)
     } else {
-      setSortDir('desc')
-      updateParam('sort', key, 'avg_annual_income')
+      pushUrl(dbSex, dbSize, dbEdu, surveyYear, key, 'desc')
     }
-    // sortKey はURL由来なので setSortKey は不要
   }
 
   const filteredData = data
@@ -204,37 +205,67 @@ export function IndustryRankingClient() {
       if (av == null) return 1; if (bv == null) return -1
       return sortDir === 'desc' ? bv - av : av - bv
     })
-  const topValue = filteredData[0]?.[sortKey] as number | null ?? null
 
-  const S = {
-    page:       { background: '#F8FAFC', minHeight: '100vh', fontFamily: "'Noto Sans JP', 'Google Sans', sans-serif" },
-    container:  { maxWidth: 1100, margin: '0 auto', padding: '0 24px 64px' },
-    hero:       { background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '32px 0 24px' },
-    heroInner:  { maxWidth: 1100, margin: '0 auto', padding: '0 24px' },
-    h1:         { fontSize: 26, fontWeight: 700, color: '#1E293B', margin: 0, letterSpacing: '-0.3px' },
-    subtitle:   { fontSize: 13, color: '#64748B', marginTop: 6 },
-    kpiGrid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, margin: '24px 0' },
-    kpiCard:    { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-    kpiLabel:   { fontSize: 12, color: '#64748B', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 },
-    kpiValue:   { fontSize: 22, fontWeight: 700, color: '#1E293B', marginTop: 8 },
-    kpiSub:     { fontSize: 11, color: '#94A3B8', marginTop: 4 },
-    filterBar:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', flexWrap: 'wrap' as const, gap: 14, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-    filterLabel:{ fontSize: 12, color: '#64748B', fontWeight: 500, whiteSpace: 'nowrap' as const },
-    chipActive: { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #1a73e8', background: '#EBF3FE', color: '#1a73e8' },
-    chip:       { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569' },
-    divider:    { width: 1, height: 28, background: '#E2E8F0' },
-    tableCard:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-    tableHead:  { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F1F5F9' },
-    tableTitle: { fontSize: 14, fontWeight: 600, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 },
-    badge:      { fontSize: 11, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 20 },
-    table:      { width: '100%', borderCollapse: 'collapse' as const },
-    th:         { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#64748B', textAlign: 'left' as const, background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' as const, cursor: 'pointer', userSelect: 'none' as const },
-    td:         { padding: '11px 14px', fontSize: 13, borderBottom: '1px solid #F1F5F9', color: '#374151', whiteSpace: 'nowrap' as const },
-    barWrap:    { width: 80, height: 4, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
-    footer:     { padding: '12px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    footerText: { fontSize: 11, color: '#94A3B8' },
+  const topSortValue = filteredData[0]?.[sortKey] as number | null ?? null
+
+  // ---------------------------------------------------------------------------
+  // ダイナミックタイトル（職種別と同じパターン）
+  // ---------------------------------------------------------------------------
+  const sexLabelMap:  Record<string, string> = { '男': '男性', '女': '女性' }
+  const sizeLabelMap: Record<string, string> = {
+    '1000人以上': '大企業', '100〜999人': '中規模企業', '10〜99人': '小規模企業',
+  }
+  const currentSexLabel  = dbSex  !== '計'        ? (sexLabelMap[dbSex]   ?? null) : null
+  const currentSizeLabel = dbSize !== '企業規模計' ? (sizeLabelMap[dbSize] ?? null) : null
+  const currentYearStr   = surveyYear ? `${surveyYear}年` : (meta?.survey_year ? `${meta.survey_year}年` : '')
+  const currentSortLabel = SORT_KEY_LABEL[sortKey]
+
+  const baseTitle = `産業別平均${currentSortLabel}ランキング${currentYearStr}`
+  let dynamicHeading: string
+  if (currentSizeLabel) {
+    dynamicHeading = `${currentSizeLabel}の${baseTitle}${currentSexLabel ? `・${currentSexLabel}` : ''}`
+  } else if (currentSexLabel) {
+    dynamicHeading = `${currentSexLabel}の${baseTitle}`
+  } else {
+    dynamicHeading = baseTitle
   }
 
+  // ---------------------------------------------------------------------------
+  // スタイル定数
+  // ---------------------------------------------------------------------------
+  const S = {
+    page:        { background: '#F8FAFC', minHeight: '100vh', fontFamily: "'Noto Sans JP', 'Google Sans', sans-serif" },
+    container:   { maxWidth: 1100, margin: '0 auto', padding: '0 24px 48px' },
+    hero:        { background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '32px 0 24px' },
+    heroInner:   { maxWidth: 1100, margin: '0 auto', padding: '0 24px' },
+    h1:          { fontSize: 26, fontWeight: 700, color: '#1E293B', margin: 0, letterSpacing: '-0.3px' },
+    subtitle:    { fontSize: 13, color: '#64748B', marginTop: 6 },
+    kpiGrid:     { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, margin: '24px 0' },
+    kpiCard:     { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+    kpiLabel:    { fontSize: 12, color: '#64748B', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 },
+    kpiValue:    { fontSize: 22, fontWeight: 700, color: '#1E293B', marginTop: 8 },
+    kpiSub:      { fontSize: 11, color: '#94A3B8', marginTop: 4 },
+    filterBar:   { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', flexWrap: 'wrap' as const, gap: 16, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+    filterGroup: { display: 'flex', alignItems: 'center', gap: 8 },
+    filterLabel: { fontSize: 12, color: '#64748B', fontWeight: 500, whiteSpace: 'nowrap' as const },
+    chipActive:  { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #1a73e8', background: '#EBF3FE', color: '#1a73e8', transition: 'all .15s' },
+    chip:        { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569', transition: 'all .15s' },
+    divider:     { width: 1, height: 28, background: '#E2E8F0' },
+    tableCard:   { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+    tableHead:   { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F1F5F9' },
+    tableTitle:  { fontSize: 14, fontWeight: 600, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 },
+    badge:       { fontSize: 11, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 20, fontWeight: 500 },
+    searchWrap:  { position: 'relative' as const },
+    searchInput: { background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 32px 7px 32px', fontSize: 13, color: '#1E293B', outline: 'none', width: 200 },
+    table:       { width: '100%', borderCollapse: 'collapse' as const },
+    th:          { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#64748B', textAlign: 'left' as const, background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' as const, cursor: 'pointer', userSelect: 'none' as const },
+    td:          { padding: '11px 14px', fontSize: 13, borderBottom: '1px solid #F1F5F9', color: '#374151', whiteSpace: 'nowrap' as const },
+    barWrap:     { width: 80, height: 4, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
+    footer:      { padding: '12px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    footerText:  { fontSize: 11, color: '#94A3B8' },
+  }
+
+  // ソートヘッダー
   function Th({ label, k }: { label: string; k: SortKey }) {
     const isActive = sortKey === k
     return (
@@ -242,7 +273,9 @@ export function IndustryRankingClient() {
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {label}
           {isActive
-            ? sortDir === 'desc' ? <ChevronDown size={13} style={{ color: '#1a73e8' }} /> : <ChevronUp size={13} style={{ color: '#1a73e8' }} />
+            ? sortDir === 'desc'
+              ? <ChevronDown size={13} style={{ color: '#1a73e8' }} />
+              : <ChevronUp   size={13} style={{ color: '#1a73e8' }} />
             : <ArrowUpDown size={12} style={{ color: '#CBD5E1', opacity: 0.7 }} />
           }
         </span>
@@ -250,30 +283,36 @@ export function IndustryRankingClient() {
     )
   }
 
-  const heading = `産業別平均年収ランキング${meta?.survey_year ? `${meta.survey_year}年` : ''}`
-
+  // ---------------------------------------------------------------------------
+  // レンダリング
+  // ---------------------------------------------------------------------------
   return (
     <div style={S.page}>
       {/* ヒーロー帯 */}
       <div style={S.hero}>
         <div style={S.heroInner}>
-          <h1 style={S.h1}>{heading}</h1>
-          <p style={S.subtitle}>
-            賃��構造基本統計調査に基づく産業別年収データ
-            {meta && <span style={{ marginLeft: 12, color: '#94A3B8' }}>{meta.survey_year}年調査 ・ {meta.survey_group_name}</span>}
-          </p>
+          <h1 style={S.h1}>{dynamicHeading}</h1>
+          {meta ? (
+            <p style={S.subtitle}>
+              {meta.survey_group_name}
+              {meta.survey_table_name && <span style={{ color: '#94A3B8' }}>　{meta.survey_table_name}</span>}
+              <span style={{ marginLeft: 12, color: '#94A3B8' }}>{meta.survey_year}年調査</span>
+            </p>
+          ) : (
+            <p style={S.subtitle}>賃金構造基本統計調査に基づく産業別年収データ</p>
+          )}
         </div>
       </div>
 
       <div style={S.container}>
-        {/* KPI */}
+        {/* KPIカード */}
         {meta && !loading && (
           <div style={S.kpiGrid}>
             {[
-              { icon: <Award size={15} color="#1a73e8" />,   label: '最高年収',      value: fmtWan(meta.max_income),     sub: 'トップ産業' },
+              { icon: <Award    size={15} color="#1a73e8" />, label: '最高年収',      value: fmtWan(meta.max_income),     sub: 'トップ産業' },
               { icon: <BarChart2 size={15} color="#0F9D58" />, label: '全産業平均年収', value: fmtWan(meta.avg_income),     sub: `${meta.industry_count}産業の平均` },
               { icon: <Building2 size={15} color="#F4B400" />, label: '集計産業数',    value: `${meta.industry_count}産業`, sub: `${meta.survey_year}年調査` },
-              { icon: <Users size={15} color="#DB4437" />,   label: '労働者数',      value: meta.total_workers ? `${(meta.total_workers / 10000).toFixed(0)}万人` : '−', sub: '対象労働者の合計' },
+              { icon: <Users    size={15} color="#DB4437" />, label: '労働者数',      value: meta.total_workers ? `${(meta.total_workers / 10000).toFixed(0)}万人` : '−', sub: '対象労働者の合計' },
             ].map(({ icon, label, value, sub }) => (
               <div key={label} style={S.kpiCard}>
                 <div style={S.kpiLabel}>{icon}{label}</div>
@@ -287,13 +326,13 @@ export function IndustryRankingClient() {
         {/* フィルターバー */}
         <div style={S.filterBar}>
           {/* 調査年 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={S.filterGroup}>
             <span style={S.filterLabel}>調査年</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {years.map(y => (
                 <button key={y.survey_year}
                   style={surveyYear === y.survey_year || (surveyYear === null && meta?.survey_year === y.survey_year) ? S.chipActive : S.chip}
-                  onClick={() => updateParam('year', String(y.survey_year), '')}>
+                  onClick={() => pushUrl(dbSex, dbSize, dbEdu, y.survey_year, sortKey, sortDir)}>
                   {y.survey_year}年
                 </button>
               ))}
@@ -301,15 +340,19 @@ export function IndustryRankingClient() {
           </div>
           <div style={S.divider} />
           {/* 性別 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={S.filterGroup}>
             <span style={S.filterLabel}>性別</span>
             <div style={{ display: 'flex', gap: 6 }}>
               {SEX_OPTIONS.map(o => (
                 <button key={o.param}
                   style={dbSex === o.db
-                    ? { ...S.chipActive, border: o.db === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8', color: o.db === '女' ? '#DB4437' : '#1a73e8', background: o.db === '女' ? '#FCECEA' : '#EBF3FE' }
+                    ? { ...S.chipActive,
+                        border:     o.db === '男' ? '1.5px solid #1a73e8' : o.db === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8',
+                        color:      o.db === '男' ? '#1a73e8' : o.db === '女' ? '#DB4437' : '#1a73e8',
+                        background: o.db === '男' ? '#EBF3FE' : o.db === '女' ? '#FCECEA' : '#EBF3FE',
+                      }
                     : S.chip}
-                  onClick={() => updateSex(o.db)}>
+                  onClick={() => pushUrl(o.db, dbSize, dbEdu, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
@@ -317,11 +360,13 @@ export function IndustryRankingClient() {
           </div>
           <div style={S.divider} />
           {/* 企業規模 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={S.filterGroup}>
             <span style={S.filterLabel}>企業規模</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {SIZE_OPTIONS.map(o => (
-                <button key={o.param} style={dbSize === o.db ? S.chipActive : S.chip} onClick={() => updateSize(o.db)}>
+                <button key={o.param}
+                  style={dbSize === o.db ? S.chipActive : S.chip}
+                  onClick={() => pushUrl(dbSex, o.db, dbEdu, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
@@ -329,11 +374,13 @@ export function IndustryRankingClient() {
           </div>
           <div style={S.divider} />
           {/* 学歴 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={S.filterGroup}>
             <span style={S.filterLabel}>学歴</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {EDU_OPTIONS.map(o => (
-                <button key={o.param} style={dbEdu === o.db ? S.chipActive : S.chip} onClick={() => updateEdu(o.db)}>
+                <button key={o.param}
+                  style={dbEdu === o.db ? S.chipActive : S.chip}
+                  onClick={() => pushUrl(dbSex, dbSize, o.db, surveyYear, sortKey, sortDir)}>
                   {o.label}
                 </button>
               ))}
@@ -345,85 +392,223 @@ export function IndustryRankingClient() {
         <div style={S.tableCard}>
           <div style={S.tableHead}>
             <div style={S.tableTitle}>
-              <span>{SORT_LABELS[sortKey]}ランキング</span>
-              {!loading && <span style={S.badge}>{filteredData.length} 産業</span>}
+              <span>{currentSortLabel}ランキング</span>
+              {!loading && <span style={S.badge}>{filteredData.length.toLocaleString()} 産業</span>}
             </div>
-            <div style={{ position: 'relative' }}>
+            <div style={S.searchWrap}>
               <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
               <input
                 type="text" value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="産業名で絞り込み..."
-                style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 32px 7px 32px', fontSize: 13, color: '#1E293B', outline: 'none', width: 200 }}
+                style={S.searchInput}
               />
               {search && (
-                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 2 }}>
                   <X size={13} />
                 </button>
               )}
             </div>
           </div>
 
+          {/* テーブル本体 */}
           {loading ? (
-            <div style={{ padding: '80px 24px', textAlign: 'center' }}>
-              <div style={{ width: 32, height: 32, border: '3px solid #E2E8F0', borderTopColor: '#1a73e8', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
-              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-              <p style={{ color: '#94A3B8', fontSize: 13 }}>読み込み中...</p>
+            <div style={{ padding: 32 }}>
+              <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
+              {[...Array(8)].map((_, i) => (
+                <div key={i} style={{ height: 44, background: i % 2 === 0 ? '#F8FAFC' : '#fff', borderRadius: 4, marginBottom: 4, animation: 'pulse 1.5s infinite' }} />
+              ))}
             </div>
           ) : error ? (
-            <div style={{ padding: '60px 24px', textAlign: 'center', color: '#EF4444', fontSize: 14 }}>{error}</div>
+            <div style={{ padding: 48, textAlign: 'center', color: '#DB4437', fontSize: 14 }}>
+              <Info size={20} style={{ marginBottom: 8, opacity: 0.6 }} />
+              <p>{error}</p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>
+              {data.length === 0 ? 'データがありません。管理画面からCSVをインポートしてください。' : '該当する産業はありません。'}
+            </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={S.table}>
                 <thead>
                   <tr>
-                    <th style={{ ...S.th, width: 40 }}>#</th>
-                    <th style={{ ...S.th, minWidth: 220 }}>産業名</th>
-                    <Th label="推定年収" k="avg_annual_income" />
-                    <Th label="月給"     k="avg_monthly_wage" />
-                    <Th label="賞与"     k="avg_bonus" />
-                    <Th label="残業(h)"  k="avg_ot_hours" />
-                    <Th label="平均年齢" k="avg_age" />
-                    <Th label="勤続年数" k="avg_tenure" />
+                    <th style={{ ...S.th, width: 48, cursor: 'default' }}>#</th>
+                    <th style={{ ...S.th, minWidth: 200, cursor: 'default' }}>産業名</th>
+                    <Th label="推定年収"  k="avg_annual_income" />
+                    <Th label="月給"      k="avg_monthly_wage" />
+                    <Th label="年間賞与"  k="avg_bonus" />
+                    <Th label="残業時間"  k="avg_ot_hours" />
+                    <Th label="平均年齢"  k="avg_age" />
+                    <Th label="勤続年数"  k="avg_tenure" />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((row, i) => {
-                    const sortVal = row[sortKey] as number | null
-                    const barPct  = topValue && sortVal ? Math.round((sortVal / topValue) * 100) : 0
-                    const isTop   = i === 0
+                  {filteredData.map((row, idx) => {
+                    const sortVal   = row[sortKey] as number | null
+                    const sortRatio = topSortValue && sortVal ? (sortVal / topSortValue) * 100 : 0
+                    const avgIncome = meta?.avg_income ?? null
+                    const isAboveAvg = sortVal != null && avgIncome != null && sortVal > avgIncome
+
                     return (
-                      <tr key={row.industry_name} style={{ background: isTop ? '#FAFEFF' : undefined }}>
-                        <td style={S.td}><RankBadge rank={i + 1} /></td>
-                        <td style={{ ...S.td, maxWidth: 260 }}>
+                      <tr
+                        key={row.industry_name}
+                        style={{ background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#EBF3FE')}
+                        onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}
+                      >
+                        {/* 順位 */}
+                        <td style={{ ...S.td, width: 48 }}>
+                          <RankBadge rank={idx + 1} />
+                        </td>
+
+                        {/* 産業名 */}
+                        <td style={{ ...S.td }}>
                           <Link
                             href={`/salary/industry/${encodeURIComponent(row.industry_name)}`}
-                            style={{ color: '#1a73e8', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}
+                            className="occupation-link"
                           >
                             {industryLabel(row.industry_name)}
                           </Link>
-                          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2, fontFamily: 'monospace' }}>{row.industry_name}</div>
-                        </td>
-                        <td style={S.td}>
-                          <div style={{ fontWeight: 700, color: '#1a73e8' }}>{fmtWan(row.avg_annual_income)}</div>
-                          <div style={S.barWrap}>
-                            <div style={{ height: '100%', width: `${barPct}%`, background: '#1a73e8', borderRadius: 4 }} />
+                          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>
+                            {row.industry_name !== industryLabel(row.industry_name) ? row.industry_name : ''}
                           </div>
                         </td>
-                        <td style={S.td}>{fmtWan(row.avg_monthly_wage)}</td>
-                        <td style={S.td}>{fmtWan(row.avg_bonus)}</td>
-                        <td style={S.td}>{fmtNum(row.avg_ot_hours, 'h')}</td>
-                        <td style={S.td}>{fmtNum(row.avg_age, '歳')}</td>
-                        <td style={S.td}>{fmtNum(row.avg_tenure, '年')}</td>
+
+                        {/* 推定年収 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_annual_income'
+                          return (
+                            <td style={{ ...S.td, minWidth: 140 }}>
+                              <span style={{
+                                fontWeight: 700, fontSize: 13,
+                                color: isSort ? (idx === 0 ? '#D97706' : isAboveAvg ? '#1a73e8' : '#374151') : '#475569',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {fmtWan(row.avg_annual_income)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+
+                        {/* 月給 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_monthly_wage'
+                          return (
+                            <td style={{ ...S.td, minWidth: 110 }}>
+                              <span style={{
+                                fontWeight: isSort ? 700 : 400, fontSize: 13,
+                                color: isSort ? (idx === 0 ? '#D97706' : isAboveAvg ? '#1a73e8' : '#374151') : '#475569',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {fmtWan(row.avg_monthly_wage)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+
+                        {/* 年間賞与 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_bonus'
+                          return (
+                            <td style={{ ...S.td, minWidth: 110 }}>
+                              <span style={{
+                                fontWeight: isSort ? 700 : 400, fontSize: 13,
+                                color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}>
+                                {fmtWan(row.avg_bonus)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+
+                        {/* 残業時間 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_ot_hours'
+                          const isHigh = row.avg_ot_hours != null && row.avg_ot_hours > 20
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{
+                                fontWeight: isSort ? 700 : (isHigh ? 600 : 400),
+                                color: isSort ? (idx === 0 ? '#D97706' : '#DB4437') : (isHigh ? '#DB4437' : '#475569'),
+                              }}>
+                                {fmtNum(row.avg_ot_hours, 'h')}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#FCA5A5', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+
+                        {/* 平均年齢 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_age'
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569' }}>
+                                {fmtNum(row.avg_age, '歳')}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#94A3B8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+
+                        {/* 勤続年数 */}
+                        {(() => {
+                          const isSort = sortKey === 'avg_tenure'
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569' }}>
+                                {fmtNum(row.avg_tenure, '年')}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#94A3B8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
-              <div style={S.footer}>
-                <span style={S.footerText}>{filteredData.length} 産業を表示中</span>
-                <span style={S.footerText}>出典: 賃金構造基本統計調査 {meta?.survey_year}年</span>
-              </div>
+            </div>
+          )}
+
+          {/* フッター */}
+          {meta && !loading && (
+            <div style={S.footer}>
+              <span style={S.footerText}>
+                出典: {meta.survey_group_name}（{meta.survey_year}年）　厚生労働省
+              </span>
+              <span style={S.footerText}>
+                推定年収 = 月給 × 12 + 年間賞与　単位: 千円→万円換算
+              </span>
             </div>
           )}
         </div>
