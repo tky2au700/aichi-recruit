@@ -260,7 +260,7 @@ function parseIndustrySheet(ws: XLSX.WorkSheet, sheetName: string): IndustryWage
 }
 
 // -------------------------------------------------------
-// DB挿入
+// DB挿��
 // -------------------------------------------------------
 
 const BATCH_SIZE = 200
@@ -346,53 +346,96 @@ export async function POST(req: NextRequest) {
     // 既存データ削除（再インポート対応）
     await query(`DELETE FROM \`${targetTable}\` WHERE dataset_id = ?`, [datasetId])
 
-    // XLSX パース＆インポート
+    // XLSX パース
     const buf = Buffer.from(await file.arrayBuffer())
     const wb  = XLSX.read(buf, { type: 'buffer', cellDates: false })
+    const totalSheets = wb.SheetNames.length
 
-    const results: Array<{
-      sheet_name:    string
-      industry_name: string
-      inserted:      number
-      error?:        string
-    }> = []
-
-    let totalInserted = 0
-
-    for (const sheetName of wb.SheetNames) {
-      try {
-        const ws = wb.Sheets[sheetName]
-        if (!ws || !ws['!ref']) {
-          results.push({ sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: 'シートが空' })
-          continue
+    // SSE ストリーミングレスポンス
+    const encoder = new TextEncoder()
+    const stream  = new ReadableStream({
+      async start(controller) {
+        function send(obj: Record<string, unknown>) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
         }
-        const rows = parseIndustrySheet(ws, sheetName)
-        if (rows.length === 0) {
-          results.push({ sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: 'データ行なし' })
-          continue
+
+        const results: Array<{
+          sheet_name:    string
+          industry_name: string
+          inserted:      number
+          error?:        string
+        }> = []
+        let totalInserted = 0
+
+        try {
+          // 開始イベント
+          send({ type: 'start', total: totalSheets })
+
+          for (let i = 0; i < wb.SheetNames.length; i++) {
+            const sheetName = wb.SheetNames[i]
+            try {
+              const ws = wb.Sheets[sheetName]
+              if (!ws || !ws['!ref']) {
+                const r = { sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: 'シートが空' }
+                results.push(r)
+                send({ type: 'sheet', index: i, total: totalSheets, ...r })
+                continue
+              }
+              const rows = parseIndustrySheet(ws, sheetName)
+              if (rows.length === 0) {
+                const r = { sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: 'データ行なし' }
+                results.push(r)
+                send({ type: 'sheet', index: i, total: totalSheets, ...r })
+                continue
+              }
+              // 処理中イベント（DBインサート前）
+              send({ type: 'processing', index: i, total: totalSheets, sheet_name: sheetName, industry_name: rows[0].industry_name })
+
+              const inserted = await insertIndustryRows(datasetId, rows, targetTable)
+              totalInserted += inserted
+              const r = { sheet_name: sheetName, industry_name: rows[0].industry_name, inserted }
+              results.push(r)
+              send({ type: 'sheet', index: i, total: totalSheets, ...r, total_so_far: totalInserted })
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e)
+              const r = { sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: msg }
+              results.push(r)
+              send({ type: 'sheet', index: i, total: totalSheets, ...r })
+            }
+          }
+
+          // record_count 更新
+          await query(
+            'UPDATE datasets SET record_count = ?, imported_at = NOW() WHERE id = ?',
+            [totalInserted, datasetId]
+          )
+
+          // 完了イベント
+          send({
+            type:           'done',
+            success:        true,
+            message:        `${results.filter(r => r.inserted > 0).length}シート・${totalInserted.toLocaleString()}件を取り込みました`,
+            survey_year:    surveyYear,
+            dataset_id:     datasetId,
+            total_inserted: totalInserted,
+            results,
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          send({ type: 'error', success: false, message: 'XLSXインポート失敗: ' + msg })
+        } finally {
+          controller.close()
         }
-        const inserted = await insertIndustryRows(datasetId, rows, targetTable)
-        totalInserted += inserted
-        results.push({ sheet_name: sheetName, industry_name: rows[0].industry_name, inserted })
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        results.push({ sheet_name: sheetName, industry_name: sheetName, inserted: 0, error: msg })
       }
-    }
+    })
 
-    // record_count 更新
-    await query(
-      'UPDATE datasets SET record_count = ?, imported_at = NOW() WHERE id = ?',
-      [totalInserted, datasetId]
-    )
-
-    return NextResponse.json({
-      success:         true,
-      message:         `${results.filter(r => r.inserted > 0).length}シート・${totalInserted.toLocaleString()}件を取り込みました`,
-      survey_year:     surveyYear,
-      dataset_id:      datasetId,
-      total_inserted:  totalInserted,
-      results,
+    return new Response(stream, {
+      headers: {
+        'Content-Type':  'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection':    'keep-alive',
+        'X-Accel-Buffering': 'no',
+      },
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

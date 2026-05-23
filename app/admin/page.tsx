@@ -745,10 +745,17 @@ function DataTab() {
     industry_name: string
     preview:       Record<string, unknown>[]
   }
+  interface XlsxProgress {
+    current:       number   // 処理済みシート数
+    total:         number   // 全シート数
+    currentSheet:  string   // 処理中シート名
+    totalInserted: number   // 挿入済み合計件数
+  }
   const [xlsxSheets, setXlsxSheets]           = useState<XlsxSheet[] | null>(null)
   const [xlsxPreviewing, setXlsxPreviewing]   = useState(false)
   const [xlsxImporting, setXlsxImporting]     = useState(false)
   const [xlsxResults, setXlsxResults]         = useState<XlsxImportResult[] | null>(null)
+  const [xlsxProgress, setXlsxProgress]       = useState<XlsxProgress | null>(null)
   const [sheetDetail, setSheetDetail]         = useState<XlsxSheetDetail | null>(null)
   const [sheetDetailLoading, setSheetDetailLoading] = useState(false)
 
@@ -780,6 +787,7 @@ function DataTab() {
     setIsXlsx(false)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setXlsxProgress(null)
     setSheetDetail(null)
     setShowAddDs(false)
     setEditingDsId(null)
@@ -861,6 +869,7 @@ function DataTab() {
     setImportMsg(null)
     setXlsxSheets(null)
     setXlsxResults(null)
+    setXlsxProgress(null)
     setSheetDetail(null)
   }
 
@@ -918,19 +927,60 @@ function DataTab() {
     if (!csvFile || !selectedDatasetId) return
     setXlsxImporting(true)
     setXlsxResults(null)
+    setXlsxProgress(null)
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
       fd.append('dataset_id', String(selectedDatasetId))
-      const res  = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (json.success) {
-        setXlsxResults(json.results)
-        setImportMsg({ ok: true, text: json.message })
-        if (selectedGroupId) await loadDatasets(selectedGroupId)
-      } else {
-        setImportMsg({ ok: false, text: json.message })
+      const res = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
+
+      if (!res.body) throw new Error('ストリームが取得できません')
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+
+        // SSEは "data: {...}\n\n" の形式なので行ごとに処理
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''   // 未完了行をバッファに残す
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          try {
+            const event = JSON.parse(trimmed.slice(5).trim())
+
+            if (event.type === 'start') {
+              setXlsxProgress({ current: 0, total: event.total, currentSheet: '', totalInserted: 0 })
+            } else if (event.type === 'processing') {
+              setXlsxProgress(p => p ? {
+                ...p, currentSheet: event.sheet_name,
+              } : p)
+            } else if (event.type === 'sheet') {
+              setXlsxProgress(p => p ? {
+                ...p,
+                current:       event.index + 1,
+                currentSheet:  event.sheet_name,
+                totalInserted: event.total_so_far ?? p.totalInserted,
+              } : p)
+            } else if (event.type === 'done') {
+              setXlsxResults(event.results)
+              setImportMsg({ ok: true, text: event.message })
+              setXlsxProgress(p => p ? { ...p, current: p.total, currentSheet: '' } : p)
+              if (selectedGroupId) await loadDatasets(selectedGroupId)
+            } else if (event.type === 'error') {
+              setImportMsg({ ok: false, text: event.message })
+            }
+          } catch { /* JSON パース失敗は無視 */ }
+        }
       }
+    } catch (e) {
+      setImportMsg({ ok: false, text: e instanceof Error ? e.message : 'インポート失敗' })
     } finally {
       setXlsxImporting(false)
     }
@@ -1302,6 +1352,49 @@ function DataTab() {
                     <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                   )}
                 </div>
+
+                {/* 進捗バー */}
+                {xlsxProgress && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>
+                        {xlsxProgress.current < xlsxProgress.total
+                          ? <>処理中: <strong className="text-foreground">{xlsxProgress.currentSheet || '...'}</strong></>
+                          : <strong className="text-success">完了</strong>
+                        }
+                      </span>
+                      <span>
+                        {xlsxProgress.current} / {xlsxProgress.total} タブ
+                        {xlsxProgress.totalInserted > 0 && (
+                          <> &nbsp;·&nbsp; {xlsxProgress.totalInserted.toLocaleString()} 件</>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${xlsxProgress.total > 0 ? Math.round((xlsxProgress.current / xlsxProgress.total) * 100) : 0}%` }}
+                      />
+                    </div>
+                    {/* シートごとの状態をミニ表示（完了後） */}
+                    {xlsxResults && xlsxProgress.current >= xlsxProgress.total && (
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 max-h-28 overflow-y-auto mt-1">
+                        {xlsxResults.map((r, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                            {r.error
+                              ? <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                              : <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                            }
+                            <span className="truncate text-muted-foreground">{r.sheet_name}</span>
+                            <span className="shrink-0 ml-auto font-mono">
+                              {r.error ? <span className="text-destructive">エラー</span> : `${r.inserted.toLocaleString()}件`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* シートプレビュー */}
                 {xlsxSheets && (
@@ -1678,7 +1771,7 @@ function SchemaTab() {
         <ul className="space-y-2 text-xs text-muted-foreground">
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">dataset_groups</code>
-            調査グループ（調査名・カテゴリ・CSVパースルール）
+            調査��ループ（調査名・カテゴリ・CSVパースルール）
           </li>
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">datasets</code>
