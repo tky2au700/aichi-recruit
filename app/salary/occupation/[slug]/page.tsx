@@ -13,9 +13,11 @@ interface Props {
 export async function generateStaticParams() {
   try {
     const rows = await query(
-      `SELECT DISTINCT occupation_slug FROM occupation_wages WHERE occupation_slug IS NOT NULL LIMIT 500`
-    ) as Array<{ occupation_slug: string }>
-    return rows.map(r => ({ slug: r.occupation_slug }))
+      `SELECT DISTINCT occupation_name FROM occupation_wages
+       WHERE sex = '計' AND enterprise_size = '企業規模計'
+       ORDER BY occupation_name LIMIT 500`
+    ) as Array<{ occupation_name: string }>
+    return rows.map(r => ({ slug: encodeURIComponent(r.occupation_name) }))
   } catch {
     return []
   }
@@ -29,15 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const BASE_URL = 'https://ai-recruit.jp'
 
   try {
-    // slug列の存在確認
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME = 'occupation_slug'`
-    ) as Array<{ COLUMN_NAME: string }>
-    const hasSlugCol = colCheck.length > 0
-
-    // 職種名・年収・調査年を取得
+    // occupation_name で直接検索（occupation_slug 列依存を廃止）
     const rows = await query(
       `SELECT ow.occupation_name,
               ow.annual_income,
@@ -46,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
               d.survey_year
        FROM occupation_wages ow
        JOIN datasets d ON ow.dataset_id = d.id
-       WHERE ${hasSlugCol ? 'ow.occupation_slug = ?' : 'ow.occupation_name = ?'}
+       WHERE ow.occupation_name = ?
          AND ow.sex = '計'
          AND ow.enterprise_size = '企業規模計'
        ORDER BY d.survey_year DESC
@@ -73,9 +67,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const bonusPart   = bonusWan   != null ? `年間賞与${bonusWan.toLocaleString()}万円` : ''
     const dataParts   = [incomePart, monthlyPart, bonusPart].filter(Boolean).join('・')
 
-    const title       = `${name}の平均年収${incomeWan != null ? `${incomeWan.toLocaleString()}万円` : ''}【${survey_year}年】| AIリクルート`
-    const description = `${name}の${survey_year}年調査データ。${dataParts}。企業規模別・男女別の詳細年収データを賃金構造基本統計調査をもとに掲載しています。`
+    const title        = `${name}の平均年収${incomeWan != null ? `${incomeWan.toLocaleString()}万円` : ''}【${survey_year}年】| AIリクルート`
+    const description  = `${name}の${survey_year}年調査データ。${dataParts}。企業規模別・男女別の詳細年収データを賃金構造基本統計調査をもとに掲載しています。`
     const canonicalUrl = `${BASE_URL}/salary/occupation/${rawSlug}`
+    const ogImage      = `${BASE_URL}/og-default.jpg`
 
     return {
       title,
@@ -92,11 +87,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         siteName: 'AIリクルート 年収データベース',
         title,
         description,
+        images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
       },
       twitter: {
         card: 'summary_large_image',
         title,
         description,
+        images: [ogImage],
       },
     }
   } catch {
@@ -119,18 +116,11 @@ export default async function OccupationDetailPage({ params }: Props) {
   } | null = null
 
   try {
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME = 'occupation_slug'`
-    ) as Array<{ COLUMN_NAME: string }>
-    const hasSlugCol = colCheck.length > 0
-
     const rows = await query(
       `SELECT ow.occupation_name, ow.annual_income, ow.scheduled_wage, ow.annual_bonus, d.survey_year
        FROM occupation_wages ow
        JOIN datasets d ON ow.dataset_id = d.id
-       WHERE ${hasSlugCol ? 'ow.occupation_slug = ?' : 'ow.occupation_name = ?'}
+       WHERE ow.occupation_name = ?
          AND ow.sex = '計' AND ow.enterprise_size = '企業規模計'
        ORDER BY d.survey_year DESC LIMIT 1`,
       [slug]

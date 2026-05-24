@@ -2,6 +2,9 @@ import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
+import { RankingJsonLd } from '@/components/json-ld'
+
+const BASE_URL = 'https://ai-recruit.jp'
 
 export const metadata = buildMetadata({
   title: '労働者数が多くて年収が高い職種ランキング2025 | AIリクルート',
@@ -13,6 +16,15 @@ export const metadata = buildMetadata({
 export default function HighIncomeLargeWorkforcePage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      <RankingJsonLd
+        title="労働者数が多くて年収が高い職種ランキング2025"
+        description="2025年調査・労働者数が多く年収も高い職種ランキング。需要と収入を兼ね備えた職種を確認できます。"
+        url={`${BASE_URL}/salary/ranking/high-income-large-workforce`}
+        breadcrumbs={[
+          { name: '職種別年収ランキング', url: `${BASE_URL}/salary/ranking/occupation` },
+          { name: '人気・高収入ランキング', url: `${BASE_URL}/salary/ranking/high-income-large-workforce` },
+        ]}
+      />
       <Nav />
       <Suspense>
         <RankingPageClient config={{

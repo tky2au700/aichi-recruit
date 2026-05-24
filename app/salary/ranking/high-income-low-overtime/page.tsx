@@ -2,6 +2,9 @@ import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
+import { RankingJsonLd } from '@/components/json-ld'
+
+const BASE_URL = 'https://ai-recruit.jp'
 
 export const metadata = buildMetadata({
   title: '残業少なく年収が高い職種ランキング2025 | AIリクルート',
@@ -13,6 +16,15 @@ export const metadata = buildMetadata({
 export default function HighIncomeLowOvertimePage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      <RankingJsonLd
+        title="残業が少なくて年収が高い職種ランキング2025"
+        description="2025年調査・月残業10時間以下で年収が高い職種ランキング。賃金構造基本統計調査に基づくデータです。"
+        url={`${BASE_URL}/salary/ranking/high-income-low-overtime`}
+        breadcrumbs={[
+          { name: '職種別年収ランキング', url: `${BASE_URL}/salary/ranking/occupation` },
+          { name: '残業少・高収入ランキング', url: `${BASE_URL}/salary/ranking/high-income-low-overtime` },
+        ]}
+      />
       <Nav />
       <Suspense>
         <RankingPageClient config={{
