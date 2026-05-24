@@ -1,12 +1,35 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   TrendingUp, Building2, MapPin, GraduationCap, BarChart3,
   Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search,
+  Factory, Zap, Truck, ShoppingBag, Banknote, GraduationCap as GradIcon, HeartPulse, Wrench, Cpu,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+
+const industryRankingItems = [
+  { href: '/salary/ranking/industry',                                   label: '産業別年収ランキング',       description: '全産業の年収を一覧',       icon: Building2, color: '#0891b2' },
+  { href: '/salary/ranking/industry?sex=male',                          label: '男性産業別ランキング',        description: '男性労働者の産業別',       icon: Users,     color: '#1a73e8' },
+  { href: '/salary/ranking/industry?sex=female',                        label: '女性産業別ランキング',        description: '女性労働者の産業別',       icon: Users,     color: '#e8336d' },
+  { href: '/salary/ranking/industry?sort=avg_bonus',                    label: '産業別賞与ランキング',        description: '賞与が多い業界',           icon: Award,     color: '#f59e0b' },
+  { href: '/salary/ranking/industry?size=large',                        label: '大企業の産業別ランキング',    description: '1000人以上企業の産業別',  icon: BarChart2, color: '#7c3aed' },
+  { href: '/salary/ranking/industry?education=university',              label: '大卒の産業別ランキング',      description: '大学卒業者の産業別年収',  icon: GradIcon,  color: '#16a34a' },
+  { href: '/salary/ranking/industry?age=30',                            label: '30代の産業別ランキング',      description: '30〜34歳の産業別年収',    icon: Users,     color: '#0891b2' },
+  { href: '/salary/ranking/industry?age=40',                            label: '40代の産業別ランキング',      description: '40〜44歳の産業別年収',    icon: Users,     color: '#7c3aed' },
+  { href: '/salary/ranking/industry?sex=male&age=40',                   label: '40代男性の産業別ランキング',  description: '40代男性の産業別年収',    icon: Users,     color: '#1a73e8' },
+]
+
+const industryQuickLinks = [
+  { href: '/salary/industry/%EF%BC%A5%E8%A3%BD%E9%80%A0%E6%A5%AD',             label: '製造業',             icon: Factory,     color: '#6366f1' },
+  { href: '/salary/industry/%EF%BC%A7%E6%83%85%E5%A0%B1%E9%80%9A%E4%BF%A1%E6%A5%AD', label: '情報通信業',   icon: Cpu,         color: '#1a73e8' },
+  { href: '/salary/industry/%EF%BC%AA%E9%87%91%E8%9E%8D%E6%A5%AD%EF%BC%8C%E4%BF%9D%E9%99%BA%E6%A5%AD', label: '金融・保険業', icon: Banknote, color: '#16a34a' },
+  { href: '/salary/industry/%EF%BC%A8%E9%81%8B%E8%BC%B8%E6%A5%AD%EF%BC%8C%E9%83%B5%E4%BE%BF%E6%A5%AD', label: '運輸・郵便業', icon: Truck,   color: '#0ea5e9' },
+  { href: '/salary/industry/%EF%BC%A4%E5%BB%BA%E8%A8%AD%E6%A5%AD',             label: '建設業',             icon: Wrench,      color: '#d97706' },
+  { href: '/salary/industry/%EF%BC%B0%E5%8C%BB%E7%99%82%EF%BC%8C%E7%A6%8F%E7%A5%89', label: '医療・福祉', icon: HeartPulse,  color: '#e8336d' },
+]
 
 const rankingItems = [
   {
@@ -68,22 +91,30 @@ const rankingItems = [
 ]
 
 const categoryItems = [
-  { href: '/salary/industry',   label: '産業別',       icon: Building2,    description: '業界・産業ごとの年収比較' },
   { href: '/salary/prefecture', label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
   { href: '/salary/education',  label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
   { href: '/salary/age',        label: '年齢・勤続別', icon: BarChart3,     description: '年齢・経験年数と年収の関係' },
 ]
 
-export function Nav() {
-  const pathname   = usePathname()
-  const router     = useRouter()
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [megaOpen, setMegaOpen]     = useState(false)
-  const [searchQ, setSearchQ]       = useState('')
-  const megaRef  = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+function NavInner() {
+  const pathname        = usePathname()
+  const router          = useRouter()
+  const navSearchParams = useSearchParams()
+  const fullPath        = navSearchParams.toString()
+    ? `${pathname}?${navSearchParams.toString()}`
+    : pathname
 
-  const isOccupationActive = pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation')
+  const [mobileOpen, setMobileOpen]       = useState(false)
+  const [megaOpen, setMegaOpen]           = useState(false)
+  const [industryMegaOpen, setIndustryMegaOpen] = useState(false)
+  const [searchQ, setSearchQ]             = useState('')
+  const megaRef         = useRef<HTMLDivElement>(null)
+  const industryMegaRef = useRef<HTMLDivElement>(null)
+  const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const industryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const isIndustryActive   = pathname.startsWith('/salary/industry') || pathname.startsWith('/salary/ranking/industry')
+  const isOccupationActive = !isIndustryActive && (pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation'))
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -100,8 +131,18 @@ export function Nav() {
   function closeMega() {
     timerRef.current = setTimeout(() => setMegaOpen(false), 120)
   }
+  function openIndustryMega()  {
+    if (industryTimerRef.current) clearTimeout(industryTimerRef.current)
+    setIndustryMegaOpen(true)
+  }
+  function closeIndustryMega() {
+    industryTimerRef.current = setTimeout(() => setIndustryMegaOpen(false), 120)
+  }
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (industryTimerRef.current) clearTimeout(industryTimerRef.current)
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
@@ -216,6 +257,87 @@ export function Nav() {
               )}
             </div>
 
+            {/* メガメニュートリガー: 産業別 */}
+            <div
+              ref={industryMegaRef}
+              className="relative"
+              onMouseEnter={openIndustryMega}
+              onMouseLeave={closeIndustryMega}
+            >
+              <button
+                aria-haspopup="true"
+                aria-expanded={industryMegaOpen}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors select-none ${
+                  isIndustryActive
+                    ? 'bg-blue-50 text-[#1a73e8]'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                産業別
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${industryMegaOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {industryMegaOpen && (
+                <div
+                  onMouseEnter={openIndustryMega}
+                  onMouseLeave={closeIndustryMega}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50"
+                  style={{ width: 560 }}
+                >
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
+                  <div className="relative bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+
+                    <div className="px-5 pt-4 pb-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">ランキング</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-0.5 px-3 pb-3">
+                      {industryRankingItems.map(({ href, label, description, icon: Icon, color }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setIndustryMegaOpen(false)}
+                          className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors group ${
+                            pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: `${color}18` }}>
+                            <Icon className="w-4 h-4" style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-[13px] font-medium leading-snug group-hover:text-[#0891b2] transition-colors ${pathname === href ? 'text-[#0891b2]' : 'text-gray-800'}`}>
+                              {label}
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/60">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">主要産業へのリンク</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        {industryQuickLinks.map(({ href, label, icon: Icon, color }) => (
+                          <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setIndustryMegaOpen(false)}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white transition-colors group"
+                          >
+                            <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+                              <Icon className="w-3.5 h-3.5" style={{ color }} />
+                            </div>
+                            <span className="text-[12px] text-gray-600 font-medium group-hover:text-[#0891b2] transition-colors">{label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* カテゴリリンク */}
             {categoryItems.map(({ href, label, icon: Icon }) => {
               const active = pathname.startsWith(href)
@@ -294,6 +416,18 @@ export function Nav() {
               </Link>
             ))}
           </div>
+          {/* 産業別ランキング */}
+          <div className="border-t border-gray-100 px-4 pt-3 pb-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">産業別</p>
+            {industryRankingItems.map(({ href, label, icon: Icon, color }) => (
+              <Link key={href} href={href} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                </div>
+                <span className="text-sm text-gray-700 font-medium">{label}</span>
+              </Link>
+            ))}
+          </div>
           <div className="border-t border-gray-100 px-4 pt-3 pb-4">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">カテゴリ</p>
             {categoryItems.map(({ href, label, icon: Icon }) => (
@@ -311,5 +445,13 @@ export function Nav() {
         </div>
       )}
     </header>
+  )
+}
+
+export function Nav() {
+  return (
+    <Suspense fallback={<header style={{ height: 56, borderBottom: '1px solid #e5e7eb' }} />}>
+      <NavInner />
+    </Suspense>
   )
 }

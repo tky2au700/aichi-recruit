@@ -22,6 +22,7 @@ interface DatasetGroup {
   survey_table_name: string | null
   name: string
   category: string
+  target_table: string
   publisher_id: number | null
   publisher_name: string | null
   publisher_url: string | null
@@ -83,6 +84,11 @@ const CATEGORIES = [
   { value: 'prefecture',  label: '都道府県別' },
   { value: 'education',   label: '学歴別' },
   { value: 'age',         label: '年齢別' },
+]
+
+const TARGET_TABLES = [
+  { value: 'occupation_wages', label: 'occupation_wages（職種別）' },
+  { value: 'industry_wages',   label: 'industry_wages（業種・年齢階級別）' },
 ]
 
 function fmt(v: number | null): string {
@@ -347,6 +353,7 @@ function defaultGroupForm() {
   return {
     survey_group_name: '', survey_table_name: '',
     category: 'occupation',
+    target_table: 'occupation_wages',
     publisher_id: '', distributor_id: '',
     sex_label_mode: 'cell_combined',
     data_start_row: '10', name_col_index: '1',
@@ -392,6 +399,7 @@ function GroupsTab() {
       survey_group_name: g.survey_group_name ?? g.name,
       survey_table_name: g.survey_table_name ?? '',
       category: g.category,
+      target_table: g.target_table ?? 'occupation_wages',
       publisher_id:   g.publisher_id   != null ? String(g.publisher_id)   : '',
       distributor_id: g.distributor_id != null ? String(g.distributor_id) : '',
       sex_label_mode: g.sex_label_mode ?? 'cell_combined',
@@ -414,6 +422,7 @@ function GroupsTab() {
         survey_group_name: form.survey_group_name,
         survey_table_name: form.survey_table_name || null,
         category:          form.category,
+        target_table:      form.target_table,
         sex_label_mode:    form.sex_label_mode,
         publisher_id:    form.publisher_id   ? Number(form.publisher_id)   : null,
         distributor_id:  form.distributor_id ? Number(form.distributor_id) : null,
@@ -507,6 +516,19 @@ function GroupsTab() {
                 >
                   {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">
+                  インポート先テーブル <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={form.target_table}
+                  onChange={e => setForm(p => ({ ...p, target_table: e.target.value }))}
+                  className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs focus:outline-none focus:border-primary"
+                >
+                  {TARGET_TABLES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">CSVまたはXLSXのデータを書き込むテーブル</p>
               </div>
               <div>
                 <label className="block text-[10px] text-muted-foreground mb-0.5">提供元（データの所有者）</label>
@@ -612,6 +634,9 @@ function GroupsTab() {
                       <span className="shrink-0 bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px]">
                         {CATEGORIES.find(c => c.value === g.category)?.label ?? g.category}
                       </span>
+                      <span className="shrink-0 bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-mono">
+                        {g.target_table ?? 'occupation_wages'}
+                      </span>
                       {g.publisher_name && (
                         <span className="shrink-0 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded text-[10px]">
                           {g.publisher_name}
@@ -689,9 +714,10 @@ function DataTab() {
   const [editDsForm, setEditDsForm]       = useState({ survey_year: '', published_at: '', source_url: '' })
   const [savingEditDs, setSavingEditDs]   = useState(false)
 
-  // CSV取込
+  // CSV / XLSX 取込共通
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null)
   const [csvFile, setCsvFile]             = useState<File | null>(null)
+  const [isXlsx, setIsXlsx]               = useState(false)
   const [dragging, setDragging]           = useState(false)
   const [previewing, setPreviewing]       = useState(false)
   const [preview, setPreview]             = useState<{ summary: PreviewSummary; rows: PreviewRow[] } | null>(null)
@@ -700,6 +726,38 @@ function DataTab() {
   const [importing, setImporting]         = useState(false)
   const [importMsg, setImportMsg]         = useState<{ ok: boolean; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // XLSX 専用
+  interface XlsxSheet {
+    sheet_name:    string
+    industry_name: string
+    row_count:     number
+    parseable:     boolean
+  }
+  interface XlsxImportResult {
+    sheet_name:    string
+    industry_name: string
+    inserted:      number
+    error?:        string
+  }
+  interface XlsxSheetDetail {
+    sheet_name:    string
+    industry_name: string
+    preview:       Record<string, unknown>[]
+  }
+  interface XlsxProgress {
+    current:       number   // 処理済みシート数
+    total:         number   // 全シート数
+    currentSheet:  string   // 処理中シート名
+    totalInserted: number   // 挿入済み合計件数
+  }
+  const [xlsxSheets, setXlsxSheets]           = useState<XlsxSheet[] | null>(null)
+  const [xlsxPreviewing, setXlsxPreviewing]   = useState(false)
+  const [xlsxImporting, setXlsxImporting]     = useState(false)
+  const [xlsxResults, setXlsxResults]         = useState<XlsxImportResult[] | null>(null)
+  const [xlsxProgress, setXlsxProgress]       = useState<XlsxProgress | null>(null)
+  const [sheetDetail, setSheetDetail]         = useState<XlsxSheetDetail | null>(null)
+  const [sheetDetailLoading, setSheetDetailLoading] = useState(false)
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId) ?? null
 
@@ -726,6 +784,11 @@ function DataTab() {
     setPreview(null)
     setImportMsg(null)
     setCsvFile(null)
+    setIsXlsx(false)
+    setXlsxSheets(null)
+    setXlsxResults(null)
+    setXlsxProgress(null)
+    setSheetDetail(null)
     setShowAddDs(false)
     setEditingDsId(null)
     loadDatasets(gid)
@@ -798,11 +861,129 @@ function DataTab() {
     await loadDatasets(selectedGroupId)
   }
 
+  function setFile(f: File) {
+    const xlsx = /\.(xlsx|xls)$/i.test(f.name)
+    setCsvFile(f)
+    setIsXlsx(xlsx)
+    setPreview(null)
+    setImportMsg(null)
+    setXlsxSheets(null)
+    setXlsxResults(null)
+    setXlsxProgress(null)
+    setSheetDetail(null)
+  }
+
   function onDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragging(false)
     const f = e.dataTransfer.files[0]
-    if (f?.name.endsWith('.csv')) { setCsvFile(f); setPreview(null); setImportMsg(null) }
+    if (f && /\.(csv|xlsx|xls)$/i.test(f.name)) setFile(f)
+  }
+
+  async function handleXlsxPreview() {
+    if (!csvFile) return
+    setXlsxPreviewing(true)
+    setXlsxSheets(null)
+    setXlsxResults(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success) {
+        setXlsxSheets(json.sheets)
+      } else {
+        alert('プレビュー失敗: ' + json.message)
+      }
+    } finally {
+      setXlsxPreviewing(false)
+    }
+  }
+
+  async function handleSheetDetail(sheetName: string) {
+    if (!csvFile) return
+    // 同じシートを再クリックしたら閉じる
+    if (sheetDetail?.sheet_name === sheetName) {
+      setSheetDetail(null)
+      return
+    }
+    setSheetDetailLoading(true)
+    setSheetDetail(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      fd.append('sheet_name', sheetName)
+      const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success) {
+        setSheetDetail(json)
+      }
+    } finally {
+      setSheetDetailLoading(false)
+    }
+  }
+
+  async function handleXlsxImport() {
+    if (!csvFile || !selectedDatasetId) return
+    setXlsxImporting(true)
+    setXlsxResults(null)
+    setXlsxProgress(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      fd.append('dataset_id', String(selectedDatasetId))
+      const res = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
+
+      if (!res.body) throw new Error('ストリームが取得できません')
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+
+        // SSEは "data: {...}\n\n" の形式なので行ごとに処理
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''   // 未完了行をバッファに残す
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          try {
+            const event = JSON.parse(trimmed.slice(5).trim())
+
+            if (event.type === 'start') {
+              setXlsxProgress({ current: 0, total: event.total, currentSheet: '', totalInserted: 0 })
+            } else if (event.type === 'processing') {
+              setXlsxProgress(p => p ? {
+                ...p, currentSheet: event.sheet_name,
+              } : p)
+            } else if (event.type === 'sheet') {
+              setXlsxProgress(p => p ? {
+                ...p,
+                current:       event.index + 1,
+                currentSheet:  event.sheet_name,
+                totalInserted: event.total_so_far ?? p.totalInserted,
+              } : p)
+            } else if (event.type === 'done') {
+              setXlsxResults(event.results)
+              setImportMsg({ ok: true, text: event.message })
+              setXlsxProgress(p => p ? { ...p, current: p.total, currentSheet: '' } : p)
+              if (selectedGroupId) await loadDatasets(selectedGroupId)
+            } else if (event.type === 'error') {
+              setImportMsg({ ok: false, text: event.message })
+            }
+          } catch { /* JSON パース失敗は無視 */ }
+        }
+      }
+    } catch (e) {
+      setImportMsg({ ok: false, text: e instanceof Error ? e.message : 'インポート失敗' })
+    } finally {
+      setXlsxImporting(false)
+    }
   }
 
   async function handlePreview() {
@@ -878,6 +1059,7 @@ function DataTab() {
                 <p className="text-muted-foreground text-[10px] mt-0.5">
                   {CATEGORIES.find(c => c.value === g.category)?.label} ・ {g.dataset_count}年分 ・ {(g.total_records ?? 0).toLocaleString()}件
                 </p>
+                <p className="text-muted-foreground/50 text-[9px] font-mono mt-0.5">{g.target_table ?? 'occupation_wages'}</p>
               </button>
             ))}
           </div>
@@ -896,6 +1078,10 @@ function DataTab() {
               )}
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+              <span>
+                インポート先:
+                <strong className="text-foreground font-mono ml-1">{selectedGroup.target_table ?? 'occupation_wages'}</strong>
+              </span>
               <span>開始行: <strong className="text-foreground">{selectedGroup.data_start_row}</strong></span>
               <span>職種名列: <strong className="text-foreground">{selectedGroup.name_col_index}</strong></span>
               <span>企業規模計: <strong className="text-foreground">{selectedGroup.size1_col_start}列〜</strong></span>
@@ -1071,14 +1257,14 @@ function DataTab() {
             )}
           </div>
 
-          {/* Step 3: CSV取込 */}
+          {/* Step 3: ファイル取込 */}
           <div className="bg-card border border-border rounded-xl p-4">
-            <label className="block text-xs font-semibold mb-3">3. CSVファイルを取り込む</label>
+            <label className="block text-xs font-semibold mb-3">3. ファイルを取り込む</label>
 
-            {!selectedDatasetId && (
+            {!isXlsx && !selectedDatasetId && (
               <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 text-accent shrink-0" />
-                上の一覧から取込先の調査年を選択してください
+                CSV取込の場合は上の一覧から取込先の調査年を選択してください（XLSXは自動判定）
               </p>
             )}
 
@@ -1091,10 +1277,10 @@ function DataTab() {
                 dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
               }`}
             >
-              <input ref={fileInputRef} type="file" accept=".csv" className="hidden"
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
                 onChange={e => {
                   const f = e.target.files?.[0]
-                  if (f) { setCsvFile(f); setPreview(null); setImportMsg(null) }
+                  if (f) setFile(f)
                 }}
               />
               {csvFile ? (
@@ -1102,11 +1288,17 @@ function DataTab() {
                   <FileText className="w-8 h-8 text-primary" />
                   <p className="text-sm font-semibold">{csvFile.name}</p>
                   <p className="text-xs text-muted-foreground">{(csvFile.size / 1024).toFixed(1)} KB</p>
+                  {isXlsx && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-semibold">
+                      XLSX — 全タブ一括取込モード
+                    </span>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Upload className="w-8 h-8" />
-                  <p className="text-sm">CSVをドロップ、またはクリックして選択</p>
+                  <p className="text-sm">CSV / XLSX をドロップ、またはクリックして選択</p>
+                  <p className="text-[10px]">XLSXの場合は全タブを一括インポートできます</p>
                 </div>
               )}
             </div>
@@ -1122,7 +1314,7 @@ function DataTab() {
               </div>
             )}
 
-            {csvFile && (
+            {csvFile && !isXlsx && (
               <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <button onClick={handlePreview} disabled={previewing}
                   className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
@@ -1136,6 +1328,200 @@ function DataTab() {
                 </button>
                 {!selectedDatasetId && preview && (
                   <span className="text-[10px] text-muted-foreground">取込前に調査年を選択してください</span>
+                )}
+              </div>
+            )}
+
+            {csvFile && isXlsx && (
+              <div className="mt-4 space-y-3">
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button onClick={handleXlsxPreview} disabled={xlsxPreviewing}
+                    className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
+                    {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                    シート一覧を確認
+                  </button>
+                  <button
+                    onClick={handleXlsxImport}
+                    disabled={xlsxImporting || !selectedDatasetId}
+                    className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
+                    {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                    全タブを一括インポート
+                  </button>
+                  {!selectedDatasetId && (
+                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
+                  )}
+                </div>
+
+                {/* 進捗バー */}
+                {xlsxProgress && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>
+                        {xlsxProgress.current < xlsxProgress.total
+                          ? <>処理中: <strong className="text-foreground">{xlsxProgress.currentSheet || '...'}</strong></>
+                          : <strong className="text-success">完了</strong>
+                        }
+                      </span>
+                      <span>
+                        {xlsxProgress.current} / {xlsxProgress.total} タブ
+                        {xlsxProgress.totalInserted > 0 && (
+                          <> &nbsp;·&nbsp; {xlsxProgress.totalInserted.toLocaleString()} 件</>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${xlsxProgress.total > 0 ? Math.round((xlsxProgress.current / xlsxProgress.total) * 100) : 0}%` }}
+                      />
+                    </div>
+                    {/* シートごとの状態をミニ表示（完了後） */}
+                    {xlsxResults && xlsxProgress.current >= xlsxProgress.total && (
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 max-h-28 overflow-y-auto mt-1">
+                        {xlsxResults.map((r, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                            {r.error
+                              ? <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                              : <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                            }
+                            <span className="truncate text-muted-foreground">{r.sheet_name}</span>
+                            <span className="shrink-0 ml-auto font-mono">
+                              {r.error ? <span className="text-destructive">エラー</span> : `${r.inserted.toLocaleString()}件`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* シートプレビュー */}
+                {xlsxSheets && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/20 border-b border-border flex items-center gap-2">
+                      <Eye className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold">シート一覧（{xlsxSheets.length}タブ）</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        有効: {xlsxSheets.filter(s => s.parseable).length}タブ ・ 行クリックで中身を確認
+                      </span>
+                    </div>
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/10">
+                          {['シート名', '業種名', 'データ行数', '状態'].map(h => (
+                            <th key={h} className="text-left py-2 px-3 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {xlsxSheets.map((s, i) => {
+                          const isSelected = sheetDetail?.sheet_name === s.sheet_name
+                          const isLoading  = sheetDetailLoading && !sheetDetail && isSelected
+                          return (
+                            <tr
+                              key={i}
+                              onClick={() => s.parseable && handleSheetDetail(s.sheet_name)}
+                              className={[
+                                'border-b border-border/40 last:border-0 transition-colors',
+                                s.parseable ? 'cursor-pointer hover:bg-primary/5' : 'opacity-50',
+                                isSelected ? 'bg-primary/10' : '',
+                              ].join(' ')}
+                            >
+                              <td className="py-2 px-3 font-semibold">{s.sheet_name}</td>
+                              <td className="py-2 px-3 text-muted-foreground">{s.industry_name}</td>
+                              <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}行</td>
+                              <td className="py-2 px-3">
+                                {isLoading
+                                  ? <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                                  : s.parseable
+                                    ? <span className={`text-[10px] font-semibold ${isSelected ? 'text-primary' : 'text-success'}`}>
+                                        {isSelected ? '表示中' : 'OK'}
+                                      </span>
+                                    : <span className="text-muted-foreground text-[10px]">スキップ</span>
+                                }
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+
+                    {/* シート詳細パネル */}
+                    {sheetDetail && (
+                      <div className="border-t border-border bg-muted/5">
+                        <div className="px-3 py-2 bg-primary/5 border-b border-border flex items-center gap-2">
+                          <span className="text-xs font-semibold text-primary">{sheetDetail.sheet_name}</span>
+                          <span className="text-[10px] text-muted-foreground">— {sheetDetail.industry_name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">先頭{sheetDetail.preview.length}件</span>
+                          <button
+                            onClick={() => setSheetDetail(null)}
+                            className="text-[10px] text-muted-foreground hover:text-foreground ml-2"
+                          >
+                            閉じる
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                          <table className="w-full text-[10px] border-collapse whitespace-nowrap">
+                            <thead className="sticky top-0 bg-background z-10">
+                              <tr className="border-b border-border bg-muted/20">
+                                {['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)'].map(h => (
+                                  <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sheetDetail.preview.map((row, i) => (
+                                <tr key={i} className="border-b border-border/30 last:border-0 hover:bg-muted/10">
+                                  <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
+                                  <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
+                                  <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
+                                  <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
+                                  <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                                  <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                                  <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* インポート結果 */}
+                {xlsxResults && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-success/10 border-b border-border flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                      <span className="text-xs font-semibold text-success">インポート完了</span>
+                    </div>
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/10">
+                          {['シート名', '業種名', '取込件数', '備考'].map(h => (
+                            <th key={h} className="text-left py-2 px-3 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {xlsxResults.map((r, i) => (
+                          <tr key={i} className="border-b border-border/40 last:border-0">
+                            <td className="py-2 px-3 font-semibold">{r.sheet_name}</td>
+                            <td className="py-2 px-3 text-muted-foreground">{r.industry_name}</td>
+                            <td className="py-2 px-3 text-right font-semibold">{r.inserted.toLocaleString()}件</td>
+                            <td className="py-2 px-3 text-destructive text-[10px]">{r.error ?? ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
@@ -1376,16 +1762,16 @@ function SchemaTab() {
         <h2 className="text-sm font-bold">DBスキーマ初期化</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
           初回起動時に実行してください。既存テーブルは <code>CREATE TABLE IF NOT EXISTS</code> で保護されます。
-          旧スキーマからの自動マイグレーションも行います。
+          旧スキーマからの自動マイグレーションも行い���す。
         </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-        <p className="text-xs font-medium">作成される��ーブル</p>
+        <p className="text-xs font-medium">��成される��ーブル</p>
         <ul className="space-y-2 text-xs text-muted-foreground">
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">dataset_groups</code>
-            調査グループ（調査名・カテゴリ・CSVパースルール）
+            調査��ループ（調査名・カテゴリ・CSVパースルール）
           </li>
           <li className="flex items-start gap-2">
             <code className="text-primary font-mono shrink-0">datasets</code>
