@@ -64,7 +64,8 @@ export async function GET(req: NextRequest) {
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
     const [rows, statsRows] = await Promise.all([
       query(
-        `SELECT occupation_name, occupation_slug, sex, enterprise_size,
+        `SELECT occupation_name, NULL AS occupation_slug,
+                sex, enterprise_size,
                 age, tenure_years, scheduled_hours, overtime_hours,
                 monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
          FROM occupation_wages
