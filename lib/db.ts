@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
 
 // 接続設定
-const dbConfig: mysql.ConnectionOptions = {
+const dbConfig: mysql.PoolOptions = {
   host: process.env.MYSQL_HOST || "162.43.24.67",
   port: Number(process.env.MYSQL_PORT || "3306"),
   user: process.env.MYSQL_USER || "emoji_user",
@@ -10,18 +10,28 @@ const dbConfig: mysql.ConnectionOptions = {
   timezone: "+00:00",
   ssl: undefined,
   connectTimeout: 10000,
+  // コネクションプール設定
+  // Next.js サーバープロセスは常駐するため、接続を使い回してTCPハンドシェイクのオーバーヘッドを排除する
+  connectionLimit: 10,
+  waitForConnections: true,
+  queueLimit: 0,
 };
 
-// サーバーレス環境向け：毎回新規接続を作成して使い捨てる
-async function getConnection(): Promise<mysql.Connection> {
-  return mysql.createConnection(dbConfig);
+// モジュールスコープでプールをシングルトン保持
+// Hot Reload 時に再生成しないよう globalThis に保存
+const globalWithPool = globalThis as typeof globalThis & { _dbPool?: mysql.Pool };
+if (!globalWithPool._dbPool) {
+  globalWithPool._dbPool = mysql.createPool(dbConfig);
+}
+const pool = globalWithPool._dbPool;
+
+// 後方互換: getConnection はプールから取得
+async function getConnection(): Promise<mysql.PoolConnection> {
+  return pool.getConnection();
 }
 
-// 後方互換のため getPool は getConnection ラッパーとして維持
-// ただし実態はプールではなく単一接続
 function getPool() {
-  // 使用箇所が残っている場合の互換用（非推奨）
-  return mysql.createPool({ ...dbConfig, connectionLimit: 1 });
+  return pool;
 }
 
 /**
@@ -61,7 +71,7 @@ export async function sql(
     const [rows] = await conn.execute<mysql.RowDataPacket[]>(q, params as any);
     return rows;
   } finally {
-    await conn.end();
+    conn.release();
   }
 }
 
@@ -127,7 +137,7 @@ export async function insertAndReturn<T = mysql.RowDataPacket>(
     );
     return rows[0] as T;
   } finally {
-    await conn.end();
+    conn.release();
   }
 }
 
@@ -144,7 +154,7 @@ export async function query<T extends object = mysql.RowDataPacket>(
     const [rows] = await conn.execute<mysql.RowDataPacket[]>(q, params as any);
     return rows as T[];
   } finally {
-    await conn.end();
+    conn.release();
   }
 }
 
