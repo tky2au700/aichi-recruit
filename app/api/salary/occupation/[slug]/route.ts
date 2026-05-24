@@ -16,25 +16,15 @@ export async function GET(
   }
 
   try {
-    // 追加列の存在チェック
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
-    ) as Array<{ COLUMN_NAME: string }>
-    const existingCols = new Set(colCheck.map((c: any) => c.COLUMN_NAME as string))
-
-    const hourlyCol    = existingCols.has('hourly_wage')     ? 'ow.hourly_wage'     : 'NULL AS hourly_wage'
-    const slugSelectCol = existingCols.has('occupation_slug') ? 'ow.occupation_slug' : 'NULL AS occupation_slug'
-
+    // colCheck廃止: occupation_slug=NULL固定、hourly_wage=NULL固定
     const buildQuery = (whereClause: string) => `
       SELECT ow.occupation_name,
-             ${slugSelectCol},
+             NULL AS occupation_slug,
              ow.sex, ow.enterprise_size,
              ow.age, ow.tenure_years,
              ow.scheduled_hours, ow.overtime_hours,
              ow.monthly_wage, ow.scheduled_wage,
-             ow.annual_bonus, ow.annual_income, ${hourlyCol}, ow.workers,
+             ow.annual_bonus, ow.annual_income, NULL AS hourly_wage, ow.workers,
              d.survey_year,
              dg.survey_group_name, dg.survey_table_name
       FROM occupation_wages ow
@@ -43,19 +33,10 @@ export async function GET(
       WHERE ${whereClause}
       ORDER BY d.survey_year DESC, ow.sex, ow.enterprise_size`
 
-    let rows: any[] = []
+    // 1. occupation_name で完全一致検索
+    let rows: any[] = await query(buildQuery('ow.occupation_name = ?'), [slug]) as any[]
 
-    // 1. occupation_slug 列があれば slug で完全一致検索
-    if (existingCols.has('occupation_slug')) {
-      rows = await query(buildQuery('ow.occupation_slug = ?'), [slug]) as any[]
-    }
-
-    // 2. occupation_name で完全一致検索（URLデコード済み日本語）
-    if (rows.length === 0) {
-      rows = await query(buildQuery('ow.occupation_name = ?'), [slug]) as any[]
-    }
-
-    // 3. 部分一致フォールバック
+    // 2. 部分一致フォールバック
     if (rows.length === 0) {
       rows = await query(buildQuery('ow.occupation_name LIKE ?'), [`%${slug}%`]) as any[]
     }

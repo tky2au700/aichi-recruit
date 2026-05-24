@@ -56,50 +56,39 @@ export async function GET(req: NextRequest) {
       targetGroupId   = years[0].group_id
     }
 
-    // occupation_slug の存在チェック
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME = 'occupation_slug'`
-    ) as Array<{ COLUMN_NAME: string }>
-    const slugCol = colCheck.length > 0 ? 'occupation_slug' : 'NULL AS occupation_slug'
-
+    // occupation_slug は NULL 固定（colCheck廃止）・rows と stats を並列取得
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 500)
-    const rows = await query(
-      `SELECT occupation_name, ${slugCol},
-              overtime_hours, scheduled_hours, annual_income,
-              scheduled_wage, workers
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?
-         AND overtime_hours IS NOT NULL
-       ORDER BY overtime_hours DESC
-       LIMIT ${safeLimit}`,
-      [targetDatasetId, sexVal, sizeVal]
-    ) as Array<{
-      occupation_name: string
-      occupation_slug: string | null
-      overtime_hours: number | null
-      scheduled_hours: number | null
-      annual_income: number | null
-      scheduled_wage: number | null
-      workers: number | null
-    }>
-
-    // 統計（overtime_hours がある全件）
-    const statsRows = await query(
-      `SELECT AVG(overtime_hours) as avg_overtime,
-              MAX(overtime_hours) as max_overtime,
-              AVG(scheduled_hours) as avg_scheduled,
-              SUM(workers) as total_workers,
-              COUNT(*) as count
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?
-         AND overtime_hours IS NOT NULL`,
-      [targetDatasetId, sexVal, sizeVal]
-    ) as Array<{
-      avg_overtime: number; max_overtime: number
-      avg_scheduled: number; total_workers: number; count: number
-    }>
+    const [rows, statsRows] = await Promise.all([
+      query(
+        `SELECT occupation_name, NULL AS occupation_slug,
+                overtime_hours, scheduled_hours, annual_income,
+                scheduled_wage, workers
+         FROM occupation_wages
+         WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?
+           AND overtime_hours IS NOT NULL
+         ORDER BY overtime_hours DESC
+         LIMIT ${safeLimit}`,
+        [targetDatasetId, sexVal, sizeVal]
+      ) as Promise<Array<{
+        occupation_name: string; occupation_slug: string | null
+        overtime_hours: number | null; scheduled_hours: number | null
+        annual_income: number | null; scheduled_wage: number | null; workers: number | null
+      }>>,
+      query(
+        `SELECT AVG(overtime_hours) as avg_overtime,
+                MAX(overtime_hours) as max_overtime,
+                AVG(scheduled_hours) as avg_scheduled,
+                SUM(workers) as total_workers,
+                COUNT(*) as count
+         FROM occupation_wages
+         WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?
+           AND overtime_hours IS NOT NULL`,
+        [targetDatasetId, sexVal, sizeVal]
+      ) as Promise<Array<{
+        avg_overtime: number; max_overtime: number
+        avg_scheduled: number; total_workers: number; count: number
+      }>>,
+    ])
     const stats = statsRows[0]
 
     const groupInfo = years.find(y => y.dataset_id === targetDatasetId)

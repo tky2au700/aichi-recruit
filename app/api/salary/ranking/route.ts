@@ -68,14 +68,8 @@ export async function GET(req: NextRequest) {
       ? years.find(y => y.survey_year === surveyYear) ?? years[0]
       : years[0]
 
-    // occupation_slug 列の存在チェック（hourly_wageはDB計算で代替するため不要）
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-         AND COLUMN_NAME = 'occupation_slug'`
-    ) as Array<{ COLUMN_NAME: string }>
-    const hasSlug = colCheck.length > 0
-    const slugCol = hasSlug ? 'occupation_slug' : 'NULL AS occupation_slug'
+    // occupation_slug は NULL 固定（colCheck廃止）
+    const slugCol = 'NULL AS occupation_slug'
 
     // hourly-wage ソートは scheduled_wage÷scheduled_hours×1000（円/時）で計算
     const effectiveSortCol =
@@ -89,30 +83,31 @@ export async function GET(req: NextRequest) {
     const safeLimit = Math.floor(limit)
     const filterClause = cfg.filter ? `AND ${cfg.filter}` : ''
 
-    const rows = await query(
-      `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
-              age, tenure_years, scheduled_hours, overtime_hours,
-              monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
-       FROM occupation_wages
-       WHERE dataset_id = ?
-         AND sex = ?
-         AND enterprise_size = ?
-         AND ${effectiveSortCol} IS NOT NULL
-         ${filterClause}
-       ORDER BY ${effectiveSortCol} ${cfg.order}
-       LIMIT ${safeLimit}`,
-      [target.dataset_id, cfg.sex, cfg.enterprise_size]
-    ) as any[]
-
-    const statsRows = await query(
-      `SELECT AVG(annual_income) as avg_income, MAX(annual_income) as max_income,
-              MAX(annual_bonus) as max_bonus,
-              MAX(ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)) as max_hourly,
-              COUNT(*) as count
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?`,
-      [target.dataset_id, cfg.sex, cfg.enterprise_size]
-    ) as any[]
+    const [rows, statsRows] = await Promise.all([
+      query(
+        `SELECT occupation_name, ${slugCol}, sex, enterprise_size,
+                age, tenure_years, scheduled_hours, overtime_hours,
+                monthly_wage, scheduled_wage, annual_bonus, annual_income, workers
+         FROM occupation_wages
+         WHERE dataset_id = ?
+           AND sex = ?
+           AND enterprise_size = ?
+           AND ${effectiveSortCol} IS NOT NULL
+           ${filterClause}
+         ORDER BY ${effectiveSortCol} ${cfg.order}
+         LIMIT ${safeLimit}`,
+        [target.dataset_id, cfg.sex, cfg.enterprise_size]
+      ) as Promise<any[]>,
+      query(
+        `SELECT AVG(annual_income) as avg_income, MAX(annual_income) as max_income,
+                MAX(annual_bonus) as max_bonus,
+                MAX(ROUND(scheduled_wage / NULLIF(scheduled_hours, 0) * 1000, 0)) as max_hourly,
+                COUNT(*) as count
+         FROM occupation_wages
+         WHERE dataset_id = ? AND sex = ? AND enterprise_size = ?`,
+        [target.dataset_id, cfg.sex, cfg.enterprise_size]
+      ) as Promise<any[]>,
+    ])
     const stats = statsRows[0]
 
     // DB値は千円単位 → 万円換算

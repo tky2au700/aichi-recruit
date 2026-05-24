@@ -34,49 +34,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: [], available_years: allYears.map(y => y.survey_year), message: '比較に必要な年度数のデータがありません' })
     }
 
-    // occupation_slug / hourly_wage はマイグレーション後に追加される列なので存在チェック
-    const colCheck = await query(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-       AND COLUMN_NAME IN ('occupation_slug','hourly_wage')`
-    ) as Array<{ COLUMN_NAME: string }>
-    const existingCols = new Set(colCheck.map((r: any) => r.COLUMN_NAME))
-    const slugCol   = existingCols.has('occupation_slug') ? 'occupation_slug' : 'NULL AS occupation_slug'
-    const hourlyCol = existingCols.has('hourly_wage')     ? 'hourly_wage'     : 'NULL AS hourly_wage'
-
-    // 追加カラム存在チェック
-    const extraColCheck = await query(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'occupation_wages'
-       AND COLUMN_NAME IN ('annual_bonus','scheduled_hours','overtime_hours','age','tenure_years')`
-    ) as Array<{ COLUMN_NAME: string }>
-    const extraCols = new Set(extraColCheck.map((r: any) => r.COLUMN_NAME))
-    const bonusCol   = extraCols.has('annual_bonus')    ? 'annual_bonus'    : 'NULL AS annual_bonus'
-    const ageCol     = extraCols.has('age')             ? 'age'             : 'NULL AS age'
-    const tenureCol  = extraCols.has('tenure_years')    ? 'tenure_years'    : 'NULL AS tenure_years'
-    const overtimeCol= extraCols.has('overtime_hours')  ? 'overtime_hours'  : 'NULL AS overtime_hours'
-
-    // 最新年度データ（sex/sizeフィルター適用）
-    const latestRows = await query(
-      `SELECT occupation_name, ${slugCol}, annual_income, monthly_wage, ${hourlyCol},
-              ${bonusCol}, ${ageCol}, ${tenureCol}, ${overtimeCol}, workers
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
-      [latestDs.dataset_id, sexVal, sizeVal]
-    ) as Array<{
-      occupation_name: string; occupation_slug: string | null
-      annual_income: number; monthly_wage: number | null; hourly_wage: number | null
-      annual_bonus: number | null; age: number | null; tenure_years: number | null; overtime_hours: number | null
-      workers: number | null
-    }>
-
-    // 基準年度データ（同じsex/sizeフィルター）
-    const baseRows = await query(
-      `SELECT occupation_name, annual_income
-       FROM occupation_wages
-       WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
-      [baseDs.dataset_id, sexVal, sizeVal]
-    ) as Array<{ occupation_name: string; annual_income: number }>
+    // 最新年度データと基準年度データを並列取得（colCheck廃止 → NULL固定）
+    const [latestRows, baseRows] = await Promise.all([
+      query(
+        `SELECT occupation_name, NULL AS occupation_slug, annual_income, monthly_wage,
+                NULL AS hourly_wage, annual_bonus, age, tenure_years, overtime_hours, workers
+         FROM occupation_wages
+         WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
+        [latestDs.dataset_id, sexVal, sizeVal]
+      ) as Promise<Array<{
+        occupation_name: string; occupation_slug: string | null
+        annual_income: number; monthly_wage: number | null; hourly_wage: number | null
+        annual_bonus: number | null; age: number | null; tenure_years: number | null; overtime_hours: number | null
+        workers: number | null
+      }>>,
+      query(
+        `SELECT occupation_name, annual_income
+         FROM occupation_wages
+         WHERE dataset_id = ? AND sex = ? AND enterprise_size = ? AND annual_income IS NOT NULL`,
+        [baseDs.dataset_id, sexVal, sizeVal]
+      ) as Promise<Array<{ occupation_name: string; annual_income: number }>>,
+    ])
 
     const baseMap = new Map(baseRows.map(r => [r.occupation_name, r.annual_income]))
 
