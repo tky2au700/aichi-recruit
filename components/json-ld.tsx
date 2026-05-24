@@ -83,6 +83,81 @@ export function OccupationJsonLd({
   )
 }
 
+interface IndustryJsonLdProps {
+  industryName: string
+  annualIncomeWan: number | null
+  monthlyWageWan: number | null
+  annualBonusWan: number | null
+  surveyYear: number
+  slug: string
+}
+
+export function IndustryJsonLd({
+  industryName,
+  annualIncomeWan,
+  monthlyWageWan,
+  annualBonusWan,
+  surveyYear,
+  slug,
+}: IndustryJsonLdProps) {
+  const url = `${BASE_URL}/salary/industry/${slug}`
+
+  const dataset = {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    'name': `${industryName}の年収データ（${surveyYear}年）`,
+    'description': `賃金構造基本統計調査による${industryName}の${surveyYear}年平均年収・月給・賞与データ`,
+    'url': url,
+    'creator': {
+      '@type': 'Organization',
+      'name': '厚生労働省',
+      'url': 'https://www.mhlw.go.jp/',
+    },
+    'publisher': {
+      '@type': 'Organization',
+      'name': 'AIリクルート',
+      'url': BASE_URL,
+    },
+    'temporalCoverage': `${surveyYear}`,
+    'license': 'https://www.e-stat.go.jp/terms-of-use',
+    ...(annualIncomeWan != null && {
+      'variableMeasured': [
+        { '@type': 'PropertyValue', 'name': '平均年収', 'value': annualIncomeWan * 10000, 'unitCode': 'JPY' },
+        ...(monthlyWageWan != null ? [{ '@type': 'PropertyValue', 'name': '月給', 'value': monthlyWageWan * 10000, 'unitCode': 'JPY' }] : []),
+        ...(annualBonusWan != null ? [{ '@type': 'PropertyValue', 'name': '年間賞与', 'value': annualBonusWan * 10000, 'unitCode': 'JPY' }] : []),
+      ],
+    }),
+  }
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      { '@type': 'ListItem', 'position': 1, 'name': 'AIリクルート', 'item': BASE_URL },
+      { '@type': 'ListItem', 'position': 2, 'name': '産業別年収ランキング', 'item': `${BASE_URL}/salary/ranking/industry` },
+      { '@type': 'ListItem', 'position': 3, 'name': `${industryName}の平均年収`, 'item': url },
+    ],
+  }
+
+  const webpage = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    'name': `${industryName}の平均年収【${surveyYear}年】`,
+    'description': `${industryName}の${surveyYear}年平均年収データ。賃金構造基本統計調査（厚生労働省）に基づく統計データです。`,
+    'url': url,
+    'publisher': { '@type': 'Organization', 'name': 'AIリクルート', 'url': BASE_URL },
+    'inLanguage': 'ja-JP',
+  }
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webpage) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dataset) }} />
+    </>
+  )
+}
+
 interface RankingJsonLdProps {
   title: string
   description: string

@@ -2,6 +2,9 @@ import { Suspense } from 'react'
 import { Nav } from '@/components/nav'
 import { RankingPageClient } from '@/components/ranking-page-client'
 import { buildMetadata } from '@/lib/seo'
+import { RankingJsonLd } from '@/components/json-ld'
+
+const BASE_URL = 'https://ai-recruit.jp'
 
 export const metadata = buildMetadata({
   title: '年間ボーナス・賞与が高い職種ランキング2025 | AIリクルート',
@@ -13,6 +16,15 @@ export const metadata = buildMetadata({
 export default function BonusRankingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      <RankingJsonLd
+        title="年間ボーナス・賞与が高い職種ランキング2025"
+        description="2025年調査・年間賞与・特別給与額が高い職種ランキング。賃金構造基本統計調査に基づくデータです。"
+        url={`${BASE_URL}/salary/ranking/bonus`}
+        breadcrumbs={[
+          { name: '職種別年収ランキング', url: `${BASE_URL}/salary/ranking/occupation` },
+          { name: '賞与ランキング', url: `${BASE_URL}/salary/ranking/bonus` },
+        ]}
+      />
       <Nav />
       <Suspense>
         <RankingPageClient config={{
