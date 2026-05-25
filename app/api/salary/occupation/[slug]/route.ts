@@ -105,15 +105,12 @@ export async function GET(
     if (datasetId != null) {
       const rankRows = await query(
         `SELECT
-           -- 年収・月給・賞与・労働者数: 高い順（自分より高い職種数 + 1 = 順位）
-           SUM(annual_income   > tgt.ai AND annual_income   IS NOT NULL) + 1 AS rank_income,
-           SUM(scheduled_wage  > tgt.sw AND scheduled_wage  IS NOT NULL) + 1 AS rank_wage,
-           SUM(annual_bonus    > tgt.ab AND annual_bonus    IS NOT NULL) + 1 AS rank_bonus,
-           SUM(workers         > tgt.wk AND workers         IS NOT NULL) + 1 AS rank_workers,
-           -- 残業時間・労働時間: 少ない順（自分より少ない職種数 + 1 = 順位）
-           SUM(overtime_hours  < tgt.ot AND overtime_hours  IS NOT NULL) + 1 AS rank_overtime,
-           SUM(scheduled_hours < tgt.sh AND scheduled_hours IS NOT NULL) + 1 AS rank_hours,
-           -- 平均年齢: 参考値（若い順）
+           SUM(annual_income   < tgt.ai AND annual_income   IS NOT NULL) + 1 AS rank_income,
+           SUM(scheduled_wage  < tgt.sw AND scheduled_wage  IS NOT NULL) + 1 AS rank_wage,
+           SUM(annual_bonus    < tgt.ab AND annual_bonus    IS NOT NULL) + 1 AS rank_bonus,
+           SUM(overtime_hours  > tgt.ot AND overtime_hours  IS NOT NULL) + 1 AS rank_overtime,
+           SUM(scheduled_hours > tgt.sh AND scheduled_hours IS NOT NULL) + 1 AS rank_hours,
+           SUM(workers         < tgt.wk AND workers         IS NOT NULL) + 1 AS rank_workers,
            SUM(age             < tgt.ag AND age             IS NOT NULL) + 1 AS rank_age,
            COUNT(DISTINCT occupation_name) AS total
          FROM occupation_wages

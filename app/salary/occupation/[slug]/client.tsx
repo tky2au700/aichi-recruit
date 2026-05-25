@@ -89,7 +89,7 @@ const SEX_COLOR: Record<string, string> = { '計': '#1a73e8', '男': '#0ea5e9', 
 
 // ---------- サブコンポーネント ----------
 function KpiCard({
-  icon, label, value, sub, accent, rank, rankLabel,
+  icon, label, value, sub, accent, rank,
 }: {
   icon: React.ReactNode
   label: string
@@ -97,60 +97,43 @@ function KpiCard({
   sub: string
   accent?: string
   rank?: RankEntry
-  rankLabel?: string
 }) {
-  const rankColor = !rank ? '#64748B'
-    : rank.rank <= 3  ? '#b45309'
-    : rank.rank <= 10 ? '#1a73e8'
-    : '#64748B'
-  const rankBg = !rank ? '#F1F5F9'
-    : rank.rank <= 3  ? '#FEF3C7'
-    : rank.rank <= 10 ? '#EFF6FF'
-    : '#F1F5F9'
-  const rankBorder = !rank ? '#E2E8F0'
-    : rank.rank <= 3  ? '#FDE68A'
-    : rank.rank <= 10 ? '#DBEAFE'
-    : '#E2E8F0'
-
   return (
     <div style={{
       background: '#fff',
       border: '1px solid #E2E8F0',
       borderRadius: 12,
-      padding: '18px 20px',
+      padding: '20px 22px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 0,
     }}>
-      {/* 1行目: アイコン + ラベル */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-        {icon}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-      </div>
-      {/* 2行目: 値 */}
-      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
-        {value}
-      </div>
-      {/* 3行目: サブテキスト + 順位バッジ */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, gap: 8 }}>
-        <span style={{ fontSize: 11, color: '#94A3B8', flexShrink: 1, minWidth: 0 }}>{sub}</span>
+      {/* ラベル行：左にアイコン+ラベル、右に順位バッジ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {icon}
+          {label}
+        </div>
         {rank && (
-          <span style={{
+          <div style={{
             fontSize: 10,
             fontWeight: 700,
             flexShrink: 0,
-            color: rankColor,
-            background: rankBg,
-            border: `1px solid ${rankBorder}`,
+            color: rank.rank <= 3 ? '#b45309' : rank.rank <= 10 ? '#1a73e8' : '#64748B',
+            background: rank.rank <= 3 ? '#FEF3C7' : rank.rank <= 10 ? '#EFF6FF' : '#F1F5F9',
+            border: `1px solid ${rank.rank <= 3 ? '#FDE68A' : rank.rank <= 10 ? '#DBEAFE' : '#E2E8F0'}`,
             borderRadius: 10,
             padding: '2px 7px',
             whiteSpace: 'nowrap',
           }}>
-            {rankLabel ?? '年収順'} {rank.rank}位 / {rank.total}職種
-          </span>
+            {rank.rank}位 / {rank.total}職種
+          </div>
         )}
       </div>
+      {/* 値 */}
+      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+        {value}
+      </div>
+      {/* サブテキスト */}
+      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{sub}</div>
     </div>
   )
 }
@@ -553,76 +536,10 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               sub="男女計・企業規模計"
               accent="#1a73e8"
               rank={data.ranks?.annual_income}
-              rankLabel="年収高い順"
             />
             <KpiCard
               icon={<BarChart2 size={13} color="#0F9D58" />}
               label="月給（所定内）"
-              value={fmtWan(rep.scheduled_wage)}
-              sub="所定内給与額"
-              rank={data.ranks?.scheduled_wage}
-              rankLabel="月給高い順"
-            />
-            <KpiCard
-              icon={<TrendingUp size={13} color="#F4B400" />}
-              label="年間賞与"
-              value={fmtWan(rep.annual_bonus)}
-              sub="賞与・特別給与額"
-              rank={data.ranks?.annual_bonus}
-              rankLabel="賞与高い順"
-            />
-            <KpiCard
-              icon={<Clock size={13} color="#0ea5e9" />}
-              label="時給換算"
-              value={(() => {
-                const mw = rep.monthly_wage
-                if (mw == null) return '−'
-                const hourly = Math.round(mw * 1000 / 160)
-                return `${hourly.toLocaleString()}円`
-              })()}
-              sub="月給 ÷ 160時間"
-            />
-            <KpiCard
-              icon={<Users size={13} color="#7c3aed" />}
-              label="平均年齢"
-              value={fmtFixed(rep.age, 1, '歳')}
-              sub={`勤続 ${fmtFixed(rep.tenure_years, 1, '年')}`}
-              rank={data.ranks?.age}
-              rankLabel="若い順"
-            />
-            <KpiCard
-              icon={<Clock size={13} color={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : '#94A3B8'} />}
-              label="月残業時間"
-              value={fmtFixed(rep.overtime_hours, 1, 'h')}
-              sub={rep.overtime_hours != null && rep.overtime_hours > 20 ? '残業多め' : '標準的'}
-              accent={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : undefined}
-              rank={data.ranks?.overtime_hours}
-              rankLabel="残業少ない順"
-            />
-            <KpiCard
-              icon={<Clock size={13} color="#0f766e" />}
-              label="月実労働時間"
-              value={fmtFixed(rep.scheduled_hours, 1, 'h')}
-              sub="所定内労働時間"
-              rank={data.ranks?.scheduled_hours}
-              rankLabel="労働時間少ない順"
-            />
-            <KpiCard
-              icon={<Users size={13} color="#64748B" />}
-              label="労働者数"
-              value={(() => {
-                if (rep.workers == null) return '−'
-                const people = rep.workers * 10
-                if (people >= 10000) return `${(people / 10000).toFixed(1)}万人`
-                return `${people.toLocaleString()}人`
-              })()}
-              sub="調査対象労働者数"
-              rank={data.ranks?.workers}
-              rankLabel="労働者数多い順"
-            />
-            <KpiCard
-              icon={<BarChart2 size={13} color="#0F9D58" />}
-              label="月給（所定内���"
               value={fmtWan(rep.scheduled_wage)}
               sub="所定内給与額"
               rank={data.ranks?.scheduled_wage}
