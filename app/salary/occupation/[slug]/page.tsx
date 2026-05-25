@@ -5,22 +5,11 @@ import { OccupationDetailClient } from './client'
 import { OccupationJsonLd } from '@/components/json-ld'
 import { query } from '@/lib/db'
 
+// 日本語職種名をURLエンコードするとパスが長くなりすぎるため動的レンダリングに統一
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ slug: string }>
-}
-
-// 静的パラメータ生成（ビルド時にすべての職種ページを生成）
-export async function generateStaticParams() {
-  try {
-    const rows = await query(
-      `SELECT DISTINCT occupation_name FROM occupation_wages
-       WHERE sex = '計' AND enterprise_size = '企業規模計'
-       ORDER BY occupation_name LIMIT 500`
-    ) as Array<{ occupation_name: string }>
-    return rows.map(r => ({ slug: encodeURIComponent(r.occupation_name) }))
-  } catch {
-    return []
-  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
