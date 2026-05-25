@@ -361,7 +361,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
           {error ?? 'データが見つかりません'}
         </p>
         <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 24 }}>
-          DB マイグレーション未実行の場合、���理画面から setup-schema を実行してください。
+          DB マイグレーション未実行の場合、管理画面から setup-schema を実行してください。
         </p>
         <Link
           href="/salary/ranking/occupation"
