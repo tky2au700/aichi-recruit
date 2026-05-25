@@ -44,8 +44,6 @@ interface TimePoint {
   age: number | null
 }
 
-interface RankEntry { rank: number; total: number }
-
 interface ApiResponse {
   success: boolean
   occupation_name: string
@@ -57,7 +55,6 @@ interface ApiResponse {
   latest_data: DetailRow[]
   time_series: TimePoint[]
   time_series_all: TimePoint[]
-  ranks?: Record<string, RankEntry>
   message?: string
 }
 
@@ -89,14 +86,13 @@ const SEX_COLOR: Record<string, string> = { '計': '#1a73e8', '男': '#0ea5e9', 
 
 // ---------- サブコンポーネント ----------
 function KpiCard({
-  icon, label, value, sub, accent, rank,
+  icon, label, value, sub, accent,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   sub: string
   accent?: string
-  rank?: RankEntry
 }) {
   return (
     <div style={{
@@ -106,33 +102,13 @@ function KpiCard({
       padding: '20px 22px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
-      {/* ラベル行：左にアイコン+ラベル、右に順位バッジ */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {icon}
-          {label}
-        </div>
-        {rank && (
-          <div style={{
-            fontSize: 10,
-            fontWeight: 700,
-            flexShrink: 0,
-            color: rank.rank <= 3 ? '#b45309' : rank.rank <= 10 ? '#1a73e8' : '#64748B',
-            background: rank.rank <= 3 ? '#FEF3C7' : rank.rank <= 10 ? '#EFF6FF' : '#F1F5F9',
-            border: `1px solid ${rank.rank <= 3 ? '#FDE68A' : rank.rank <= 10 ? '#DBEAFE' : '#E2E8F0'}`,
-            borderRadius: 10,
-            padding: '2px 7px',
-            whiteSpace: 'nowrap',
-          }}>
-            {rank.rank}位 / {rank.total}職種
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {icon}
+        {label}
       </div>
-      {/* 値 */}
-      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 10, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
         {value}
       </div>
-      {/* サブテキスト */}
       <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{sub}</div>
     </div>
   )
@@ -535,26 +511,24 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               value={fmtWan(rep.annual_income)}
               sub="男女計・企業規模計"
               accent="#1a73e8"
-              rank={data.ranks?.annual_income}
             />
             <KpiCard
               icon={<BarChart2 size={13} color="#0F9D58" />}
               label="月給（所定内）"
               value={fmtWan(rep.scheduled_wage)}
               sub="所定内給与額"
-              rank={data.ranks?.scheduled_wage}
             />
             <KpiCard
               icon={<TrendingUp size={13} color="#F4B400" />}
               label="年間賞与"
               value={fmtWan(rep.annual_bonus)}
               sub="賞与・特別給与額"
-              rank={data.ranks?.annual_bonus}
             />
             <KpiCard
               icon={<Clock size={13} color="#0ea5e9" />}
               label="時給換算"
               value={(() => {
+                // monthly_wage は千円単位。時給(円) = monthly_wage × 1,000 ÷ 160
                 const mw = rep.monthly_wage
                 if (mw == null) return '−'
                 const hourly = Math.round(mw * 1000 / 160)
@@ -567,7 +541,6 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               label="平均年齢"
               value={fmtFixed(rep.age, 1, '歳')}
               sub={`勤続 ${fmtFixed(rep.tenure_years, 1, '年')}`}
-              rank={data.ranks?.age}
             />
             <KpiCard
               icon={<Clock size={13} color={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : '#94A3B8'} />}
@@ -575,26 +548,24 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
               value={fmtFixed(rep.overtime_hours, 1, 'h')}
               sub={rep.overtime_hours != null && rep.overtime_hours > 20 ? '残業多め' : '標準的'}
               accent={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : undefined}
-              rank={data.ranks?.overtime_hours}
             />
             <KpiCard
               icon={<Clock size={13} color="#0f766e" />}
               label="月実労働時間"
               value={fmtFixed(rep.scheduled_hours, 1, 'h')}
               sub="所定内労働時間"
-              rank={data.ranks?.scheduled_hours}
             />
             <KpiCard
               icon={<Users size={13} color="#64748B" />}
               label="労働者数"
               value={(() => {
                 if (rep.workers == null) return '−'
+                // workers は十人単位
                 const people = rep.workers * 10
                 if (people >= 10000) return `${(people / 10000).toFixed(1)}万人`
                 return `${people.toLocaleString()}人`
               })()}
               sub="調査対象労働者数"
-              rank={data.ranks?.workers}
             />
           </div>
         )}

@@ -86,64 +86,6 @@ export async function GET(
     // 後方互換のため time_series（男女計・企業規模計のみ）も残す
     const timeSeries = timeSeriesAll.filter(r => r.sex === '計' && r.enterprise_size === '企業規模計')
 
-    // 各指標のランキング順位を取得（男女計・企業規模計・最新年度）
-    const latestDatasetId = latestRows.find((r: any) => r.sex === '計' && r.enterprise_size === '企業規模計')
-      ? (rows.find((r: any) => r.survey_year === latestYear) as any)?.dataset_id ?? null
-      : null
-
-    // dataset_id を直接取得
-    const datasetRows = await query(
-      `SELECT d.id as dataset_id FROM datasets d
-       JOIN dataset_groups dg ON d.group_id = dg.id
-       WHERE d.survey_year = ? AND dg.target_table = 'occupation_wages'
-       ORDER BY d.id DESC LIMIT 1`,
-      [latestYear]
-    ) as Array<{ dataset_id: number }>
-    const datasetId = datasetRows[0]?.dataset_id ?? null
-
-    let ranks: Record<string, { rank: number; total: number }> = {}
-    if (datasetId != null) {
-      const rankRows = await query(
-        `SELECT
-           SUM(annual_income   < tgt.ai AND annual_income   IS NOT NULL) + 1 AS rank_income,
-           SUM(scheduled_wage  < tgt.sw AND scheduled_wage  IS NOT NULL) + 1 AS rank_wage,
-           SUM(annual_bonus    < tgt.ab AND annual_bonus    IS NOT NULL) + 1 AS rank_bonus,
-           SUM(overtime_hours  > tgt.ot AND overtime_hours  IS NOT NULL) + 1 AS rank_overtime,
-           SUM(scheduled_hours > tgt.sh AND scheduled_hours IS NOT NULL) + 1 AS rank_hours,
-           SUM(workers         < tgt.wk AND workers         IS NOT NULL) + 1 AS rank_workers,
-           SUM(age             < tgt.ag AND age             IS NOT NULL) + 1 AS rank_age,
-           COUNT(DISTINCT occupation_name) AS total
-         FROM occupation_wages
-         JOIN (
-           SELECT annual_income AS ai, scheduled_wage AS sw, annual_bonus AS ab,
-                  overtime_hours AS ot, scheduled_hours AS sh, workers AS wk, age AS ag
-           FROM occupation_wages
-           WHERE dataset_id = ? AND occupation_name = ?
-             AND sex = '計' AND enterprise_size = '企業規模計'
-           LIMIT 1
-         ) AS tgt ON 1=1
-         WHERE dataset_id = ? AND sex = '計' AND enterprise_size = '企業規模計'`,
-        [datasetId, slug, datasetId]
-      ) as Array<Record<string, number>>
-
-      if (rankRows[0]) {
-        const r = rankRows[0]
-        const total = Number(r.total)
-        // 年収・月給・賞与・時給は高い順（= rank_income は降順位）
-        // 残業時間・労働時間は少ない順（rank_overtime は昇順）
-        // 労働者数は多い順（rank_workers は降順）
-        ranks = {
-          annual_income:   { rank: Number(r.rank_income),   total },
-          scheduled_wage:  { rank: Number(r.rank_wage),     total },
-          annual_bonus:    { rank: Number(r.rank_bonus),    total },
-          overtime_hours:  { rank: Number(r.rank_overtime), total },
-          scheduled_hours: { rank: Number(r.rank_hours),    total },
-          workers:         { rank: Number(r.rank_workers),  total },
-          age:             { rank: Number(r.rank_age),      total },
-        }
-      }
-    }
-
     return NextResponse.json({
       success: true,
       occupation_name:   rows[0].occupation_name,
@@ -155,7 +97,6 @@ export async function GET(
       latest_data:       latestRows,
       time_series:       timeSeries,
       time_series_all:   timeSeriesAll,
-      ranks,
     })
   } catch (error: any) {
     if (error.message?.includes("doesn't exist") || error.code === 'ER_NO_SUCH_TABLE') {
