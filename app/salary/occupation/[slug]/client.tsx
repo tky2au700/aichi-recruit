@@ -106,31 +106,34 @@ function KpiCard({
       padding: '20px 22px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {icon}
-        {label}
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 10, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-        {value}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, gap: 4 }}>
-        <div style={{ fontSize: 11, color: '#94A3B8' }}>{sub}</div>
+      {/* ラベル行：左にアイコン+ラベル、右に順位バッジ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {icon}
+          {label}
+        </div>
         {rank && (
           <div style={{
             fontSize: 10,
             fontWeight: 700,
+            flexShrink: 0,
             color: rank.rank <= 3 ? '#b45309' : rank.rank <= 10 ? '#1a73e8' : '#64748B',
             background: rank.rank <= 3 ? '#FEF3C7' : rank.rank <= 10 ? '#EFF6FF' : '#F1F5F9',
             border: `1px solid ${rank.rank <= 3 ? '#FDE68A' : rank.rank <= 10 ? '#DBEAFE' : '#E2E8F0'}`,
             borderRadius: 10,
             padding: '2px 7px',
             whiteSpace: 'nowrap',
-            letterSpacing: '0',
           }}>
             {rank.rank}位 / {rank.total}職種
           </div>
         )}
       </div>
+      {/* 値 */}
+      <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+        {value}
+      </div>
+      {/* サブテキスト */}
+      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{sub}</div>
     </div>
   )
 }
