@@ -181,11 +181,18 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
       if (_year) params.set('survey_year', String(_year))
       const res  = await fetch(`/api/salary/ranking/occupation?${params}`)
       const json: ApiResponse = await res.json()
-      if (!json.success) { setError(json.message ?? 'エラーが発�����しました'); return }
+      if (!json.success) { setError(json.message ?? 'エラーが発生しました'); return }
       setData(json.data)
       setMeta(json.meta)
       if (json.years.length > 0) {
-        setYears(json.years)
+        // survey_year の重複を排除（同一年が複数グループから来た場合の保険）
+        const seen = new Set<number>()
+        const uniqueYears = json.years.filter((y: YearOption) => {
+          if (seen.has(y.survey_year)) return false
+          seen.add(y.survey_year)
+          return true
+        })
+        setYears(uniqueYears)
         if (_year === null && json.meta) setSurveyYear(json.meta.survey_year)
       }
     } catch {
@@ -321,7 +328,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
     ? `${currentYearStr}調査の賃金構造基本統計調査に基づく${filterDescParts.length > 0 ? filterDescParts.join('・') + 'の' : ''}${baseTitle}データです。`
     : null
 
-  // SSRで渡されたpropsを初期値とし、クライアント側の変更で���書き
+  // SSRで渡されたpropsを初期値とし、クライアント側の変更で上書き
   const displayDescription = pageDescription ?? dynamicDescription
 
   return (

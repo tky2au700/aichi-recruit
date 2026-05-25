@@ -129,7 +129,14 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
       setData(json.data)
       setMeta(json.meta)
       if (json.years.length > 0) {
-        setYears(json.years)
+        // survey_year の重複を排除（同一年が複数グループから来た場合の保険）
+        const seen = new Set<number>()
+        const uniqueYears = json.years.filter((y: YearOption) => {
+          if (seen.has(y.survey_year)) return false
+          seen.add(y.survey_year)
+          return true
+        })
+        setYears(uniqueYears)
         if (_year === null && json.meta) setSurveyYear(json.meta.survey_year)
       }
     } catch { setError('データ取得に失敗しました') }

@@ -1762,7 +1762,7 @@ function SchemaTab() {
         <h2 className="text-sm font-bold">DBスキーマ初期化</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
           初回起動時に実行してください。既存テーブルは <code>CREATE TABLE IF NOT EXISTS</code> で保護されます。
-          旧スキーマからの自動マイグレーションも行い���す。
+          旧スキーマからの自動マイグレーションも行います。
         </p>
       </div>
 

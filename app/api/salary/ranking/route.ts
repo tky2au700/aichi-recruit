@@ -56,7 +56,10 @@ export async function GET(req: NextRequest) {
     // 年度一覧
     const years = await query(
       `SELECT DISTINCT d.survey_year, d.id as dataset_id
-       FROM datasets d WHERE d.record_count > 0 ORDER BY d.survey_year DESC`
+       FROM datasets d
+       JOIN dataset_groups dg ON d.group_id = dg.id
+       WHERE d.record_count > 0 AND dg.target_table = 'occupation_wages'
+       ORDER BY d.survey_year DESC`
     ) as Array<{ survey_year: number; dataset_id: number }>
 
     if (years.length === 0) {
