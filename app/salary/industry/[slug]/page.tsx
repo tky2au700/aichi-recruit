@@ -6,6 +6,9 @@ import { IndustryJsonLd } from '@/components/json-ld'
 import { buildMetadata } from '@/lib/seo'
 import { query } from '@/lib/db'
 
+// 日本語産業名をURLエンコードするとパスが長くなりすぎるため動的レンダリングに統一
+export const dynamic = 'force-dynamic'
+
 const BASE_URL = 'https://ai-recruit.jp'
 
 type Params = Promise<{ slug: string }>
