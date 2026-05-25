@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
              dg.survey_group_name, dg.survey_table_name, dg.name as legacy_name
       FROM datasets d
       JOIN dataset_groups dg ON d.group_id = dg.id
-      WHERE d.record_count > 0
+      WHERE d.record_count > 0 AND dg.target_table = 'occupation_wages'
       ORDER BY d.survey_year DESC
     `
     const years = await query(yearsQuery) as Array<{
