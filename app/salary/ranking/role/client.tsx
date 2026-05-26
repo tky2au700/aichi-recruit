@@ -375,9 +375,9 @@ export function RoleRankingClient({
           <div style={S.filterGroup}>
             <span style={S.filterLabel}>企業規模</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {sizes.map(s => (
+              {sizes.map((s, i) => (
                 <button
-                  key={s}
+                  key={`size-${i}-${s}`}
                   style={size === s ? S.chipActive : S.chip}
                   onClick={() => { setSize(s); pushUrl(sex, s, tenure, surveyYear, sortKey, sortDir) }}
                 >
@@ -393,9 +393,9 @@ export function RoleRankingClient({
           <div style={S.filterGroup}>
             <span style={S.filterLabel}>勤続年数</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {tenures.map(t => (
+              {tenures.map((t, i) => (
                 <button
-                  key={t}
+                  key={`tenure-${i}-${t}`}
                   style={tenure === t ? S.chipActive : S.chip}
                   onClick={() => { setTenure(t); pushUrl(sex, size, t, surveyYear, sortKey, sortDir) }}
                 >
