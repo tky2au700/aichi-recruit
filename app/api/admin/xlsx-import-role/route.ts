@@ -42,9 +42,24 @@ const TENURE_CATS: Array<{ label: string; offset: number }> = [
   { label: '30年以上',   offset: 27 },
 ]
 
-const BLOCK_WIDTH = 32 // 1ブロックの列数（データ30 + 空白2）
+/**
+ * DB登録前の正規化:
+ *   性別  : '計' → '男女計'
+ *   年齢  : 先頭の空白・全角スペースを除去、半角チルダを全角に統一
+ *           '学歴計' はそのまま（ヘッダー行の集計値）
+ */
+function normalizeAgeGroup(raw: string): string {
+  return raw
+    .replace(/^[\s　]+/, '')     // 先頭スペース・全角スペース除去
+    .replace(/~/g, '～')         // 半角チルダ → 全角
+}
+
+function normalizeSex(sex: '計' | '男' | '女'): string {
+  return sex === '計' ? '男女計' : sex
+}
 
 /** セル値を数値に変換 */
+
 function n(v: unknown): number | null {
   if (v === null || v === undefined) return null
   const s = String(v).replace(/[\s,]/g, '').trim()
@@ -172,7 +187,7 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 
   for (let r = dataStartRow; r <= maxRow; r++) {
     // ラベルは先頭ブロックのlabelCol（全ブロック共通）
-    const labelCol = blocks[0].colBase + LABEL_OFFSET  // col1（ラベ���列）
+    const labelCol = blocks[0].colBase + LABEL_OFFSET  // col1（ラベ����列）
     const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
     const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^[\s　]+/, '').trim()
 
@@ -215,14 +230,14 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
         const annualIncome = sw !== null ? Math.round(sw * 12 + (ab ?? 0)) : null
 
         rows.push({
-          roleName: block.roleName,
+          roleName:      block.roleName,
           enterpriseSize: block.enterpriseSize,
-          sex: currentSex,
-          education: currentEducation,
-          ageGroup: finalAgeGroup,
+          sex:           normalizeSex(currentSex),
+          education:     currentEducation,
+          ageGroup:      normalizeAgeGroup(finalAgeGroup),
           tenureCategory: tc.label,
           scheduledWage: sw,
-          annualBonus: ab,
+          annualBonus:   ab,
           workers,
           annualIncome,
         })

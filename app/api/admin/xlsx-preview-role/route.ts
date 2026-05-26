@@ -41,6 +41,14 @@ function clean(v: unknown): string {
   return String(v ?? '').replace(/[\s\u3000\n\r]/g, '').trim()
 }
 
+function normalizeAgeGroup(raw: string): string {
+  return raw.replace(/^[\s　]+/, '').replace(/~/g, '～')
+}
+
+function normalizeSex(sex: '計' | '男' | '女'): string {
+  return sex === '計' ? '男女計' : sex
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
@@ -157,9 +165,9 @@ export async function POST(req: NextRequest) {
         previewRows.push({
           roleName:      firstBlock.roleName,
           enterpriseSize: firstBlock.enterpriseSize,
-          sex:           currentSex,
+          sex:           normalizeSex(currentSex),
           education:     currentEducation,
-          ageGroup,
+          ageGroup:      normalizeAgeGroup(ageGroup),
           tenureCategory: tc.label,
           scheduledWage: sw,
           annualBonus:   ab,
