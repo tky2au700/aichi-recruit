@@ -60,7 +60,7 @@ function cv(ws: XLSX.WorkSheet, r: number, c: number): unknown {
 
 /** 文字列の空白・改行を正規化 */
 function clean(v: unknown): string {
-  return String(v ?? '').replace(/[\s\n\r]/g, '').trim()
+  return String(v ?? '').replace(/[\s\u3000\n\r]/g, '').trim()
 }
 
 // 役職コード → 役職名マッピング
@@ -120,27 +120,38 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
   let roleRow = -1
   let sizeRow = -1
   let dataStartRow = 12
-  for (let r = 0; r <= Math.min(20, maxRow); r++) {
-    const label = clean(cv(ws, r, 0)) || clean(cv(ws, r, 1))
-    if (label === '役職') roleRow = r
-    if (label === '企業規模') sizeRow = r
-    if (label === '区分' || label === '区　分') dataStartRow = r + 3
+  for (let r = 0; r <= Math.min(25, maxRow); r++) {
+    const labels = [clean(cv(ws, r, 0)), clean(cv(ws, r, 1)), clean(cv(ws, r, 2))]
+    const label = labels.find(l => l.length > 0) ?? ''
+    if (label.includes('役職') && !label.includes('部長') && !label.includes('課長')) roleRow = r
+    if (label.includes('企業規模')) sizeRow = r
+    if (label.includes('区分') || label === '区分') dataStartRow = r + 3
+  }
+
+  const effectiveRoleRow = roleRow >= 0 ? roleRow : 7
+  const effectiveSizeRow = sizeRow >= 0 ? sizeRow : 6
+
+  // データ列開始を動的に特定
+  let dataColStart = 2
+  for (let c = 1; c <= Math.min(10, maxCol); c++) {
+    const v = clean(cv(ws, effectiveRoleRow, c))
+    if (v.match(/^\d{3}/)) { dataColStart = c; break }
   }
 
   // ブロック情報を収集
   type Block = { colBase: number; roleName: string; enterpriseSize: string }
   const blocks: Block[] = []
 
-  for (let c = 2; c <= maxCol; c++) {
-    const roleCell = roleRow >= 0 ? clean(cv(ws, roleRow, c)) : ''
-    if (!roleCell) continue
+  for (let c = dataColStart; c <= maxCol; c++) {
+    const roleCell = clean(cv(ws, effectiveRoleRow, c))
+    if (!roleCell || !roleCell.match(/^\d{3}/)) continue
 
     const codeMatch = roleCell.match(/^(\d+)(.+)$/)
     const roleName = codeMatch
       ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2])
       : roleCell
 
-    const sizeCell = (sizeRow >= 0 ? clean(cv(ws, sizeRow, c)) : '') || '10人以上'
+    const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
     blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
     c += 29 // 1ブロック = 3列×10区分 = 30列
   }
@@ -224,7 +235,7 @@ export async function POST(req: NextRequest) {
     const ROLE_GROUP_ID = 4
 
     let datasetId = rawDatasetId
-    let surveyYear: number
+    let surveyYear: number = rawSurveyYear ?? new Date().getFullYear()
 
     if (datasetId) {
       // 既存 dataset を確認

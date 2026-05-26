@@ -37,7 +37,8 @@ function cv(ws: XLSX.WorkSheet, r: number, c: number): unknown {
 }
 
 function clean(v: unknown): string {
-  return String(v ?? '').replace(/[\s\n\r]/g, '').trim()
+  // 半角・全角スペース、改行をすべて除去
+  return String(v ?? '').replace(/[\s\u3000\n\r]/g, '').trim()
 }
 
 export async function POST(req: NextRequest) {
@@ -49,7 +50,6 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
 
-    console.log('[v0] role-preview: sheetNames =', wb.SheetNames)
     const sheetPreviews: Array<{
       sheetName: string
       blocks: Array<{ roleName: string; enterpriseSize: string }>
@@ -66,33 +66,40 @@ export async function POST(req: NextRequest) {
       const maxRow = range.e.r
       const maxCol = range.e.c
 
-      console.log('[v0] role-preview sheet:', sheetName, 'maxRow=', maxRow, 'maxCol=', maxCol)
-
       // 役職行・企業規模行・データ開始行を動的に探す
       let roleRow = -1
       let sizeRow = -1
       let dataStartRow = 12
-      for (let r = 0; r <= Math.min(20, maxRow); r++) {
-        const label = clean(cv(ws, r, 0)) || clean(cv(ws, r, 1))
-        if (label === '役職') roleRow = r
-        if (label === '企業規模') sizeRow = r
-        if (label === '区分' || label === '区　分') dataStartRow = r + 3
+      for (let r = 0; r <= Math.min(25, maxRow); r++) {
+        // col0〜2 のいずれかにラベルがある可能性を考慮
+        const labels = [clean(cv(ws, r, 0)), clean(cv(ws, r, 1)), clean(cv(ws, r, 2))]
+        const label = labels.find(l => l.length > 0) ?? ''
+        if (label.includes('役職') && !label.includes('部長') && !label.includes('課長')) roleRow = r
+        if (label.includes('企業規模')) sizeRow = r
+        if (label.includes('区分') || label === '区分') dataStartRow = r + 3
       }
-      console.log('[v0] role-preview roleRow=', roleRow, 'sizeRow=', sizeRow, 'dataStartRow=', dataStartRow)
 
-      // ブロック収集: col1は区分ラベル列、col2以降にデータブロックが並ぶ
+      // ブロック収集: col0〜2 以降にデータブロックが並ぶ
+      // 役職行が見つかった場合はその行から、見つからない場合は row 7 をデフォルトに
+      const effectiveRoleRow = roleRow >= 0 ? roleRow : 7
+      const effectiveSizeRow = sizeRow >= 0 ? sizeRow : 6
       const blocks: Array<{ colBase: number; roleName: string; enterpriseSize: string }> = []
-      for (let c = 2; c <= maxCol; c++) {
-        const roleCell = roleRow >= 0 ? clean(cv(ws, roleRow, c)) : ''
-        if (!roleCell) continue
+      // データ列の開始: ラベル列を飛ばして最初に数値または役職コードが現れる列を探す
+      let dataColStart = 2
+      for (let c = 1; c <= Math.min(10, maxCol); c++) {
+        const v = clean(cv(ws, effectiveRoleRow, c))
+        if (v.match(/^\d{3}/)) { dataColStart = c; break }
+      }
+      for (let c = dataColStart; c <= maxCol; c++) {
+        const roleCell = clean(cv(ws, effectiveRoleRow, c))
+        if (!roleCell || !roleCell.match(/^\d{3}/)) continue
         const codeMatch = roleCell.match(/^(\d+)(.+)$/)
         const roleName = codeMatch ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2]) : roleCell
-        const sizeCell = (sizeRow >= 0 ? clean(cv(ws, sizeRow, c)) : '') || '10人以上'
+        const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
         blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
         // 1ブロック = 3列×10勤続区分 = 30列、次ブロックへジャンプ
         c += 29
       }
-      console.log('[v0] role-preview blocks found:', blocks.length, blocks.map(b => b.roleName + '/' + b.enterpriseSize))
       // プレビュー行（先頭ブロック × 先頭20行）
       const previewRows: typeof sheetPreviews[0]['preview'] = []
       const firstBlock = blocks[0]
