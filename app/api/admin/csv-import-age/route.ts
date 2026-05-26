@@ -35,6 +35,33 @@ export async function POST(req: NextRequest) {
       text = iconv.decode(nodeBuffer, 'CP932')
     }
 
+    // テーブルが存在しない場合は作成
+    await query(`
+      CREATE TABLE IF NOT EXISTS age_wages (
+        id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        dataset_id       INT NOT NULL,
+        sex              VARCHAR(10)   NOT NULL DEFAULT '計',
+        education        VARCHAR(30)   NOT NULL DEFAULT '学歴計',
+        age_group        VARCHAR(20)   NOT NULL,
+        enterprise_size  VARCHAR(50)   NOT NULL,
+        age              DECIMAL(5,1),
+        tenure_years     DECIMAL(5,1),
+        scheduled_hours  DECIMAL(6,1),
+        overtime_hours   DECIMAL(6,1),
+        monthly_wage     DECIMAL(10,1),
+        scheduled_wage   DECIMAL(10,1),
+        annual_bonus     DECIMAL(10,1),
+        workers          BIGINT,
+        annual_income    DECIMAL(10,1),
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dataset     (dataset_id),
+        INDEX idx_sex         (sex),
+        INDEX idx_education   (education),
+        INDEX idx_age_group   (age_group),
+        INDEX idx_enterprise  (enterprise_size)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+
     const rows = parseAgeWageCsv(text)
 
     if (rows.length === 0) {
