@@ -207,15 +207,49 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const datasetId = formData.get('dataset_id') ? Number(formData.get('dataset_id')) : null
+    const rawDatasetId = formData.get('dataset_id') ? Number(formData.get('dataset_id')) : null
+    const rawSurveyYear = formData.get('survey_year') ? Number(formData.get('survey_year')) : null
 
     if (!file) return NextResponse.json({ success: false, error: 'ファイルが指定されていません' }, { status: 400 })
-    if (!datasetId) return NextResponse.json({ success: false, error: 'dataset_id が必要です' }, { status: 400 })
 
-    // dataset の survey_year を取得
-    const dsRows = await query<{ survey_year: number }>('SELECT survey_year FROM datasets WHERE id = ?', [datasetId])
-    if (dsRows.length === 0) return NextResponse.json({ success: false, error: 'dataset が見つかりません' }, { status: 404 })
-    const surveyYear = dsRows[0].survey_year
+    // role_wages グループID = 4（固定）
+    const ROLE_GROUP_ID = 4
+
+    let datasetId = rawDatasetId
+    let surveyYear: number
+
+    if (datasetId) {
+      // 既存 dataset を確認
+      const dsRows = await query<{ survey_year: number; group_id: number }>(
+        'SELECT survey_year, group_id FROM datasets WHERE id = ?', [datasetId]
+      )
+      if (dsRows.length === 0) {
+        // dataset_id が存在しない場合は survey_year で再検索・自動作成
+        datasetId = null
+      } else {
+        surveyYear = dsRows[0].survey_year
+      }
+    }
+
+    if (!datasetId) {
+      // dataset_id が渡されないか見つからない場合: survey_year で既存を探すか新規作成
+      const year = rawSurveyYear ?? new Date().getFullYear()
+      const existRows = await query<{ id: number }>(
+        'SELECT id FROM datasets WHERE group_id = ? AND survey_year = ?', [ROLE_GROUP_ID, year]
+      )
+      if (existRows.length > 0) {
+        datasetId = existRows[0].id
+        surveyYear = year
+      } else {
+        // 自動作成
+        const ins = await query<{ insertId: number }>(
+          'INSERT INTO datasets (group_id, survey_year) VALUES (?, ?)', [ROLE_GROUP_ID, year]
+        )
+        datasetId = (ins as any).insertId
+        surveyYear = year
+        console.log(`[role-import] dataset 自動作成: id=${datasetId}, year=${year}`)
+      }
+    }
 
     const arrayBuffer = await file.arrayBuffer()
     const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })

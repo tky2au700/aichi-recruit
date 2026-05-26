@@ -717,6 +717,7 @@ function DataTab() {
 
   // CSV / XLSX 取込共通
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null)
+  const [roleImportYear, setRoleImportYear] = useState<number>(new Date().getFullYear())
   const [csvFile, setCsvFile]             = useState<File | null>(null)
   const [isXlsx, setIsXlsx]               = useState(false)
   const [dragging, setDragging]           = useState(false)
@@ -949,14 +950,17 @@ function DataTab() {
   }
 
   async function handleXlsxImport() {
-    if (!csvFile || !selectedDatasetId) return
+    const isRoleWages = selectedGroup?.target_table === 'role_wages'
+    if (!csvFile || (!selectedDatasetId && !isRoleWages)) return
     setXlsxImporting(true)
     setXlsxResults(null)
     setXlsxProgress(null)
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
-      fd.append('dataset_id', String(selectedDatasetId))
+      if (selectedDatasetId) fd.append('dataset_id', String(selectedDatasetId))
+      // role_wages は dataset が未登録でも survey_year を渡して自動作成
+      if (isRoleWages) fd.append('survey_year', String(roleImportYear))
       const targetTableImport = selectedGroup?.target_table
       const importEndpoint = targetTableImport === 'prefecture_wages'
         ? '/api/admin/xlsx-import-prefecture'
@@ -1372,14 +1376,26 @@ function DataTab() {
                     {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
                     シート一覧を確認
                   </button>
+                  {selectedGroup?.target_table === 'role_wages' && (
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-[10px] text-muted-foreground whitespace-nowrap">調査年</label>
+                      <input
+                        type="number"
+                        value={roleImportYear}
+                        onChange={e => setRoleImportYear(Number(e.target.value))}
+                        className="w-20 border border-border rounded px-2 py-1 text-xs"
+                        min={2000} max={2099}
+                      />
+                    </div>
+                  )}
                   <button
                     onClick={handleXlsxImport}
-                    disabled={xlsxImporting || !selectedDatasetId}
+                    disabled={xlsxImporting || (selectedGroup?.target_table !== 'role_wages' && !selectedDatasetId)}
                     className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                     {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                     全タブを一括インポート
                   </button>
-                  {!selectedDatasetId && (
+                  {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
                     <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                   )}
                 </div>
