@@ -1527,7 +1527,7 @@ function DataTab() {
                                 {(selectedGroup?.target_table === 'prefecture_wages'
                                   ? ['都道府県', '性別', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                   : selectedGroup?.target_table === 'role_wages'
-                                  ? ['役職', '企業規模', '性別', '学歴', '年齢階級', '勤続区分', '所定内給与(千円)', '賞与(千円)', '労働者数(人)']
+                                  ? ['性別', '学歴', '年齢階級', '勤続区分', '所定内給与(千円)', '賞与(千円)', '労働者数(人)']
                                   : ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                 ).map(h => (
                                   <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
@@ -1552,8 +1552,6 @@ function DataTab() {
                                     </>
                                   ) : selectedGroup?.target_table === 'role_wages' ? (
                                     <>
-                                      <td className="py-1 px-2 font-medium">{String((row as Record<string,unknown>).roleName ?? (row as Record<string,unknown>).role_name ?? '')}</td>
-                                      <td className="py-1 px-2 text-muted-foreground">{String((row as Record<string,unknown>).enterpriseSize ?? (row as Record<string,unknown>).enterprise_size ?? '')}</td>
                                       <td className="py-1 px-2">{String(row.sex ?? '')}</td>
                                       <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
                                       <td className="py-1 px-2">{String((row as Record<string,unknown>).ageGroup ?? (row as Record<string,unknown>).age_group ?? '')}</td>

@@ -151,13 +151,15 @@ export async function POST(req: NextRequest) {
         const ageGroup = isHeader ? currentEducation : cleanLabel.replace(/^[\s　]+/, '')
 
         previewRows.push({
-          sex: currentSex,
-          education: currentEducation,
+          roleName:      firstBlock.roleName,
+          enterpriseSize: firstBlock.enterpriseSize,
+          sex:           currentSex,
+          education:     currentEducation,
           ageGroup,
           tenureCategory: tc.label,
           scheduledWage: sw,
-          annualBonus: ab,
-          workers: wk !== null ? Math.round(wk * 10) : null,
+          annualBonus:   ab,
+          workers:       wk !== null ? Math.round(wk * 10) : null,
         })
       }
 
