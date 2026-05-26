@@ -369,7 +369,7 @@ export function PrefectureClient() {
                     const isAboveAvg = sortVal != null && avgVal != null && sortVal > avgVal
                     return (
                       <tr
-                        key={row.prefecture}
+                        key={`${row.prefecture}-${idx}`}
                         style={{ background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}
                         onMouseEnter={e => (e.currentTarget.style.background = '#EBF3FE')}
                         onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}
@@ -382,9 +382,9 @@ export function PrefectureClient() {
                         <td style={S.td}>
                           <Link
                             href={`/salary/prefecture/${encodeURIComponent(row.prefecture)}`}
-                            style={{ color: '#1a73e8', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                            className="occupation-link"
                           >
-                            <MapPin size={12} color="#94A3B8" />
+                            <MapPin size={12} color="#94A3B8" style={{ marginRight: 4, flexShrink: 0 }} />
                             {row.prefecture}
                           </Link>
                         </td>
