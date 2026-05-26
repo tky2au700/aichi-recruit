@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
         const codeMatch = roleCell.match(/^(\d+)(.+)$/)
         const roleName = codeMatch ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2]) : roleCell
         const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
-        // colBase は役職コード列の「次の列」= 実際のデータ開始列
-        blocks.push({ colBase: c + 1, roleName, enterpriseSize: sizeCell })
-        // 1ブロック = ラベル(1) + 3列×10勤続区分(30) = 31列、次ブロックの役職コード列へ
+        // colBase = 役職コード列 = ラベル列(C列相当)、データ列は colBase+1 以降
+        blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
+        // 1ブロック = 役職コード兼ラベル列(1) + 3列×10勤続区分(30) = 31列
         c += 30
       }
       // プレビュー行（先頭ブロック × 先頭20行）
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       let currentSex: string = '計'
       let currentEducation = '学歴計'
 
-      const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
+      const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・��大', '大学', '大学院', '不明']
 
       // ラベル列は役職コード列と同じ列 (firstBlock.colBase - 1 = 役職コード列) ではなく、
       // 役職コード列の直後 = firstBlock.colBase がラベル列、firstBlock.colBase+1 からデータ列
