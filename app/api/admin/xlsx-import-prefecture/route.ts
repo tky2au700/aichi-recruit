@@ -99,16 +99,16 @@ function parseCombinedSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
 
   // データ行は row 11〜（0-indexed）= 表の12行目〜
   // col レイアウト（0-indexed）:
-  //   0-3: 都道府県（分割）＋空列, 4: 年齢, 5: 勤続, 6: 所定内時間, 7: 超過時間,
-  //   8: (空/現金), 9: 現金給与, 10: 所定内給与, 11: 年間賞与, 12: 労働者数（十人）
+  //   0-2: 都道府県（結合）, 3: 空列, 4: 年齢, 5: 勤続, 6: 所定内時間, 7: 超過時間,
+  //   8: 現金給与, 9: 所定内給与, 10: 年間賞与, 11: 労働者数（十人）
   for (let r = 11; r <= maxRow; r++) {
     const pref = extractPrefecture(ws, r)
     if (!pref) continue
 
-    const monthlyWage = n(cv(ws, r, 9))
-    const scheduledWage = n(cv(ws, r, 10))
-    const bonus = n(cv(ws, r, 11))
-    const workersRaw = n(cv(ws, r, 12))
+    const monthlyWage = n(cv(ws, r, 8))
+    const scheduledWage = n(cv(ws, r, 9))
+    const bonus = n(cv(ws, r, 10))
+    const workersRaw = n(cv(ws, r, 11))
 
     // 有効データなし行はスキップ
     if (monthlyWage === null && scheduledWage === null && bonus === null && workersRaw === null) continue
