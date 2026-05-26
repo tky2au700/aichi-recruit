@@ -933,15 +933,16 @@ function DataTab() {
       const res  = await fetch(detailEndpoint, { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
-        if (isPrefectureDetail && json.sheets) {
-          // prefecture用: sheets配列から対象シートのpreviewを取り出す
+        if (json.sheets) {
+          // sheets配列形式（prefecture・role共通）: 対象シートのpreviewを取り出す
           const target = json.sheets.find((s: XlsxSheet & { preview?: Record<string, unknown>[] }) => s.sheet_name === sheetName)
           setSheetDetail({
-            sheet_name:  sheetName,
-            industry_name: sheetName,
-            preview:     target?.preview ?? [],
+            sheet_name:    sheetName,
+            industry_name: target?.industry_name ?? sheetName,
+            preview:       target?.preview ?? [],
           })
         } else {
+          // 直接 preview を返す形式
           setSheetDetail(json)
         }
       }
@@ -1397,7 +1398,7 @@ function DataTab() {
                     全タブを一括インポート
                   </button>
                   {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
-                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
+                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してくださ��</span>
                   )}
                 </div>
 
