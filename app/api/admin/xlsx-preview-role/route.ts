@@ -76,7 +76,9 @@ export async function POST(req: NextRequest) {
         const label = labels.find(l => l.length > 0) ?? ''
         if (label.includes('役職') && !label.includes('部長') && !label.includes('課長')) roleRow = r
         if (label.includes('企業規模')) sizeRow = r
-        if (label.includes('区分') || label === '区分') dataStartRow = r + 3
+        // 区分行: 区分(row9) → ヘッダー1行(row10) → 千円行(row11) → データ開始(row12) = r+3
+        // ただしXLSXではヘッダー内に改行セルがあり実際にはrow12=千円行、row13=データ
+        if (label.includes('区分') || label === '区分') dataStartRow = r + 4
       }
 
       // ブロック収集: col0〜2 以降にデータブロックが並ぶ

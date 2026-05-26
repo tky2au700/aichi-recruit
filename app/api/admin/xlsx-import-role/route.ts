@@ -125,7 +125,7 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
     const label = labels.find(l => l.length > 0) ?? ''
     if (label.includes('役職') && !label.includes('部長') && !label.includes('課長')) roleRow = r
     if (label.includes('企業規模')) sizeRow = r
-    if (label.includes('区分') || label === '区分') dataStartRow = r + 3
+    if (label.includes('区分') || label === '区分') dataStartRow = r + 4
   }
 
   const effectiveRoleRow = roleRow >= 0 ? roleRow : 7
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ success: false, error: 'ファイルが指定されていません' }, { status: 400 })
 
-    // role_wages グループID = 4（固定）
+    // role_wages グ���ープID = 4（固定）
     const ROLE_GROUP_ID = 4
 
     let datasetId = rawDatasetId
