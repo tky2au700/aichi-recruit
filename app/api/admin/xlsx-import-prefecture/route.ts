@@ -99,16 +99,16 @@ function parseCombinedSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
 
   // データ行は row 11〜（0-indexed）= 表の12行目〜
   // col レイアウト（0-indexed）:
-  //   0-2: 都道府県（分割）, 3: 年齢, 4: 勤続, 5: 所定内時間, 6: 超過時間,
-  //   7: (空), 8: 現金給与, 9: 所定内給与, 10: 年間賞与, 11: 労働者数（十人）
+  //   0-3: 都道府県（分割）＋空列, 4: 年齢, 5: 勤続, 6: 所定内時間, 7: 超過時間,
+  //   8: (空/現金), 9: 現金給与, 10: 所定内給与, 11: 年間賞与, 12: 労働者数（十人）
   for (let r = 11; r <= maxRow; r++) {
     const pref = extractPrefecture(ws, r)
     if (!pref) continue
 
-    const monthlyWage = n(cv(ws, r, 8))
-    const scheduledWage = n(cv(ws, r, 9))
-    const bonus = n(cv(ws, r, 10))
-    const workersRaw = n(cv(ws, r, 11))
+    const monthlyWage = n(cv(ws, r, 9))
+    const scheduledWage = n(cv(ws, r, 10))
+    const bonus = n(cv(ws, r, 11))
+    const workersRaw = n(cv(ws, r, 12))
 
     // 有効データなし行はスキップ
     if (monthlyWage === null && scheduledWage === null && bonus === null && workersRaw === null) continue
@@ -121,10 +121,10 @@ function parseCombinedSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
     rows.push({
       prefecture:      pref,
       sex:             '計',
-      age:             n(cv(ws, r, 3)),
-      tenure_years:    n(cv(ws, r, 4)),
-      scheduled_hours: n(cv(ws, r, 5)),
-      overtime_hours:  n(cv(ws, r, 6)),
+      age:             n(cv(ws, r, 4)),
+      tenure_years:    n(cv(ws, r, 5)),
+      scheduled_hours: n(cv(ws, r, 6)),
+      overtime_hours:  n(cv(ws, r, 7)),
       monthly_wage:    monthlyWage,
       scheduled_wage:  scheduledWage,
       annual_bonus:    bonus,

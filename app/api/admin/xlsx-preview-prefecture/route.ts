@@ -79,15 +79,18 @@ function parsePreview(ws: XLSX.WorkSheet, isSeparate: boolean, limit = 20): Reco
     if (!pref) continue
 
     if (!isSeparate) {
-      const mw = n(cv(ws, r, 8))
-      const sw = n(cv(ws, r, 9))
-      const ab = n(cv(ws, r, 10))
-      const wk = n(cv(ws, r, 11))
+      // col レイアウト（0-indexed）:
+      //   0-3: 都道府県＋空列, 4: 年齢, 5: 勤続, 6: 所定内時間, 7: 超過時間,
+      //   8: 空, 9: 現金給与, 10: 所定内給与, 11: 年間賞与, 12: 労働者数
+      const mw = n(cv(ws, r, 9))
+      const sw = n(cv(ws, r, 10))
+      const ab = n(cv(ws, r, 11))
+      const wk = n(cv(ws, r, 12))
       if (mw === null && sw === null && ab === null && wk === null) continue
       rows.push({
         prefecture: pref, sex: '計',
-        age: n(cv(ws, r, 3)), tenure_years: n(cv(ws, r, 4)),
-        scheduled_hours: n(cv(ws, r, 5)), overtime_hours: n(cv(ws, r, 6)),
+        age: n(cv(ws, r, 4)), tenure_years: n(cv(ws, r, 5)),
+        scheduled_hours: n(cv(ws, r, 6)), overtime_hours: n(cv(ws, r, 7)),
         monthly_wage: mw, scheduled_wage: sw, annual_bonus: ab,
         workers: wk !== null ? Math.round(wk * 10) : null,
       })
