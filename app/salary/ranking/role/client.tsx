@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
@@ -485,9 +484,7 @@ export function RoleRankingClient({
                         <td style={S.td}>
                           <Link
                             href={`/salary/role/${encodeURIComponent(row.role_name)}`}
-                            style={{ fontSize: 13, fontWeight: 600, color: '#1a73e8', textDecoration: 'none' }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                            className="occupation-link"
                           >
                             {row.role_name}
                           </Link>
