@@ -27,12 +27,9 @@ const ROLE_CODE_MAP: Record<string, string> = {
 
 const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
 
-/** DB登録前正規化 */
+/** DB登録前正規化: 年齢グループの先頭スペース除去・半角チルダ統一 */
 function normalizeAgeGroup(raw: string): string {
   return raw.replace(/^[\s　]+/, '').replace(/~/g, '～')
-}
-function normalizeSex(sex: '計' | '男' | '女'): string {
-  return sex === '計' ? '男女計' : sex
 }
 
 /** セル値を数値に変換 */
@@ -169,13 +166,13 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number, sheetName = ''): Ro
 
         if (sw === null && ab === null && wkRaw === null) continue
 
-        const workers = wkRaw !== null ? Math.round(wkRaw * 10) : null
+        const workers = wkRaw !== null ? Math.round(wkRaw) : null
         const annualIncome = sw !== null ? Math.round(sw * 12 + (ab ?? 0)) : null
 
         rows.push({
           roleName:       block.roleName,
           enterpriseSize: block.enterpriseSize,
-          sex:            normalizeSex(currentSex),
+          sex:            currentSex,
           education:      currentEducation,
           ageGroup:       normalizeAgeGroup(finalAgeGroup),
           tenureCategory: tc.label,
@@ -261,8 +258,6 @@ export async function POST(req: NextRequest) {
             }
 
             const parsed = parseSheet(ws, surveyYear, sheetName)
-            console.log(`[v0] sheet="${sheetName}" parsed=${parsed.length}`)
-
             if (parsed.length === 0) {
               send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'データ行なし' })
               continue
@@ -293,7 +288,6 @@ export async function POST(req: NextRequest) {
 
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)
-            console.log(`[v0] sheet error "${sheetName}": ${msg}`)
             send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: msg })
           }
         }
