@@ -63,10 +63,10 @@ const SEX_OPTIONS = [
 const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
 const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
 const SIZE_TO_PARAM: Record<string, string> = {
-  '1000人以上': 'large', '100～999人': 'medium', '10～99人': 'small', '10人以上': 'all',
+  '1,000人以上': 'large', '100～999人': 'medium', '10～99人': 'small', '10人以上': 'all',
 }
 const PARAM_TO_SIZE: Record<string, string> = {
-  large: '1000人以上', medium: '100～999人', small: '10～99人', all: '10人以上',
+  large: '1,000人以上', medium: '100～999人', small: '10～99人', all: '10人以上',
 }
 
 type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus'

@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
            AND enterprise_size = ?
            AND tenure_category = ?
            AND education = '学歴計'
-           AND age_group = '年齢計'
+           AND age_group = '学歴計'
          ORDER BY annual_income DESC
          LIMIT ${safeLimit}`,
         [targetDatasetId, sex, enterpriseSize, tenureCategory]
@@ -81,17 +81,17 @@ export async function GET(req: NextRequest) {
            AND enterprise_size = ?
            AND tenure_category = ?
            AND education = '学歴計'
-           AND age_group = '年齢計'`,
+           AND age_group = '学歴計'`,
         [targetDatasetId, sex, enterpriseSize, tenureCategory]
       ) as Promise<Array<{ avg_income: number; max_income: number; total_workers: number; role_count: number }>>,
       query(
         `SELECT DISTINCT enterprise_size FROM role_wages WHERE dataset_id = ?
-         ORDER BY FIELD(enterprise_size, '10人以上', '1000人以上', '100～999人', '10～99人')`,
+         ORDER BY FIELD(enterprise_size, '10人以上', '1,000人以上', '100～999人', '10～99人')`,
         [targetDatasetId]
       ) as Promise<Array<{ enterprise_size: string }>>,
       query(
         `SELECT DISTINCT tenure_category FROM role_wages WHERE dataset_id = ?
-         ORDER BY FIELD(tenure_category, '勤続年数計', '0年', '1〜2年', '3〜4年', '5〜9年', '10〜14年', '15〜19年', '20〜24年', '25〜29年', '30年以上')`,
+         ORDER BY FIELD(tenure_category, '勤続年数計', '0年', '1～2年', '3～4年', '5～9年', '10～14年', '15～19年', '20～24年', '25～29年', '30年以上')`,
         [targetDatasetId]
       ) as Promise<Array<{ tenure_category: string }>>,
     ])
