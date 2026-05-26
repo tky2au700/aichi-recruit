@@ -1141,7 +1141,14 @@ function DataTab() {
                 <p className="text-muted-foreground text-[10px] mt-0.5">
                   {CATEGORIES.find(c => c.value === g.category)?.label} ・ {g.dataset_count}年分 ・ {(g.total_records ?? 0).toLocaleString()}件
                 </p>
-                <p className="text-muted-foreground/50 text-[9px] font-mono mt-0.5">{g.target_table ?? 'occupation_wages'}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-muted-foreground/50 text-[9px] font-mono">{g.target_table ?? 'occupation_wages'}</p>
+                  {(['industry_wages','occupation_wages','prefecture_wages','role_wages','age_wages'] as const).includes(g.target_table as never) && (
+                    <span className="text-[8px] font-semibold px-1 py-0.5 rounded bg-primary/10 text-primary leading-none">
+                      カスタム設定済
+                    </span>
+                  )}
+                </div>
               </button>
             ))}
           </div>
@@ -1639,7 +1646,7 @@ function DataTab() {
                                 {(selectedGroup?.target_table === 'prefecture_wages'
                                   ? ['都道府県', '性別', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                   : selectedGroup?.target_table === 'role_wages'
-                                  ? ['性別', '学歴', '年齢階級', '勤続区分', '所定内給与(千円)', '賞与(千円)', '労働者数(人)']
+                                  ? ['性別', '学歴', '年齢階級', '勤続区分', '所定内給与(千円)', '���与(千円)', '労働者数(人)']
                                   : selectedGroup?.target_table === 'age_wages'
                                   ? ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(十人)']
                                   : ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
