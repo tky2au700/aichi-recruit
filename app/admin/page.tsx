@@ -907,7 +907,6 @@ function DataTab() {
       const json = await res.json()
       if (json.success) {
         if (targetTable === 'age_wages') {
-          // age_wages は sheets ではなく preview 配列を直接 sheetDetail に表示
           setSheetDetail({
             sheet_name: json.summary?.file_name ?? 'プレビュー',
             industry_name: `${json.summary?.total_rows ?? 0}件 / 学歴${json.summary?.education_count ?? 0}区分 / 年齢${json.summary?.age_group_count ?? 0}区分`,
@@ -1396,7 +1395,7 @@ function DataTab() {
               </div>
             )}
 
-            {csvFile && !isXlsx && selectedGroup?.target_table !== 'age_wages' && (
+            {csvFile && !isXlsx && (
               <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <button onClick={handlePreview} disabled={previewing}
                   className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
@@ -1410,24 +1409,6 @@ function DataTab() {
                 </button>
                 {!selectedDatasetId && preview && (
                   <span className="text-[10px] text-muted-foreground">取込前に調査年を選択してください</span>
-                )}
-              </div>
-            )}
-
-            {csvFile && !isXlsx && selectedGroup?.target_table === 'age_wages' && (
-              <div className="mt-4 flex items-center gap-3 flex-wrap">
-                <button onClick={handleXlsxPreview} disabled={xlsxPreviewing}
-                  className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
-                  {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
-                  プレビュー確認
-                </button>
-                <button onClick={handleCsvImportAge} disabled={xlsxImporting || !selectedDatasetId}
-                  className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
-                  {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
-                  DBに取り込む
-                </button>
-                {!selectedDatasetId && (
-                  <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                 )}
               </div>
             )}
@@ -1673,8 +1654,8 @@ function DataTab() {
                   </div>
                 )}
 
-                {/* age_wages CSVプレビューパネル（xlsxSheets の外） */}
-                {selectedGroup?.target_table === 'age_wages' && sheetDetail && (
+                {/* age_wages CSVプレビューパネル（xlsxSheets がないときに sheetDetail を表示） */}
+                {!xlsxSheets && sheetDetail && (
                   <div className="border border-border rounded-lg overflow-hidden">
                     <div className="px-3 py-2 bg-primary/5 border-b border-border flex items-center gap-2">
                       <Eye className="w-3.5 h-3.5 text-primary" />
