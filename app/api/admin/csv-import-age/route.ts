@@ -58,22 +58,29 @@ export async function POST(req: NextRequest) {
       const placeholders = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
       const values: unknown[] = []
 
+      // 空白除去・数値変換・NaN→null
+      const n = (v: unknown): number | null => {
+        if (v === null || v === undefined || v === '') return null
+        const num = typeof v === 'number' ? v : Number(String(v).replace(/[\s,]/g, ''))
+        return isNaN(num) ? null : num
+      }
+
       for (const r of batch) {
         values.push(
           datasetId,
-          r.sex,
-          r.education,
-          r.age_group,
-          r.enterprise_size,
-          r.age,
-          r.tenure_years,
-          r.scheduled_hours,
-          r.overtime_hours,
-          r.monthly_wage,
-          r.scheduled_wage,
-          r.annual_bonus,
-          r.workers,
-          r.annual_income,
+          r.sex ?? '計',
+          r.education ?? '学歴計',
+          r.age_group ?? '',
+          r.enterprise_size ?? '',
+          n(r.age),
+          n(r.tenure_years),
+          n(r.scheduled_hours),
+          n(r.overtime_hours),
+          n(r.monthly_wage),
+          n(r.scheduled_wage),
+          n(r.annual_bonus),
+          n(r.workers),
+          n(r.annual_income),
         )
       }
 
@@ -100,9 +107,10 @@ export async function POST(req: NextRequest) {
       inserted,
     })
   } catch (error: unknown) {
-    const err = error as { message?: string }
+    const err = error as { message?: string; code?: string; sqlMessage?: string }
+    console.log('[v0] import-age ERROR:', err.message, '| code:', err.code, '| sql:', err.sqlMessage)
     return NextResponse.json(
-      { success: false, message: '取込失敗', error: err.message },
+      { success: false, message: err.sqlMessage ?? err.message ?? '取込失敗' },
       { status: 500 }
     )
   }

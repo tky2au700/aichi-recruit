@@ -935,7 +935,7 @@ function DataTab() {
     // キャッシュ（xlsxSheets）から直接取得する
     const isSheetsCached = selectedGroup?.target_table === 'role_wages' || selectedGroup?.target_table === 'prefecture_wages'
     if (isSheetsCached) {
-      const cached = xlsxSheets.find(s => s.sheet_name === sheetName) as (XlsxSheet & { preview?: Record<string, unknown>[]; industry_name?: string }) | undefined
+      const cached = (xlsxSheets ?? []).find(s => s.sheet_name === sheetName) as (XlsxSheet & { preview?: Record<string, unknown>[]; industry_name?: string }) | undefined
       setSheetDetail({
         sheet_name:    sheetName,
         industry_name: cached?.industry_name ?? sheetName,
@@ -1179,7 +1179,7 @@ function DataTab() {
           {/* Step 2: 調査年一覧 */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-semibold">2. 調査年データ���覧（取込先を選択）</label>
+              <label className="text-xs font-semibold">2. 調査年データ�����覧（取込先を選択）</label>
               <button
                 onClick={() => { setShowAddDs(p => !p); setEditingDsId(null) }}
                 className="flex items-center gap-1 text-xs text-primary hover:opacity-80"
