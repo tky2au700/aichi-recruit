@@ -35,6 +35,33 @@ export async function POST(req: NextRequest) {
       text = iconv.decode(nodeBuffer, 'CP932')
     }
 
+    // テーブルが存在しない場合は作成（外部キーなし・シンプル構成）
+    await query(`
+      CREATE TABLE IF NOT EXISTS age_wages (
+        id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        dataset_id       INT NOT NULL,
+        sex              VARCHAR(10)   NOT NULL DEFAULT '計',
+        education        VARCHAR(30)   NOT NULL DEFAULT '学歴計',
+        age_group        VARCHAR(30)   NOT NULL DEFAULT '',
+        enterprise_size  VARCHAR(50)   NOT NULL DEFAULT '',
+        age              DECIMAL(5,1)  DEFAULT NULL,
+        tenure_years     DECIMAL(5,1)  DEFAULT NULL,
+        scheduled_hours  DECIMAL(6,1)  DEFAULT NULL,
+        overtime_hours   DECIMAL(6,1)  DEFAULT NULL,
+        monthly_wage     DECIMAL(10,1) DEFAULT NULL,
+        scheduled_wage   DECIMAL(10,1) DEFAULT NULL,
+        annual_bonus     DECIMAL(10,1) DEFAULT NULL,
+        workers          DECIMAL(15,1) DEFAULT NULL,
+        annual_income    DECIMAL(10,1) DEFAULT NULL,
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dataset     (dataset_id),
+        INDEX idx_sex         (sex),
+        INDEX idx_education   (education),
+        INDEX idx_age_group   (age_group),
+        INDEX idx_enterprise  (enterprise_size)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+
     const rows = parseAgeWageCsv(text)
 
     if (rows.length === 0) {
@@ -58,22 +85,28 @@ export async function POST(req: NextRequest) {
       const placeholders = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
       const values: unknown[] = []
 
+      const n = (v: unknown) => {
+        if (v === null || v === undefined || v === '') return null
+        const num = typeof v === 'number' ? v : Number(String(v).replace(/\s/g, ''))
+        return isNaN(num) ? null : num
+      }
+
       for (const r of batch) {
         values.push(
           datasetId,
-          r.sex,
-          r.education,
-          r.age_group,
-          r.enterprise_size,
-          r.age,
-          r.tenure_years,
-          r.scheduled_hours,
-          r.overtime_hours,
-          r.monthly_wage,
-          r.scheduled_wage,
-          r.annual_bonus,
-          r.workers,
-          r.annual_income,
+          r.sex   ?? '計',
+          r.education ?? '学歴計',
+          r.age_group ?? '',
+          r.enterprise_size ?? '',
+          n(r.age),
+          n(r.tenure_years),
+          n(r.scheduled_hours),
+          n(r.overtime_hours),
+          n(r.monthly_wage),
+          n(r.scheduled_wage),
+          n(r.annual_bonus),
+          n(r.workers),
+          n(r.annual_income),
         )
       }
 
@@ -100,9 +133,10 @@ export async function POST(req: NextRequest) {
       inserted,
     })
   } catch (error: unknown) {
-    const err = error as { message?: string }
+    const err = error as { message?: string; code?: string; sqlMessage?: string }
+    console.log('[v0] csv-import-age error:', err.message, 'code:', err.code, 'sql:', err.sqlMessage)
     return NextResponse.json(
-      { success: false, message: '取込失敗', error: err.message },
+      { success: false, message: err.sqlMessage ?? err.message ?? '取込失敗' },
       { status: 500 }
     )
   }
