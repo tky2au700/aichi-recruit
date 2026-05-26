@@ -19,8 +19,6 @@ const TENURE_CATS = [
   { label: '30年以上',   offset: 27 },
 ]
 
-const BLOCK_WIDTH = 32
-
 const ROLE_CODE_MAP: Record<string, string> = {
   '101': '部長級', '102': '課長級', '103': '係長級',
   '104': '職長・班長級', '105': '非役職',
@@ -134,7 +132,6 @@ export async function POST(req: NextRequest) {
           annualBonus: ab,
           workers: wk !== null ? Math.round(wk * 10) : null,
         })
-        count++
       }
 
       // 総件数推定
