@@ -110,9 +110,9 @@ const COMPARE_MODES = [
 type CompareMode = typeof COMPARE_MODES[number]['key']
 
 const LINE_COLORS = ['#1a73e8', '#db2777', '#16a34a', '#d97706', '#7c3aed', '#64748b']
-const SEX_LINES  = ['計', '男', '女']
+const SEX_LINES   = ['計', '男', '女']
 const SEX_LABELS: Record<string, string> = { '計': '男女計', '男': '男性', '女': '女性' }
-const SIZE_LINES = ['10人以上', '1,000人以上', '100～999人', '10～99人']
+const SIZE_LINES  = ['10人以上', '1,000人以上', '100～999人', '10～99人']
 
 function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }: {
   timeSeriesAll: TimePoint[]
@@ -135,7 +135,7 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
         ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lk && t.enterprise_size === '10人以上' && t.tenure_category === '勤続年数計')
         : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lk && t.tenure_category === '勤続年数計')
       if (!found) return
-      const raw = (found as any)[metric]
+      const raw = (found as Record<string, unknown>)[metric]
       if (raw != null) {
         row[lineLabel(lk)] = metric === 'workers' ? Number(raw) : Math.round(Number(raw) / metricDef.divisor)
       }
@@ -210,36 +210,6 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
   )
 }
 
-// ---------- データテーブル ----------
-function DataTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#F8FAFC' }}>
-              {headers.map(h => (
-                <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((cells, i) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < rows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
-                {cells.map((cell, j) => (
-                  <td key={j} style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 // ---------- メインコンポーネント ----------
 export function RoleDetailClient({ slug }: { slug: string }) {
   const [data, setData]         = useState<ApiResponse | null>(null)
@@ -262,7 +232,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
       .finally(() => setLoading(false))
   }, [slug])
 
-  // --- ローディング ---
   if (loading) {
     return (
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '120px 24px', textAlign: 'center' }}>
@@ -273,7 +242,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
     )
   }
 
-  // --- エラー ---
   if (error || !data) {
     return (
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
@@ -398,9 +366,9 @@ export function RoleDetailClient({ slug }: { slug: string }) {
 
           {rep && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-              <KpiCard icon={<Award size={13} color="#1a73e8" />}    label="推定年収"     value={fmtWan(rep.annual_income)}  sub="勤続年数計" accent="#1a73e8" />
-              <KpiCard icon={<BarChart2 size={13} color="#0F9D58" />} label="月給（所定内）" value={fmtWan(rep.scheduled_wage)} sub="所定内給与額" />
-              <KpiCard icon={<TrendingUp size={13} color="#F4B400" />} label="年間賞与"    value={fmtWan(rep.annual_bonus)}   sub="賞与・特別給与額" />
+              <KpiCard icon={<Award size={13} color="#1a73e8" />}     label="推定年収"      value={fmtWan(rep.annual_income)}  sub="勤続年数計" accent="#1a73e8" />
+              <KpiCard icon={<BarChart2 size={13} color="#0F9D58" />}  label="月給（所定内）" value={fmtWan(rep.scheduled_wage)} sub="所定内給与額" />
+              <KpiCard icon={<TrendingUp size={13} color="#F4B400" />} label="年間賞与"       value={fmtWan(rep.annual_bonus)}   sub="賞与・特別給与額" />
               <KpiCard
                 icon={<Users size={13} color="#64748B" />}
                 label="労働者数"
@@ -426,7 +394,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>勤続年数別データ</SectionTitle>
 
-          {/* 性別タブ */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             {SEX_ORDER.map(s => (
               <button key={s} onClick={() => setSexTab(s)} style={{
@@ -438,7 +405,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
               }}>{SEX_LABEL[s]}</button>
             ))}
           </div>
-          {/* 企業規模タブ */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {ENTERPRISE_ORDER.map(size => (
               <button key={size} onClick={() => setSizeTab(size)} style={{
@@ -451,23 +417,47 @@ export function RoleDetailClient({ slug }: { slug: string }) {
             ))}
           </div>
 
-          <DataTable
-            headers={['勤続年数', '推定年収', '月給（所定内）', '年間賞与', '労働者数']}
-            rows={tenureRows.map(r => [
-              <span key="t" style={{ fontSize: 13, fontWeight: r.tenure_category === '勤続年数計' ? 700 : 500, color: r.tenure_category === '勤続年数計' ? '#1a73e8' : '#0F172A' }}>{r.tenure_category}</span>,
-              <span key="i" style={{ fontSize: 14, fontWeight: 700, color: '#1a73e8', fontVariantNumeric: 'tabular-nums' }}>{fmtWan(r.annual_income)}</span>,
-              <span key="s" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.scheduled_wage)}</span>,
-              <span key="b" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.annual_bonus)}</span>,
-              <span key="w" style={{ fontSize: 13, color: '#94A3B8' }}>{r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}</span>,
-            ])}
-          />
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['勤続年数', '推定年収', '月給（所定内）', '年間賞与', '労働者数'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenureRows.map((r, i) => {
+                    const isTotal = r.tenure_category === '勤続年数計'
+                    return (
+                      <tr key={r.tenure_category} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < tenureRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: isTotal ? '#1a73e8' : '#0F172A', whiteSpace: 'nowrap' }}>
+                          {r.tenure_category}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: '#1a73e8', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtWan(r.annual_income)}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.annual_bonus)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                          {r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         {/* 企業規模別データ */}
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>企業規模別データ</SectionTitle>
 
-          {/* 性別タブ */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             {SEX_ORDER.map(s => (
               <button key={s} onClick={() => setSexTab(s)} style={{
@@ -479,7 +469,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
               }}>{SEX_LABEL[s]}</button>
             ))}
           </div>
-          {/* 勤続年数タブ */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {availableTenureFilters.map(t => (
               <button key={t} onClick={() => setTenureTab(t)} style={{
@@ -492,26 +481,49 @@ export function RoleDetailClient({ slug }: { slug: string }) {
             ))}
           </div>
 
-          <DataTable
-            headers={['企業規模', '推定年収', '月給（所定内）', '年間賞与', '労働者数']}
-            rows={sizeRows.map(r => [
-              <span key="e" style={{ fontSize: 13, fontWeight: r.enterprise_size === '10人以上' ? 700 : 500, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Building2 size={13} color={r.enterprise_size === '10人以上' ? '#1a73e8' : '#94A3B8'} />{r.enterprise_size}
-              </span>,
-              <span key="i" style={{ fontSize: 14, fontWeight: 700, color: '#1a73e8', fontVariantNumeric: 'tabular-nums' }}>{fmtWan(r.annual_income)}</span>,
-              <span key="s" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.scheduled_wage)}</span>,
-              <span key="b" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.annual_bonus)}</span>,
-              <span key="w" style={{ fontSize: 13, color: '#94A3B8' }}>{r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}</span>,
-            ])}
-          />
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['企業規模', '推定年収', '月給（所定内）', '年間賞与', '労働者数'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sizeRows.map((r, i) => {
+                    const isTotal = r.enterprise_size === '10人以上'
+                    return (
+                      <tr key={r.enterprise_size} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < sizeRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: '#0F172A', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Building2 size={13} color={isTotal ? '#1a73e8' : '#94A3B8'} />
+                          {r.enterprise_size}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: '#1a73e8', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtWan(r.annual_income)}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.annual_bonus)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                          {r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         {/* 性別別データ */}
         <section style={{ marginBottom: 36 }}>
           <SectionTitle>性別別データ</SectionTitle>
 
-          {/* 企業規模タブ */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             {ENTERPRISE_ORDER.map(size => (
               <button key={size} onClick={() => setSizeTab(size)} style={{
                 padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
@@ -522,20 +534,54 @@ export function RoleDetailClient({ slug }: { slug: string }) {
               }}>{size}</button>
             ))}
           </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            {availableTenureFilters.map(t => (
+              <button key={t} onClick={() => setTenureTab(t)} style={{
+                padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                border: tenureTab === t ? '1.5px solid #1a73e8' : '1.5px solid #E2E8F0',
+                background: tenureTab === t ? '#e8f0fe' : '#fff',
+                color: tenureTab === t ? '#1a73e8' : '#475569',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>{t}</button>
+            ))}
+          </div>
 
-          <DataTable
-            headers={['性別', '推定年収', '月給（所定内）', '年間賞与', '労働者数']}
-            rows={sexRows.map(r => {
-              const sc = SEX_COLOR[r.sex] ?? '#64748B'
-              return [
-                <span key="s" style={{ fontSize: 13, fontWeight: r.sex === '計' ? 700 : 500, color: sc }}>{SEX_LABEL[r.sex] ?? r.sex}</span>,
-                <span key="i" style={{ fontSize: 14, fontWeight: 700, color: sc, fontVariantNumeric: 'tabular-nums' }}>{fmtWan(r.annual_income)}</span>,
-                <span key="sw" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.scheduled_wage)}</span>,
-                <span key="b" style={{ fontSize: 13, color: '#374151' }}>{fmtWan(r.annual_bonus)}</span>,
-                <span key="w" style={{ fontSize: 13, color: '#94A3B8' }}>{r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}</span>,
-              ]
-            })}
-          />
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC' }}>
+                    {['性別', '推定年収', '月給（所定内）', '年間賞与', '労働者数'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: '#64748B', borderBottom: '1px solid #E2E8F0', textAlign: 'left', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sexRows.map((r, i) => {
+                    const isTotal  = r.sex === '計'
+                    const sexColor = SEX_COLOR[r.sex] ?? '#64748B'
+                    return (
+                      <tr key={r.sex} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFC', borderBottom: i < sexRows.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: isTotal ? 700 : 500, color: sexColor, whiteSpace: 'nowrap' }}>
+                          {SEX_LABEL[r.sex] ?? r.sex}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 14, fontWeight: 700, color: sexColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtWan(r.annual_income)}
+                        </td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.scheduled_wage)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{fmtWan(r.annual_bonus)}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                          {r.workers != null ? `${Number(r.workers).toLocaleString()}人` : '−'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         {/* 関連ランキング */}
@@ -563,7 +609,6 @@ export function RoleDetailClient({ slug }: { slug: string }) {
         <footer style={{ borderTop: '1px solid #E2E8F0', paddingTop: 24, fontSize: 11, color: '#94A3B8' }}>
           <p style={{ margin: '0 0 4px' }}>
             出典: {data.survey_group_name}（{data.latest_year}年）厚生労働省
-            {data.survey_table_name && ` / ${data.survey_table_name}`}
           </p>
           <p style={{ margin: 0 }}>推定年収 = 月給 × 12 + 年間賞与　単位：千円→万円換算</p>
         </footer>
