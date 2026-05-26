@@ -87,8 +87,9 @@ const CATEGORIES = [
 ]
 
 const TARGET_TABLES = [
-  { value: 'occupation_wages', label: 'occupation_wages（職種別）' },
-  { value: 'industry_wages',   label: 'industry_wages（業種・年齢階級別）' },
+  { value: 'occupation_wages',  label: 'occupation_wages（職種別）' },
+  { value: 'industry_wages',    label: 'industry_wages（業種・年齢階級別）' },
+  { value: 'prefecture_wages',  label: 'prefecture_wages（都道府県別）' },
 ]
 
 function fmt(v: number | null): string {
