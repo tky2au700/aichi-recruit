@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
