@@ -92,15 +92,19 @@ function parsePreview(ws: XLSX.WorkSheet, isSeparate: boolean, limit = 20): Reco
         workers: wk !== null ? Math.round(wk * 10) : null,
       })
     } else {
-      for (const { sex, base } of [{ sex: '男', base: 3 }, { sex: '女', base: 12 }]) {
-        const mw = n(cv(ws, r, base + 5))
-        const sw = n(cv(ws, r, base + 6))
-        const ab = n(cv(ws, r, base + 7))
-        const wk = n(cv(ws, r, base + 8))
+      // col レイアウト（0-indexed）:
+      //   男 base=3:  +0=年齢, +1=勤続, +2=所定内時間, +3=超過時間,
+      //               +4=現金給与, +5=所定内給与, +6=賞与, +7=労働者数
+      //   女 base=11: 同じオフセット
+      for (const { sex, base } of [{ sex: '男', base: 3 }, { sex: '女', base: 11 }] as {sex:'男'|'女', base:number}[]) {
+        const mw = n(cv(ws, r, base + 4))
+        const sw = n(cv(ws, r, base + 5))
+        const ab = n(cv(ws, r, base + 6))
+        const wk = n(cv(ws, r, base + 7))
         if (mw === null && sw === null && ab === null && wk === null) continue
         rows.push({
           prefecture: pref, sex,
-          age: n(cv(ws, r, base)), tenure_years: n(cv(ws, r, base + 1)),
+          age: n(cv(ws, r, base + 0)), tenure_years: n(cv(ws, r, base + 1)),
           scheduled_hours: n(cv(ws, r, base + 2)), overtime_hours: n(cv(ws, r, base + 3)),
           monthly_wage: mw, scheduled_wage: sw, annual_bonus: ab,
           workers: wk !== null ? Math.round(wk * 10) : null,
