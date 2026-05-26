@@ -90,6 +90,7 @@ const TARGET_TABLES = [
   { value: 'occupation_wages',  label: 'occupation_wages（職種別）' },
   { value: 'industry_wages',    label: 'industry_wages（業種・年齢階級別）' },
   { value: 'prefecture_wages',  label: 'prefecture_wages（都道府県別）' },
+  { value: 'role_wages',        label: 'role_wages（役職別）' },
 ]
 
 function fmt(v: number | null): string {
@@ -1103,7 +1104,7 @@ function DataTab() {
 
       {selectedGroup && (
         <>
-          {/* CSVルール表示 */}
+          {/* CSVルー���表示 */}
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs font-semibold mb-2">
               適用CSVパースルール:
@@ -1400,7 +1401,7 @@ function DataTab() {
                   )}
                 </div>
 
-                {/* 進捗バー */}
+                {/* ��捗バー */}
                 {xlsxProgress && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
