@@ -84,7 +84,32 @@ export async function POST() {
     `)
     results.push('prefecture_wages: OK')
 
-    // 4. occupation_wages テーブル
+    // 4. role_wages テーブル
+    await query(`
+      CREATE TABLE IF NOT EXISTS role_wages (
+        id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        dataset_id       INT NOT NULL,
+        role_name        VARCHAR(50)  NOT NULL COMMENT '役職名（部長級・課長級等）',
+        enterprise_size  VARCHAR(50)  NOT NULL COMMENT '企業規模（10人以上・1000人以上等）',
+        sex              VARCHAR(10)  NOT NULL DEFAULT '男女計' COMMENT '性別（男女計・男・女）',
+        education        VARCHAR(50)  NOT NULL DEFAULT '学歴計' COMMENT '学歴',
+        age_group        VARCHAR(20)  NOT NULL DEFAULT '学歴計' COMMENT '年齢階級',
+        tenure_category  VARCHAR(20)  NOT NULL COMMENT '勤続年数区分',
+        scheduled_wage   DECIMAL(10,1) COMMENT '所定内給与額（千円）',
+        annual_bonus     DECIMAL(10,1) COMMENT '年間賞与その他特別給与額（千円）',
+        workers          INT           COMMENT '労働者数（人）',
+        annual_income    DECIMAL(10,1) COMMENT '年間収入概算（千円）',
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dataset        (dataset_id),
+        INDEX idx_role           (role_name),
+        INDEX idx_enterprise     (enterprise_size),
+        INDEX idx_sex            (sex),
+        FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+    results.push('role_wages: OK')
+
+    // 5. occupation_wages テーブル
     await query(`
       CREATE TABLE IF NOT EXISTS occupation_wages (
         id               INT AUTO_INCREMENT PRIMARY KEY,

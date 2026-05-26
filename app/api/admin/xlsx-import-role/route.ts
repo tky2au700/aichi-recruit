@@ -249,31 +249,141 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    const rawDatasetId = formData.get('dataset_id') ? Number(formData.get('dataset_id')) : null
-    const rawSurveyYear = formData.get('survey_year') ? Number(formData.get('survey_year')) : null
+  const formData = await req.formData()
+  const file        = formData.get('file')       as File   | null
+  const rawDatasetId  = formData.get('dataset_id')  as string | null
+  const rawSurveyYear = formData.get('survey_year') as string | null
 
-    if (!file) return NextResponse.json({ success: false, error: 'ファイルが指定されていません' }, { status: 400 })
+  if (!file) return NextResponse.json({ success: false, error: 'ファイルが指定されていません' }, { status: 400 })
 
-    // role_wages グ���ープID = 4（固定）
-    const ROLE_GROUP_ID = 4
-
-    let datasetId = rawDatasetId
-    let surveyYear: number = rawSurveyYear ?? new Date().getFullYear()
-
-    if (datasetId) {
-      // 既存 dataset を確認
-      const dsRows = await query<{ survey_year: number; group_id: number }>(
-        'SELECT survey_year, group_id FROM datasets WHERE id = ?', [datasetId]
-      )
-      if (dsRows.length === 0) {
-        // dataset_id が存在しない場合は survey_year で再検索・自動作成
-        datasetId = null
-      } else {
-        surveyYear = dsRows[0].survey_year
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    async start(controller) {
+      function send(obj: Record<string, unknown>) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
       }
+
+      try {
+        // --- dataset_id の解決 ---
+        const ROLE_GROUP_ID = 4
+        let datasetId: number | null = rawDatasetId ? Number(rawDatasetId) : null
+        let surveyYear = rawSurveyYear ? Number(rawSurveyYear) : new Date().getFullYear()
+
+        if (datasetId) {
+          const dsRows = await query<{ survey_year: number }>(
+            'SELECT survey_year FROM datasets WHERE id = ?', [datasetId]
+          )
+          if (dsRows.length === 0) {
+            datasetId = null
+          } else {
+            surveyYear = dsRows[0].survey_year
+          }
+        }
+
+        if (!datasetId) {
+          const year = rawSurveyYear ? Number(rawSurveyYear) : new Date().getFullYear()
+          const existRows = await query<{ id: number }>(
+            'SELECT id FROM datasets WHERE group_id = ? AND survey_year = ?', [ROLE_GROUP_ID, year]
+          )
+          if (existRows.length > 0) {
+            datasetId = existRows[0].id
+            surveyYear = year
+          } else {
+            const ins = await query('INSERT INTO datasets (group_id, survey_year) VALUES (?, ?)', [ROLE_GROUP_ID, year])
+            datasetId = (ins as any).insertId
+            surveyYear = year
+          }
+        }
+
+        // --- XLSX パース ---
+        const buf = Buffer.from(await file.arrayBuffer())
+        const wb  = XLSX.read(buf, { type: 'buffer' })
+
+        send({ type: 'start', total: wb.SheetNames.length })
+
+        let totalInserted = 0
+
+        // 既存データを一括削除（再インポート対応）
+        await query('DELETE FROM role_wages WHERE dataset_id = ?', [datasetId])
+
+        for (const sheetName of wb.SheetNames) {
+          send({ type: 'processing', sheet_name: sheetName })
+
+          try {
+            const ws = wb.Sheets[sheetName]
+            if (!ws || !ws['!ref']) {
+              send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'シートが空' })
+              continue
+            }
+
+            const parsed = parseSheet(ws, surveyYear)
+            if (parsed.length === 0) {
+              send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'データ行なし' })
+              continue
+            }
+
+            // バルクインサート
+            const CHUNK = 500
+            let sheetInserted = 0
+            for (let i = 0; i < parsed.length; i += CHUNK) {
+              const chunk = parsed.slice(i, i + CHUNK)
+              const ph = chunk.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',')
+              const vals = chunk.flatMap(r => [
+                datasetId, r.roleName, r.enterpriseSize, r.sex,
+                r.education, r.ageGroup, r.tenureCategory,
+                r.scheduledWage, r.annualBonus, r.workers,
+              ])
+              await query(
+                `INSERT INTO role_wages
+                   (dataset_id, role_name, enterprise_size, sex, education, age_group, tenure_category, scheduled_wage, annual_bonus, workers)
+                 VALUES ${ph}`,
+                vals
+              )
+              sheetInserted += chunk.length
+            }
+
+            totalInserted += sheetInserted
+            send({ type: 'sheet', sheet_name: sheetName, inserted: sheetInserted, total_so_far: totalInserted })
+
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: msg })
+          }
+        }
+
+        // annual_income を UPDATE
+        await query(
+          `UPDATE role_wages SET annual_income = ROUND(scheduled_wage * 12 + COALESCE(annual_bonus, 0), 1)
+           WHERE dataset_id = ? AND scheduled_wage IS NOT NULL`,
+          [datasetId]
+        )
+
+        // datasets の取込件数を更新
+        await query(
+          'UPDATE datasets SET record_count = ?, imported_at = NOW() WHERE id = ?',
+          [totalInserted, datasetId]
+        )
+
+        send({ type: 'done', total_inserted: totalInserted, dataset_id: datasetId })
+        controller.close()
+
+      } catch (err) {
+        console.error('[role-import]', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: msg })}\n\n`))
+        controller.close()
+      }
+    }
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
+}
     }
 
     if (!datasetId) {
