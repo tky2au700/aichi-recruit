@@ -41,8 +41,6 @@ interface TimePoint {
   tenure_years: number | null
 }
 
-interface RankEntry { rank: number; total: number }
-
 interface ApiResponse {
   success: boolean
   prefecture_name: string
@@ -54,7 +52,6 @@ interface ApiResponse {
   time_series: TimePoint[]
   time_series_all: TimePoint[]
   national_data: DetailRow[] | null
-  ranks: Record<string, RankEntry>
   message?: string
 }
 
@@ -81,49 +78,23 @@ const LINE_COLORS = ['#1a73e8', '#0ea5e9', '#e8336d']
 
 // ---------- KpiCard ----------
 function KpiCard({
-  icon, label, value, sub, accent, rank, rankLabel,
+  icon, label, value, sub, accent,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   sub: string
   accent?: string
-  rank?: RankEntry
-  rankLabel?: string
 }) {
-  const rankColor = !rank ? '#64748B'
-    : rank.rank <= 3  ? '#b45309'
-    : rank.rank <= 10 ? '#1a73e8'
-    : '#64748B'
-  const rankBg = !rank ? '#F1F5F9'
-    : rank.rank <= 3  ? '#FEF3C7'
-    : rank.rank <= 10 ? '#EFF6FF'
-    : '#F1F5F9'
-  const rankBorder = !rank ? '#E2E8F0'
-    : rank.rank <= 3  ? '#FDE68A'
-    : rank.rank <= 10 ? '#DBEAFE'
-    : '#E2E8F0'
-
   return (
     <div style={{
       background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12,
       padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {icon}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        </div>
-        {rank && (
-          <span style={{
-            fontSize: 10, fontWeight: 700, flexShrink: 0,
-            color: rankColor, background: rankBg, border: `1px solid ${rankBorder}`,
-            borderRadius: 10, padding: '2px 7px', whiteSpace: 'nowrap',
-          }}>
-            {rankLabel ?? '年収順'} {rank.rank}位 / {rank.total}都道府県
-          </span>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+        {icon}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, color: accent ?? '#0F172A', marginTop: 8, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
         {value}
@@ -169,7 +140,7 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldestYear, late
         if (sh != null) row[`所定内_${label}`] = sh
         if (oh != null) row[`残業_${label}`]   = oh
       } else if (metric === 'workers') {
-        if (found.workers != null) row[label] = Number(found.workers) * 10
+        if (found.workers != null) row[label] = Number(found.workers)
       } else if (metric === 'age') {
         if (found.age != null) row[label] = Math.round(Number(found.age) * 10) / 10
       } else {
@@ -428,24 +399,18 @@ export function PrefectureDetailClient({ prefectureName }: Props) {
                 value={fmtWan(rep.annual_income)}
                 sub="男女計"
                 accent="#1a73e8"
-                rank={data.ranks?.annual_income}
-                rankLabel="年収高い順"
               />
               <KpiCard
                 icon={<BarChart2 size={13} color="#0F9D58" />}
                 label="月給（所定内）"
                 value={fmtWan(rep.scheduled_wage)}
                 sub="所定内給与額"
-                rank={data.ranks?.scheduled_wage}
-                rankLabel="月給高い順"
               />
               <KpiCard
                 icon={<TrendingUp size={13} color="#F4B400" />}
                 label="年間賞与"
                 value={fmtWan(rep.annual_bonus)}
                 sub="賞与・特別給与額"
-                rank={data.ranks?.annual_bonus}
-                rankLabel="賞与高い順"
               />
               <KpiCard
                 icon={<Clock size={13} color="#0ea5e9" />}
@@ -465,8 +430,6 @@ export function PrefectureDetailClient({ prefectureName }: Props) {
                 value={fmtFixed(rep.overtime_hours, 1, 'h')}
                 sub={rep.overtime_hours != null && rep.overtime_hours > 20 ? '残業多め' : '標準的'}
                 accent={rep.overtime_hours != null && rep.overtime_hours > 20 ? '#dc2626' : undefined}
-                rank={data.ranks?.overtime_hours}
-                rankLabel="残業少ない順"
               />
               <KpiCard
                 icon={<Clock size={13} color="#0f766e" />}
@@ -481,8 +444,6 @@ export function PrefectureDetailClient({ prefectureName }: Props) {
                   ? rep.workers >= 10000 ? `${(rep.workers / 10000).toFixed(1)}万人` : `${rep.workers.toLocaleString()}人`
                   : '−'}
                 sub="調査対象労働者数"
-                rank={data.ranks?.workers}
-                rankLabel="労働者数多い順"
               />
             </div>
           )}
