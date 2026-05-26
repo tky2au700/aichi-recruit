@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   TrendingUp, Building2, MapPin, GraduationCap, BarChart3,
-  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search,
+  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search, Briefcase,
   Factory, Zap, Truck, ShoppingBag, Banknote, GraduationCap as GradIcon, HeartPulse, Wrench, Cpu,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -88,12 +88,20 @@ const rankingItems = [
     icon: Users,
     color: '#0891b2',
   },
+  {
+    href: '/salary/ranking/role',
+    label: '役職別年収ランキング',
+    description: '部長・課長など役職別の年収比較',
+    icon: Briefcase,
+    color: '#7c3aed',
+  },
 ]
 
 const categoryItems = [
-  { href: '/salary/prefecture', label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
-  { href: '/salary/education',  label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
-  { href: '/salary/age',        label: '年齢・勤続別', icon: BarChart3,     description: '年齢・経験年数と年収の関係' },
+  { href: '/salary/prefecture',    label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
+  { href: '/salary/education',     label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
+  { href: '/salary/age',           label: '年齢・勤続別', icon: BarChart3,     description: '年齢・経験年数と年収の関係' },
+  { href: '/salary/ranking/role',  label: '役職別',       icon: Briefcase,     description: '部長・課長など役職別の年収' },
 ]
 
 function NavInner() {
