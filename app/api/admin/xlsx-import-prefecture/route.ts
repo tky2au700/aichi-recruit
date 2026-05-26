@@ -135,19 +135,26 @@ function parseCombinedSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
   return rows
 }
 
-/** 男女別シートをパース（左=男、右=女） */
+/** 男女別シートをパース（左=男、右=女）
+ *
+ * col レイアウト（0-indexed）:
+ *   A-C(0-2): 都道府県
+ *   男: D(3)=年齢, E(4)=勤続, F(5)=所定内時間, G(6)=超過時間,
+ *       H(7)=現金給与, I(8)=所定内給与, J(9)=賞与, K(10)=労働者数
+ *   女: L(11)=年齢, M(12)=勤続, N(13)=所定内時間, O(14)=超過時間,
+ *       P(15)=現金給与, Q(16)=所定内給与, R(17)=賞与, S(18)=労働者数
+ *
+ * ※ 男 base=3: age=+0, tenure=+1, sched=+2, ot=+3, monthly=+4, swage=+5, bonus=+6, workers=+7
+ * ※ 女 base=11: 同じオフセット
+ */
 function parseSeparateSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
   const range  = XLSX.utils.decode_range(ws['!ref'] ?? 'A1:A1')
   const maxRow = range.e.r
   const rows: PrefectureWageRow[] = []
 
-  // 男（col 3〜12）、女（col 13〜22）の列オフセット
-  // col レイアウト（0-indexed）:
-  //   男: 3=年齢, 4=勤続, 5=所定内時間, 6=超過時間, 7=(空), 8=現金, 9=所定内給与, 10=賞与, 11=労働者数
-  //   女: 12=年齢, 13=勤続, 14=所定内時間, 15=超過時間, 16=(空), 17=現金, 18=所定内給与, 19=賞与, 20=労働者数
   const SEX_COLS: Array<{ sex: '男' | '女'; base: number }> = [
-    { sex: '男', base: 3 },
-    { sex: '女', base: 12 },
+    { sex: '男', base: 3  },
+    { sex: '女', base: 11 },
   ]
 
   for (let r = 11; r <= maxRow; r++) {
@@ -155,10 +162,12 @@ function parseSeparateSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
     if (!pref) continue
 
     for (const { sex, base } of SEX_COLS) {
-      const monthlyWage   = n(cv(ws, r, base + 5))
-      const scheduledWage = n(cv(ws, r, base + 6))
-      const bonus         = n(cv(ws, r, base + 7))
-      const workersRaw    = n(cv(ws, r, base + 8))
+      // base+0=年齢, +1=勤続, +2=所定内時間, +3=超過時間,
+      // +4=現金給与(月), +5=所定内給与, +6=賞与, +7=労働者数(十人)
+      const monthlyWage   = n(cv(ws, r, base + 4))
+      const scheduledWage = n(cv(ws, r, base + 5))
+      const bonus         = n(cv(ws, r, base + 6))
+      const workersRaw    = n(cv(ws, r, base + 7))
 
       if (monthlyWage === null && scheduledWage === null && bonus === null && workersRaw === null) continue
 
@@ -170,7 +179,7 @@ function parseSeparateSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
       rows.push({
         prefecture:      pref,
         sex,
-        age:             n(cv(ws, r, base)),
+        age:             n(cv(ws, r, base + 0)),
         tenure_years:    n(cv(ws, r, base + 1)),
         scheduled_hours: n(cv(ws, r, base + 2)),
         overtime_hours:  n(cv(ws, r, base + 3)),
