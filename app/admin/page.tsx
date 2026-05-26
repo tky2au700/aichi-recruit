@@ -737,6 +737,8 @@ function DataTab() {
     row_count:     number
     parseable:     boolean
     is_separate?:  boolean   // 都道府県別・男女別シート
+    preview?:      Record<string, unknown>[]  // role_wages・prefecture_wages はシート一覧時にpreviewをキャッシュ
+    blocks?:       Array<{ roleName: string; enterpriseSize: string }>
   }
   interface XlsxImportResult {
     sheet_name:    string
@@ -917,6 +919,19 @@ function DataTab() {
       setSheetDetail(null)
       return
     }
+    // role_wages・prefecture_wages はシート一覧取得時に preview を含めて返しているので
+    // キャッシュ（xlsxSheets）から直接取得する
+    const isSheetsCached = selectedGroup?.target_table === 'role_wages' || selectedGroup?.target_table === 'prefecture_wages'
+    if (isSheetsCached) {
+      const cached = xlsxSheets.find(s => s.sheet_name === sheetName) as (XlsxSheet & { preview?: Record<string, unknown>[]; industry_name?: string }) | undefined
+      setSheetDetail({
+        sheet_name:    sheetName,
+        industry_name: cached?.industry_name ?? sheetName,
+        preview:       cached?.preview ?? [],
+      })
+      return
+    }
+
     setSheetDetailLoading(true)
     setSheetDetail(null)
     try {
@@ -924,25 +939,20 @@ function DataTab() {
       fd.append('file', csvFile)
       fd.append('sheet_name', sheetName)
       const targetTableDetail = selectedGroup?.target_table
-      const isPrefectureDetail = targetTableDetail === 'prefecture_wages'
-      const detailEndpoint = isPrefectureDetail
+      const detailEndpoint = targetTableDetail === 'prefecture_wages'
         ? '/api/admin/xlsx-preview-prefecture'
-        : targetTableDetail === 'role_wages'
-        ? '/api/admin/xlsx-preview-role'
         : '/api/admin/xlsx-preview'
       const res  = await fetch(detailEndpoint, { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
         if (json.sheets) {
-          // sheets配列形式（prefecture・role共通）: 対象シートのpreviewを取り出す
           const target = json.sheets.find((s: XlsxSheet & { preview?: Record<string, unknown>[] }) => s.sheet_name === sheetName)
           setSheetDetail({
             sheet_name:    sheetName,
-            industry_name: target?.industry_name ?? sheetName,
+            industry_name: (target as Record<string,unknown>)?.industry_name as string ?? sheetName,
             preview:       target?.preview ?? [],
           })
         } else {
-          // 直接 preview を返す形式
           setSheetDetail(json)
         }
       }
@@ -1398,7 +1408,7 @@ function DataTab() {
                     全タブを一括インポート
                   </button>
                   {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
-                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してくださ��</span>
+                    <span className="text-[10px] text-muted-foreground">取込前���調査年データ一覧から取込先を選択してくださ��</span>
                   )}
                 </div>
 
@@ -1626,7 +1636,7 @@ function DataTab() {
 }
 
 // ============================================================
-// プレビューテーブル
+// プレビューテーブ��
 // ============================================================
 function PreviewTable({
   summary, rows, page, setPage, pageSize,
