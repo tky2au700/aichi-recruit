@@ -138,14 +138,14 @@ function parseCombinedSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
 /** 男女別シートをパース（左=男、右=女）
  *
  * col レイアウト（0-indexed）:
- *   A-C(0-2): 都道府県
- *   男: D(3)=年齢, E(4)=勤続, F(5)=所定内時間, G(6)=超過時間,
- *       H(7)=現金給与, I(8)=所定内給与, J(9)=賞与, K(10)=労働者数
- *   女: L(11)=年齢, M(12)=勤続, N(13)=所定内時間, O(14)=超過時間,
- *       P(15)=現金給与, Q(16)=所定内給与, R(17)=賞与, S(18)=労働者数
+ *   A-D(0-3): 都道府県＋空列
+ *   男: E(4)=年齢, F(5)=勤続, G(6)=所定内時間, H(7)=超過時間,
+ *       I(8)=現金給与, J(9)=所定内給与, K(10)=賞与, L(11)=労働者数(十人)
+ *   女: M(12)=年齢, N(13)=勤続, O(14)=所定内時間, P(15)=超過時間,
+ *       Q(16)=現金給与, R(17)=所定内給与, S(18)=賞与, T(19)=労働者数(十人)
  *
- * ※ 男 base=3: age=+0, tenure=+1, sched=+2, ot=+3, monthly=+4, swage=+5, bonus=+6, workers=+7
- * ※ 女 base=11: 同じオフセット
+ * ※ base=4(男)/12(女): +0=年齢, +1=勤続, +2=所定内時間, +3=超過時間,
+ *                       +4=現金給与, +5=所定内給与, +6=賞与, +7=労働者数
  */
 function parseSeparateSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
   const range  = XLSX.utils.decode_range(ws['!ref'] ?? 'A1:A1')
@@ -153,8 +153,8 @@ function parseSeparateSheet(ws: XLSX.WorkSheet): PrefectureWageRow[] {
   const rows: PrefectureWageRow[] = []
 
   const SEX_COLS: Array<{ sex: '男' | '女'; base: number }> = [
-    { sex: '男', base: 3  },
-    { sex: '女', base: 11 },
+    { sex: '男', base: 4  },
+    { sex: '女', base: 12 },
   ]
 
   for (let r = 11; r <= maxRow; r++) {

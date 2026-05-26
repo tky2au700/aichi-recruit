@@ -93,10 +93,11 @@ function parsePreview(ws: XLSX.WorkSheet, isSeparate: boolean, limit = 20): Reco
       })
     } else {
       // col レイアウト（0-indexed）:
-      //   男 base=3:  +0=年齢, +1=勤続, +2=所定内時間, +3=超過時間,
+      //   A-D(0-3): 都道府県＋空列
+      //   男 base=4:  +0=年齢, +1=勤続, +2=所定内時間, +3=超過時間,
       //               +4=現金給与, +5=所定内給与, +6=賞与, +7=労働者数
-      //   女 base=11: 同じオフセット
-      for (const { sex, base } of [{ sex: '男', base: 3 }, { sex: '女', base: 11 }] as {sex:'男'|'女', base:number}[]) {
+      //   女 base=12: 同じオフセット
+      for (const { sex, base } of [{ sex: '男', base: 4 }, { sex: '女', base: 12 }] as {sex:'男'|'女', base:number}[]) {
         const mw = n(cv(ws, r, base + 4))
         const sw = n(cv(ws, r, base + 5))
         const ab = n(cv(ws, r, base + 6))
