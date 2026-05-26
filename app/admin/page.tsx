@@ -1372,7 +1372,7 @@ function DataTab() {
                   <p className="text-xs text-muted-foreground">{(csvFile.size / 1024).toFixed(1)} KB</p>
                   {isXlsx && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-semibold">
-                      XLSX — 全タブ一括取込モード
+                      XLSX — 全タブ��括取込モード
                     </span>
                   )}
                 </div>
@@ -1558,7 +1558,7 @@ function DataTab() {
                       </tbody>
                     </table>
 
-                    {/* シート詳細パネル */}
+                    {/* シート詳細パネル（xlsxSheets 内）*/}
                     {sheetDetail && (
                       <div className="border-t border-border bg-muted/5">
                         <div className="px-3 py-2 bg-primary/5 border-b border-border flex items-center gap-2">
@@ -1652,6 +1652,48 @@ function DataTab() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* age_wages CSVプレビューパネル（xlsxSheets の外） */}
+                {selectedGroup?.target_table === 'age_wages' && sheetDetail && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-primary/5 border-b border-border flex items-center gap-2">
+                      <Eye className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-primary">{sheetDetail.sheet_name}</span>
+                      <span className="text-[10px] text-muted-foreground">— {sheetDetail.industry_name}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">先頭{sheetDetail.preview.length}件</span>
+                      <button onClick={() => setSheetDetail(null)} className="text-[10px] text-muted-foreground hover:text-foreground ml-2">閉じる</button>
+                    </div>
+                    <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                      <table className="w-full text-[10px] border-collapse whitespace-nowrap">
+                        <thead className="sticky top-0 bg-background z-10">
+                          <tr className="border-b border-border bg-muted/20">
+                            {['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(十人)'].map(h => (
+                              <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sheetDetail.preview.map((row, i) => (
+                            <tr key={i} className="border-b border-border/30 last:border-0 hover:bg-muted/10">
+                              <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
+                              <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
+                              <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
+                              <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
+                              <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                              <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                              <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 
