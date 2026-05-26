@@ -82,7 +82,7 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
     const label = labels.find(l => l.length > 0) ?? ''
     if (label.includes('役職') && !label.includes('部長') && !label.includes('課長')) roleRow = r
     if (label.includes('企業規模')) sizeRow = r
-    if (label.includes('区分') || label === '区分') dataStartRow = r + 4
+    if (label.includes('区分') || label === '区分') dataStartRow = r + 3
   }
 
   const effectiveRoleRow = roleRow >= 0 ? roleRow : 7
@@ -120,7 +120,6 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
     const labelCol = blocks[0].colBase + LABEL_OFFSET
     const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
     const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^[\s　]+/, '').trim()
-
     if (!cleanLabel) continue
 
     let isHeader = false
