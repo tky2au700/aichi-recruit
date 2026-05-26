@@ -1179,7 +1179,7 @@ function DataTab() {
           {/* Step 2: 調査年一覧 */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-semibold">2. 調査年データ一覧（取込先を選択）</label>
+              <label className="text-xs font-semibold">2. 調査年データ���覧（取込先を選択）</label>
               <button
                 onClick={() => { setShowAddDs(p => !p); setEditingDsId(null) }}
                 className="flex items-center gap-1 text-xs text-primary hover:opacity-80"
@@ -1372,7 +1372,7 @@ function DataTab() {
                   <p className="text-xs text-muted-foreground">{(csvFile.size / 1024).toFixed(1)} KB</p>
                   {isXlsx && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-semibold">
-                      XLSX — 全タブ��括取込モード
+                      XLSX — 全タブ���括取込モード
                     </span>
                   )}
                 </div>
@@ -1396,7 +1396,7 @@ function DataTab() {
               </div>
             )}
 
-            {csvFile && !isXlsx && (
+            {csvFile && !isXlsx && selectedGroup?.target_table !== 'age_wages' && (
               <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <button onClick={handlePreview} disabled={previewing}
                   className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
@@ -1410,6 +1410,24 @@ function DataTab() {
                 </button>
                 {!selectedDatasetId && preview && (
                   <span className="text-[10px] text-muted-foreground">取込前に調査年を選択してください</span>
+                )}
+              </div>
+            )}
+
+            {csvFile && !isXlsx && selectedGroup?.target_table === 'age_wages' && (
+              <div className="mt-4 flex items-center gap-3 flex-wrap">
+                <button onClick={handleXlsxPreview} disabled={xlsxPreviewing}
+                  className="flex items-center gap-2 border border-border px-4 py-2 rounded-lg text-xs font-semibold hover:bg-muted/30 disabled:opacity-50">
+                  {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                  プレビュー確認
+                </button>
+                <button onClick={handleCsvImportAge} disabled={xlsxImporting || !selectedDatasetId}
+                  className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
+                  {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                  DBに取り込む
+                </button>
+                {!selectedDatasetId && (
+                  <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                 )}
               </div>
             )}
