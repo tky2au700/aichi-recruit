@@ -971,8 +971,8 @@ function DataTab() {
       const fd = new FormData()
       fd.append('file', csvFile)
       if (selectedDatasetId) fd.append('dataset_id', String(selectedDatasetId))
-      // role_wages は dataset が未登録でも survey_year を渡して自動作成
-      if (isRoleWages) fd.append('survey_year', String(roleImportYear))
+      // role_wages で dataset_id 未選択の場合のみ survey_year を渡して自動作成
+      if (isRoleWages && !selectedDatasetId) fd.append('survey_year', String(roleImportYear))
       const targetTableImport = selectedGroup?.target_table
       const importEndpoint = targetTableImport === 'prefecture_wages'
         ? '/api/admin/xlsx-import-prefecture'
@@ -1388,7 +1388,7 @@ function DataTab() {
                     {xlsxPreviewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
                     シート一覧を確認
                   </button>
-                  {selectedGroup?.target_table === 'role_wages' && (
+                  {selectedGroup?.target_table === 'role_wages' && !selectedDatasetId && (
                     <div className="flex items-center gap-1.5">
                       <label className="text-[10px] text-muted-foreground whitespace-nowrap">調査年</label>
                       <input
@@ -1402,13 +1402,13 @@ function DataTab() {
                   )}
                   <button
                     onClick={handleXlsxImport}
-                    disabled={xlsxImporting || (selectedGroup?.target_table !== 'role_wages' && !selectedDatasetId)}
+                    disabled={xlsxImporting || (!selectedDatasetId && selectedGroup?.target_table !== 'role_wages')}
                     className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
                     {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
                     全タブを一括インポート
                   </button>
                   {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
-                    <span className="text-[10px] text-muted-foreground">取込前���調査年データ一覧から取込先を選択してくださ��</span>
+                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
                   )}
                 </div>
 
