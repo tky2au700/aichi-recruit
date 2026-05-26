@@ -906,7 +906,7 @@ function DataTab() {
 
   async function handleSheetDetail(sheetName: string) {
     if (!csvFile) return
-    // 同じシートを再クリックしたら閉じる
+    // 同じシートを再ク��ックしたら閉じる
     if (sheetDetail?.sheet_name === sheetName) {
       setSheetDetail(null)
       return
@@ -917,10 +917,22 @@ function DataTab() {
       const fd = new FormData()
       fd.append('file', csvFile)
       fd.append('sheet_name', sheetName)
-      const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
+      const isPrefectureDetail = selectedGroup?.target_table === 'prefecture_wages'
+      const detailEndpoint = isPrefectureDetail ? '/api/admin/xlsx-preview-prefecture' : '/api/admin/xlsx-preview'
+      const res  = await fetch(detailEndpoint, { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
-        setSheetDetail(json)
+        if (isPrefectureDetail && json.sheets) {
+          // prefecture用: sheets配列から対象シートのpreviewを取り出す
+          const target = json.sheets.find((s: XlsxSheet & { preview?: Record<string, unknown>[] }) => s.sheet_name === sheetName)
+          setSheetDetail({
+            sheet_name:  sheetName,
+            industry_name: sheetName,
+            preview:     target?.preview ?? [],
+          })
+        } else {
+          setSheetDetail(json)
+        }
       }
     } finally {
       setSheetDetailLoading(false)
@@ -1471,7 +1483,10 @@ function DataTab() {
                           <table className="w-full text-[10px] border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 bg-background z-10">
                               <tr className="border-b border-border bg-muted/20">
-                                {['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)'].map(h => (
+                                {selectedGroup?.target_table === 'prefecture_wages'
+                                  ? ['都道府県', '性別', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
+                                  : ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
+                                }.map(h => (
                                   <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
                                 ))}
                               </tr>
@@ -1479,18 +1494,35 @@ function DataTab() {
                             <tbody>
                               {sheetDetail.preview.map((row, i) => (
                                 <tr key={i} className="border-b border-border/30 last:border-0 hover:bg-muted/10">
-                                  <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
-                                  <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
-                                  <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
-                                  <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
-                                  <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
-                                  <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
-                                  <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                                  {selectedGroup?.target_table === 'prefecture_wages' ? (
+                                    <>
+                                      <td className="py-1 px-2 font-medium">{String(row.prefecture ?? '')}</td>
+                                      <td className="py-1 px-2">{String(row.sex ?? '')}</td>
+                                      <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
+                                      <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
+                                      <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
+                                      <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
+                                      <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
+                                    </>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
