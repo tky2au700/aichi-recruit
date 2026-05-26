@@ -96,9 +96,10 @@ export async function POST(req: NextRequest) {
         const codeMatch = roleCell.match(/^(\d+)(.+)$/)
         const roleName = codeMatch ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2]) : roleCell
         const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
-        blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
-        // 1ブロック = 3列×10勤続区分 = 30列、次ブロックへジャンプ
-        c += 29
+        // colBase は役職コード列の「次の列」= 実際のデータ開始列
+        blocks.push({ colBase: c + 1, roleName, enterpriseSize: sizeCell })
+        // 1ブロック = ラベル(1) + 3列×10勤続区分(30) = 31列、次ブロックの役職コード列へ
+        c += 30
       }
       // プレビュー行（先頭ブロック × 先頭20行）
       const previewRows: typeof sheetPreviews[0]['preview'] = []

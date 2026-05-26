@@ -152,8 +152,9 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
       : roleCell
 
     const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
-    blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
-    c += 29 // 1ブロック = 3列×10区分 = 30列
+    // colBase は役職コード列の次 = 実際のデータ開始列
+    blocks.push({ colBase: c + 1, roleName, enterpriseSize: sizeCell })
+    c += 30 // 役職コード(1) + 3列×10区分(30) = 31列で次ブロックへ
   }
 
   if (blocks.length === 0) return rows
