@@ -91,6 +91,7 @@ const TARGET_TABLES = [
   { value: 'industry_wages',    label: 'industry_wages（業種・年齢階級別）' },
   { value: 'prefecture_wages',  label: 'prefecture_wages（都道府県別）' },
   { value: 'role_wages',        label: 'role_wages（役職別）' },
+  { value: 'age_wages',         label: 'age_wages（年齢・学歴・性別別）' },
 ]
 
 function fmt(v: number | null): string {
@@ -899,11 +900,22 @@ function DataTab() {
         ? '/api/admin/xlsx-preview-prefecture'
         : targetTable === 'role_wages'
         ? '/api/admin/xlsx-preview-role'
+        : targetTable === 'age_wages'
+        ? '/api/admin/csv-preview-age'
         : '/api/admin/xlsx-preview'
       const res  = await fetch(endpoint, { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
-        setXlsxSheets(json.sheets)
+        if (targetTable === 'age_wages') {
+          // age_wages は sheets ではなく preview 配列を直接 sheetDetail に表示
+          setSheetDetail({
+            sheet_name: json.summary?.file_name ?? 'プレビュー',
+            industry_name: `${json.summary?.total_rows ?? 0}件 / 学歴${json.summary?.education_count ?? 0}区分 / 年齢${json.summary?.age_group_count ?? 0}区分`,
+            preview: json.preview ?? [],
+          })
+        } else {
+          setXlsxSheets(json.sheets)
+        }
       } else {
         alert('プレビュー失敗: ' + json.message)
       }
@@ -958,6 +970,29 @@ function DataTab() {
       }
     } finally {
       setSheetDetailLoading(false)
+    }
+  }
+
+  async function handleCsvImportAge() {
+    if (!csvFile || !selectedDatasetId) return
+    setXlsxImporting(true)
+    setImportMsg(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      fd.append('dataset_id', String(selectedDatasetId))
+      const res  = await fetch('/api/admin/csv-import-age', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success) {
+        setImportMsg({ ok: true, text: `${json.inserted}件のデータをインポートしました` })
+        if (selectedGroupId) await loadDatasets(selectedGroupId)
+      } else {
+        setImportMsg({ ok: false, text: json.message ?? 'インポート失敗' })
+      }
+    } catch (e) {
+      setImportMsg({ ok: false, text: String(e) })
+    } finally {
+      setXlsxImporting(false)
     }
   }
 
@@ -1400,15 +1435,32 @@ function DataTab() {
                       />
                     </div>
                   )}
-                  <button
-                    onClick={handleXlsxImport}
-                    disabled={xlsxImporting || (!selectedDatasetId && selectedGroup?.target_table !== 'role_wages')}
-                    className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
-                    {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
-                    全タブを一括インポート
-                  </button>
-                  {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
-                    <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
+                  {selectedGroup?.target_table === 'age_wages' ? (
+                    <>
+                      <button
+                        onClick={handleCsvImportAge}
+                        disabled={xlsxImporting || !selectedDatasetId}
+                        className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
+                        {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                        CSVをインポート
+                      </button>
+                      {!selectedDatasetId && (
+                        <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleXlsxImport}
+                        disabled={xlsxImporting || (!selectedDatasetId && selectedGroup?.target_table !== 'role_wages')}
+                        className="flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-40">
+                        {xlsxImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                        全タブを一括インポート
+                      </button>
+                      {!selectedDatasetId && selectedGroup?.target_table !== 'role_wages' && (
+                        <span className="text-[10px] text-muted-foreground">取込前に調査年データ一覧から取込先を選択してください</span>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -1528,6 +1580,8 @@ function DataTab() {
                                   ? ['都道府県', '性別', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                   : selectedGroup?.target_table === 'role_wages'
                                   ? ['性別', '学歴', '年齢階級', '勤続区分', '所定内給与(千円)', '賞与(千円)', '労働者数(人)']
+                                  : selectedGroup?.target_table === 'age_wages'
+                                  ? ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(十人)']
                                   : ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                 ).map(h => (
                                   <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
@@ -1559,6 +1613,21 @@ function DataTab() {
                                       <td className="py-1 px-2 text-right font-semibold">{(row as Record<string,unknown>).scheduledWage != null ? Number((row as Record<string,unknown>).scheduledWage).toLocaleString() : '-'}</td>
                                       <td className="py-1 px-2 text-right">{(row as Record<string,unknown>).annualBonus != null ? Number((row as Record<string,unknown>).annualBonus).toLocaleString() : '-'}</td>
                                       <td className="py-1 px-2 text-right">{(row as Record<string,unknown>).workers != null ? Number((row as Record<string,unknown>).workers).toLocaleString() : '-'}</td>
+                                    </>
+                                  ) : selectedGroup?.target_table === 'age_wages' ? (
+                                    <>
+                                      <td className="py-1 px-2 font-medium">{String(row.sex ?? '')}</td>
+                                      <td className="py-1 px-2 text-muted-foreground">{String(row.education ?? '')}</td>
+                                      <td className="py-1 px-2">{String(row.age_group ?? '')}</td>
+                                      <td className="py-1 px-2 text-muted-foreground">{String(row.enterprise_size ?? '')}</td>
+                                      <td className="py-1 px-2 text-right">{row.age != null ? String(row.age) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.tenure_years != null ? String(row.tenure_years) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_hours != null ? String(row.scheduled_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.overtime_hours != null ? String(row.overtime_hours) : '-'}</td>
+                                      <td className="py-1 px-2 text-right font-semibold">{row.monthly_wage != null ? Number(row.monthly_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.scheduled_wage != null ? Number(row.scheduled_wage).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.annual_bonus != null ? Number(row.annual_bonus).toLocaleString() : '-'}</td>
+                                      <td className="py-1 px-2 text-right">{row.workers != null ? Number(row.workers).toLocaleString() : '-'}</td>
                                     </>
                                   ) : (
                                     <>

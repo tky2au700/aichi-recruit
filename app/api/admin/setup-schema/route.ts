@@ -109,7 +109,36 @@ export async function POST() {
     `)
     results.push('role_wages: OK')
 
-    // 5. occupation_wages テーブル
+    // 5. age_wages テーブル（年齢階級別×学歴別×性別別）
+    await query(`
+      CREATE TABLE IF NOT EXISTS age_wages (
+        id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        dataset_id       INT NOT NULL,
+        sex              ENUM('計','男','女') NOT NULL DEFAULT '計',
+        education        VARCHAR(30)   NOT NULL DEFAULT '学歴計' COMMENT '学歴（学歴計・中学・高校・専門学校・高専・短大・大学・大学院・不明）',
+        age_group        VARCHAR(20)   NOT NULL COMMENT '年齢階級（学歴計・～19歳・20～24歳 等）',
+        enterprise_size  VARCHAR(50)   NOT NULL COMMENT '企業規模（企業規模計・1,000人以上・100～999人・10～99人）',
+        age              DECIMAL(5,1)  COMMENT '平均年齢（歳）',
+        tenure_years     DECIMAL(5,1)  COMMENT '平均勤続年数（年）',
+        scheduled_hours  DECIMAL(6,1)  COMMENT '所定内実労働時間数（時間）',
+        overtime_hours   DECIMAL(6,1)  COMMENT '超過実労働時間数（時間）',
+        monthly_wage     DECIMAL(10,1) COMMENT 'きまって支給する現金給与額（千円）',
+        scheduled_wage   DECIMAL(10,1) COMMENT '所定内給与額（千円）',
+        annual_bonus     DECIMAL(10,1) COMMENT '年間賞与その他特別給与額（千円）',
+        workers          INT           COMMENT '労働者数（十人）',
+        annual_income    DECIMAL(10,1) COMMENT '推定年間収入（千円）',
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dataset      (dataset_id),
+        INDEX idx_sex          (sex),
+        INDEX idx_education    (education),
+        INDEX idx_age_group    (age_group),
+        INDEX idx_enterprise   (enterprise_size),
+        FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='年齢階級別・学歴別・性別別賃金データ'
+    `)
+    results.push('age_wages: OK')
+
+    // 6. occupation_wages テーブル
     await query(`
       CREATE TABLE IF NOT EXISTS occupation_wages (
         id               INT AUTO_INCREMENT PRIMARY KEY,
