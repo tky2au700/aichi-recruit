@@ -218,7 +218,10 @@ export function PrefectureClient() {
   function Th({ label, k }: { label: string; k: SortKey }) {
     const isActive = sortKey === k
     return (
-      <th style={{ ...S.th, color: isActive ? '#1a73e8' : '#64748B' }} onClick={() => handleSort(k)}>
+      <th
+        style={{ ...S.th, color: isActive ? '#1a73e8' : '#64748B', background: isActive ? '#EBF3FE' : '#F8FAFC' }}
+        onClick={() => handleSort(k)}
+      >
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {label}
           {isActive
@@ -360,16 +363,22 @@ export function PrefectureClient() {
                 </thead>
                 <tbody>
                   {filteredData.map((row, idx) => {
-                    const sortVal = row[sortKey] as number | null
-                    const barPct  = topSortValue && sortVal != null ? Math.round((sortVal / topSortValue) * 100) : 0
+                    const sortVal    = row[sortKey] as number | null
+                    const sortRatio  = topSortValue && sortVal ? (sortVal / topSortValue) * 100 : 0
+                    const avgVal     = (sortKey === 'annual_income' || sortKey === 'monthly_wage') ? (meta?.avg_income ?? null) : null
+                    const isAboveAvg = sortVal != null && avgVal != null && sortVal > avgVal
                     return (
-                      <tr key={row.prefecture} style={{ transition: 'background .1s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#F8FAFC')}
-                        onMouseLeave={e => (e.currentTarget.style.background = '')}
+                      <tr
+                        key={row.prefecture}
+                        style={{ background: idx % 2 === 0 ? '#fff' : '#FAFBFC' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#EBF3FE')}
+                        onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}
                       >
-                        <td style={{ ...S.td, textAlign: 'center', width: 40 }}>
+                        {/* 順位 */}
+                        <td style={{ ...S.td, width: 48 }}>
                           <RankBadge rank={idx + 1} />
                         </td>
+                        {/* 都道府県名 */}
                         <td style={S.td}>
                           <Link
                             href={`/salary/prefecture/${encodeURIComponent(row.prefecture)}`}
@@ -379,25 +388,108 @@ export function PrefectureClient() {
                             {row.prefecture}
                           </Link>
                         </td>
-                        <td style={S.td}>
-                          <div style={{ color: '#1a73e8', fontWeight: 600 }}>{fmtWan(row.annual_income)}</div>
-                          {sortKey === 'annual_income' && (
-                            <div style={S.barWrap}>
-                              <div style={{ width: `${barPct}%`, height: '100%', background: '#1a73e8', borderRadius: 4 }} />
-                            </div>
-                          )}
-                        </td>
-                        <td style={S.td}>{fmtWan(row.monthly_wage)}</td>
-                        <td style={S.td}>{fmtWan(row.annual_bonus)}</td>
-                        <td style={S.td}>{row.hourly_wage != null ? `${row.hourly_wage.toLocaleString()}円` : '−'}</td>
-                        <td style={S.td}>{fmtNum(row.overtime_hours, 'h')}</td>
-                        <td style={S.td}>
-                          {row.workers != null
+                        {/* 推定年収 */}
+                        {(() => {
+                          const isSort = sortKey === 'annual_income'
+                          return (
+                            <td style={{ ...S.td, minWidth: 140 }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: isSort ? (idx === 0 ? '#D97706' : isAboveAvg ? '#1a73e8' : '#374151') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                {fmtWan(row.annual_income)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 月給 */}
+                        {(() => {
+                          const isSort = sortKey === 'monthly_wage'
+                          return (
+                            <td style={{ ...S.td, minWidth: 110 }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, fontSize: 13, color: isSort ? (idx === 0 ? '#D97706' : isAboveAvg ? '#1a73e8' : '#374151') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                {fmtWan(row.monthly_wage)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 年間賞与 */}
+                        {(() => {
+                          const isSort = sortKey === 'annual_bonus'
+                          return (
+                            <td style={{ ...S.td, minWidth: 110 }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, fontSize: 13, color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                {fmtWan(row.annual_bonus)}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 時給換算 */}
+                        {(() => {
+                          const isSort = sortKey === 'hourly_wage'
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                {row.hourly_wage != null ? `${row.hourly_wage.toLocaleString()}円` : '−'}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#1a73e8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 残業時間 */}
+                        {(() => {
+                          const isSort = sortKey === 'overtime_hours'
+                          const isHigh = row.overtime_hours != null && row.overtime_hours > 20
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{ fontWeight: isSort ? 700 : (isHigh ? 600 : 400), color: isSort ? (idx === 0 ? '#D97706' : '#DB4437') : (isHigh ? '#DB4437' : '#475569') }}>
+                                {fmtNum(row.overtime_hours, 'h')}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#DB4437', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
+                        {/* 労働者数 */}
+                        {(() => {
+                          const isSort = sortKey === 'workers'
+                          const wDisp  = row.workers != null
                             ? row.workers >= 10000
                               ? `${(row.workers / 10000).toFixed(1)}万人`
                               : `${row.workers.toLocaleString()}人`
-                            : '−'}
-                        </td>
+                            : '−'
+                          return (
+                            <td style={{ ...S.td }}>
+                              <span style={{ fontWeight: isSort ? 700 : 400, color: isSort ? (idx === 0 ? '#D97706' : '#1a73e8') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                                {wDisp}
+                              </span>
+                              {isSort && (
+                                <div style={S.barWrap}>
+                                  <div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#94A3B8', borderRadius: 4, transition: 'width .3s' }} />
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })()}
                       </tr>
                     )
                   })}
