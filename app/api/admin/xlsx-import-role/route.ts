@@ -242,6 +242,7 @@ export async function POST(req: NextRequest) {
             }
 
             const parsed = parseSheet(ws, surveyYear)
+            console.log(`[v0] ${sheetName}: parsed=${parsed.length}, datasetId=${datasetId}`)
 
             if (parsed.length === 0) {
               send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'データ行なし' })

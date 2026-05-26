@@ -1011,7 +1011,7 @@ function DataTab() {
             } else if (event.type === 'sheet') {
               setXlsxProgress(p => p ? {
                 ...p,
-                current:       event.index + 1,
+                current:       (p.current ?? 0) + 1,
                 currentSheet:  event.sheet_name,
                 totalInserted: event.total_so_far ?? p.totalInserted,
               } : p)
