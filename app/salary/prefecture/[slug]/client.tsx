@@ -387,7 +387,6 @@ export function PrefectureDetailClient({ prefectureName }: Props) {
                 </button>
               ))}
             </div>
-            <span style={{ fontSize: 11, color: '#94A3B8' }}>{SEX_LABEL[kpiSexTab]}</span>
           </div>
 
           {/* KPI グリッド */}
