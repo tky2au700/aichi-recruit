@@ -159,42 +159,49 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 
   if (blocks.length === 0) return rows
 
+  // ラベル列 = 各ブロックのcolBase（役職コード列の次）、データ列 = colBase + 1 以降
+  const LABEL_OFFSET = 0  // colBase はラベル列
+  const DATA_OFFSET  = 1  // colBase+1 からデータ列開始
+
+  const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
+
   // データ行をパース
   let currentSex: '計' | '男' | '女' = '計'
   let currentEducation = '学歴計'
 
   for (let r = dataStartRow; r <= maxRow; r++) {
-    const rawLabel = String(cv(ws, r, 1) ?? '').trim()
-    const cleanLabel = rawLabel.replace(/[\r\n]/g, '').trim()
+    // ラベルは先頭ブロックのlabelCol（全ブロック共通）
+    const labelCol = blocks[0].colBase + LABEL_OFFSET
+    const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
+    const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^[\s　]+/, '').trim()
 
     if (!cleanLabel) continue
 
-    // 性別・学歴の親行かチェック
-    const parsed = parseCategory(rawLabel)
-    if (parsed) {
-      currentSex = parsed.sex ?? currentSex
-      currentEducation = parsed.education
-      // 学歴計行はそのまま "学歴計" としてデータ登録
+    // 性別・学歴のヘッダー行を判定してステート更新
+    let isHeader = false
+    if (cleanLabel.includes('男女計') && cleanLabel.includes('学歴計')) {
+      currentSex = '計'; currentEducation = '学歴計'; isHeader = true
+    } else if (cleanLabel.includes('男') && cleanLabel.includes('学歴計') && !cleanLabel.includes('男女')) {
+      currentSex = '男'; currentEducation = '学歴計'; isHeader = true
+    } else if (cleanLabel.includes('女') && cleanLabel.includes('学歴計')) {
+      currentSex = '女'; currentEducation = '学歴計'; isHeader = true
+    } else if (cleanLabel.includes('男女計') && cleanLabel.includes('大学')) {
+      currentSex = '計'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+    } else if (cleanLabel.includes('男') && cleanLabel.includes('大学') && !cleanLabel.includes('男女')) {
+      currentSex = '男'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+    } else if (cleanLabel.includes('女') && cleanLabel.includes('大学')) {
+      currentSex = '女'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+    } else if (EDUCATION_LABELS.some(e => cleanLabel === e)) {
+      currentEducation = cleanLabel; isHeader = true
     }
 
-    // 年齢階級行かチェック
-    const isAgeRow = /[\d～〜歳～]/.test(cleanLabel) && !cleanLabel.includes('学歴') && !cleanLabel.includes('大学') && !cleanLabel.includes('高校') && !cleanLabel.includes('専門') && !cleanLabel.includes('高専') && !cleanLabel.includes('中学') && !cleanLabel.includes('不明') && !cleanLabel.includes('男') && !cleanLabel.includes('女')
-    // 学歴行
-    const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
-    const isEducationRow = EDUCATION_LABELS.some(e => cleanLabel.startsWith(e))
+    // ageGroup: ヘッダー行は学歴計、年齢行はラベルそのまま
+    const finalAgeGroup = isHeader ? currentEducation : cleanLabel
 
-    if (isEducationRow) {
-      currentEducation = cleanLabel
-    }
-
-    // 年齢階級（半角スペース付き "　～19歳" も含む）
-    const ageGroup = isAgeRow ? cleanLabel : (parsed ? (isEducationRow ? '学歴計' : parsed.ageGroup) : (isEducationRow ? '学歴計' : null))
-    const finalAgeGroup = ageGroup ?? (isEducationRow ? '学歴計' : cleanLabel)
-
-    // 各ブロックのデータを取得
+    // 各ブロックのデータを取得（データ列 = colBase + DATA_OFFSET + tcOffset）
     for (const block of blocks) {
       for (const tc of TENURE_CATS) {
-        const base = block.colBase + tc.offset
+        const base = block.colBase + DATA_OFFSET + tc.offset
         const sw = n(cv(ws, r, base))
         const ab = n(cv(ws, r, base + 1))
         const wkRaw = n(cv(ws, r, base + 2))

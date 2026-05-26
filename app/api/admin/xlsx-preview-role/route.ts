@@ -111,30 +111,49 @@ export async function POST(req: NextRequest) {
 
       const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
 
+      // ラベル列は役職コード列と同じ列 (firstBlock.colBase - 1 = 役職コード列) ではなく、
+      // 役職コード列の直後 = firstBlock.colBase がラベル列、firstBlock.colBase+1 からデータ列
+      const labelCol = firstBlock.colBase       // C列相当（ラベル）
+      const dataColOffset = 1                    // ラベル列の次からデータ列開始
+
       for (let r = dataStartRow; r <= maxRow && previewRows.length < 20; r++) {
-        const rawLabel = String(cv(ws, r, 1) ?? '').trim()
-        const cleanLabel = rawLabel.replace(/[\r\n]/g, '').trim()
+        const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
+        const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^\s+/, '').trim()
         if (!cleanLabel) continue
 
-        // 性別判定
-        if (cleanLabel.includes('男女計') && cleanLabel.includes('学歴計')) { currentSex = '計'; currentEducation = '学歴計' }
-        else if (cleanLabel.match(/^男/) && cleanLabel.includes('学歴計')) { currentSex = '男'; currentEducation = '学歴計' }
-        else if (cleanLabel.match(/^女/) && cleanLabel.includes('学歴計')) { currentSex = '女'; currentEducation = '学歴計' }
+        // 性別・学歴の親行を判定してステート更新 → データ行としては扱わない
+        let isHeader = false
+        if (cleanLabel.includes('男女計') && cleanLabel.includes('学歴計')) {
+          currentSex = '計'; currentEducation = '学歴計'; isHeader = true
+        } else if (cleanLabel.includes('男') && cleanLabel.includes('学歴計') && !cleanLabel.includes('男女')) {
+          currentSex = '男'; currentEducation = '学歴計'; isHeader = true
+        } else if (cleanLabel.includes('女') && cleanLabel.includes('学歴計')) {
+          currentSex = '女'; currentEducation = '学歴計'; isHeader = true
+        } else if (cleanLabel.includes('男女計') && cleanLabel.includes('大学')) {
+          currentSex = '計'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+        } else if (cleanLabel.includes('男') && cleanLabel.includes('大学') && !cleanLabel.includes('男女')) {
+          currentSex = '男'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+        } else if (cleanLabel.includes('女') && cleanLabel.includes('大学')) {
+          currentSex = '女'; currentEducation = cleanLabel.includes('院') ? '大学院' : '大学'; isHeader = true
+        } else if (EDUCATION_LABELS.some(e => cleanLabel.startsWith(e))) {
+          currentEducation = EDUCATION_LABELS.find(e => cleanLabel.startsWith(e))!; isHeader = true
+        }
 
-        if (EDUCATION_LABELS.some(e => cleanLabel.startsWith(e))) currentEducation = cleanLabel.split(/[\n\r]/)[0]
-
-        // 勤続年数計のみプレビュー
+        // 勤続年数計のみプレビュー（データ列 = colBase + dataColOffset + offset）
         const tc = TENURE_CATS[0]
-        const base = firstBlock.colBase + tc.offset
+        const base = firstBlock.colBase + dataColOffset + tc.offset
         const sw = n(cv(ws, r, base))
         const ab = n(cv(ws, r, base + 1))
         const wk = n(cv(ws, r, base + 2))
         if (sw === null && ab === null && wk === null) continue
 
+        // 年齢グループ: ヘッダー行は「学歴計」、年齢行はそのまま
+        const ageGroup = isHeader ? currentEducation : cleanLabel.replace(/^[\s　]+/, '')
+
         previewRows.push({
           sex: currentSex,
           education: currentEducation,
-          ageGroup: cleanLabel,
+          ageGroup,
           tenureCategory: tc.label,
           scheduledWage: sw,
           annualBonus: ab,
