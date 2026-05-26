@@ -74,7 +74,6 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
   const maxCol = range.e.c
   const rows: RoleRow[] = []
 
-  // 役職行・企業規模行・データ開始行を動的に探す
   let roleRow = -1
   let sizeRow = -1
   let dataStartRow = 12
@@ -89,14 +88,12 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
   const effectiveRoleRow = roleRow >= 0 ? roleRow : 7
   const effectiveSizeRow = sizeRow >= 0 ? sizeRow : 6
 
-  // データ列開始を動的に特定
   let dataColStart = 2
   for (let c = 1; c <= Math.min(10, maxCol); c++) {
     const v = clean(cv(ws, effectiveRoleRow, c))
     if (v.match(/^\d{3}/)) { dataColStart = c; break }
   }
 
-  // ブロック情報を収集
   type Block = { colBase: number; roleName: string; enterpriseSize: string }
   const blocks: Block[] = []
 
@@ -106,14 +103,13 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
     const codeMatch = roleCell.match(/^(\d+)(.+)$/)
     const roleName = codeMatch ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2]) : roleCell
     const sizeCell = clean(cv(ws, effectiveSizeRow, c)) || '10人以上'
-    // colBase = 役職コード列(col2)。ラベルはcolBase-1(col1)、データはcolBaseから
     blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
     c += 30
   }
 
   if (blocks.length === 0) return rows
 
-  // ラベル列 = colBase - 1 (col1)、データ列 = colBase + offset (col2〜)
+  // col1=ラベル列、col2=データ開始
   const LABEL_OFFSET = -1
   const DATA_OFFSET  = 0
 
@@ -178,8 +174,8 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
 }
 
 export async function POST(req: NextRequest) {
-  const formData    = await req.formData()
-  const file        = formData.get('file')        as File   | null
+  const formData      = await req.formData()
+  const file          = formData.get('file')        as File   | null
   const rawDatasetId  = formData.get('dataset_id')  as string | null
   const rawSurveyYear = formData.get('survey_year') as string | null
 
