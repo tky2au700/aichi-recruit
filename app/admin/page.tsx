@@ -1009,6 +1009,7 @@ function DataTab() {
                 ...p, currentSheet: event.sheet_name,
               } : p)
             } else if (event.type === 'sheet') {
+              if (event.error) console.log('[v0] sheet error:', event.sheet_name, event.error)
               setXlsxProgress(p => p ? {
                 ...p,
                 current:       (p.current ?? 0) + 1,
@@ -1016,9 +1017,8 @@ function DataTab() {
                 totalInserted: event.total_so_far ?? p.totalInserted,
               } : p)
             } else if (event.type === 'done') {
-              setXlsxResults(event.results)
-              setImportMsg({ ok: true, text: event.message })
-              setXlsxProgress(p => p ? { ...p, current: p.total, currentSheet: '' } : p)
+              setImportMsg({ ok: true, text: `${event.total_inserted ?? 0}件のデータをインポートしました` })
+              setXlsxProgress(p => p ? { ...p, current: p.total, currentSheet: '', totalInserted: event.total_inserted ?? 0 } : p)
               if (selectedGroupId) await loadDatasets(selectedGroupId)
             } else if (event.type === 'error') {
               setImportMsg({ ok: false, text: event.message })

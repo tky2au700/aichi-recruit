@@ -261,6 +261,7 @@ export async function POST(req: NextRequest) {
             }
 
             const parsed = parseSheet(ws, surveyYear, sheetName)
+            console.log(`[v0] sheet="${sheetName}" parsed=${parsed.length}`)
 
             if (parsed.length === 0) {
               send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'データ行なし' })
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest) {
 
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)
-
+            console.log(`[v0] sheet error "${sheetName}": ${msg}`)
             send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: msg })
           }
         }
