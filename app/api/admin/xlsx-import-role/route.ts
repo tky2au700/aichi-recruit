@@ -159,9 +159,10 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 
   if (blocks.length === 0) return rows
 
-  // ラベル列 = 各ブロックのcolBase（役職コード列の次）、データ列 = colBase + 1 以降
-  const LABEL_OFFSET = 0  // colBase はラベル列
-  const DATA_OFFSET  = 1  // colBase+1 からデータ列開始
+  // 列構成: col0=空, col1=ラベル（男女計/年齢等）, col2=データ開始（所定内給与）
+  // 役職コードはcolBase(col2)にあるが、データ行のラベルはcolBase-1(col1)にある
+  const LABEL_OFFSET = -1  // colBase-1 がラベル列
+  const DATA_OFFSET  = 0   // colBase からデータ列開始
 
   const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
 
@@ -171,7 +172,7 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 
   for (let r = dataStartRow; r <= maxRow; r++) {
     // ラベルは先頭ブロックのlabelCol（全ブロック共通）
-    const labelCol = blocks[0].colBase + LABEL_OFFSET
+    const labelCol = blocks[0].colBase + LABEL_OFFSET  // col1（ラベル列）
     const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
     const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^[\s　]+/, '').trim()
 
@@ -201,7 +202,7 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
     // 各ブロックのデータを取得（データ列 = colBase + DATA_OFFSET + tcOffset）
     for (const block of blocks) {
       for (const tc of TENURE_CATS) {
-        const base = block.colBase + DATA_OFFSET + tc.offset
+        const base = block.colBase + DATA_OFFSET + tc.offset  // col2+offset
         const sw = n(cv(ws, r, base))
         const ab = n(cv(ws, r, base + 1))
         const wkRaw = n(cv(ws, r, base + 2))

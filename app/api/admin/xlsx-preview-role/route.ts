@@ -111,10 +111,10 @@ export async function POST(req: NextRequest) {
 
       const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・��大', '大学', '大学院', '不明']
 
-      // ラベル列は役職コード列と同じ列 (firstBlock.colBase - 1 = 役職コード列) ではなく、
-      // 役職コード列の直後 = firstBlock.colBase がラベル列、firstBlock.colBase+1 からデータ列
-      const labelCol = firstBlock.colBase       // C列相当（ラベル）
-      const dataColOffset = 1                    // ラベル列の次からデータ列開始
+      // 列構成: col0=空, col1=ラベル（男女計/年齢等）, col2=データ開始（所定内給与）
+      // 役職コードはcol2にあるが、データ行のラベルはcol1にある
+      const labelCol = firstBlock.colBase - 1   // col1（ラベル列）
+      const dataColOffset = 0                    // colBase（col2）からデータ列開始
 
       for (let r = dataStartRow; r <= maxRow && previewRows.length < 20; r++) {
         const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
