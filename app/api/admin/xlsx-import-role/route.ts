@@ -172,7 +172,7 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
 
   for (let r = dataStartRow; r <= maxRow; r++) {
     // ラベルは先頭ブロックのlabelCol（全ブロック共通）
-    const labelCol = blocks[0].colBase + LABEL_OFFSET  // col1（ラベ��列）
+    const labelCol = blocks[0].colBase + LABEL_OFFSET  // col1（ラベ���列）
     const rawLabel = String(cv(ws, r, labelCol) ?? '').trim()
     const cleanLabel = rawLabel.replace(/[\r\n]/g, '').replace(/^[\s　]+/, '').trim()
 
@@ -196,11 +196,10 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
       currentEducation = cleanLabel; isHeader = true
     }
 
-    // 性別・学歴ヘッダー行はステート更新のみ、データとしては登録しない
-    if (isHeader) continue
-
-    // ageGroup = 年齢行のラベルそのまま
-    const finalAgeGroup = cleanLabel
+    // ageGroup:
+    //   isHeader（男女計/学歴計・中学・高校等）→ 「学歴計」（その学歴の年齢合計行）
+    //   年齢行（～19歳・20～24歳等）→ ラベルそのまま
+    const finalAgeGroup = isHeader ? '学歴計' : cleanLabel.replace(/^[\s　]+/, '')
 
     // 各ブロックのデータを取得（データ列 = colBase + DATA_OFFSET + tcOffset）
     for (const block of blocks) {

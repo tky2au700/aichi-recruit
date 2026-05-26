@@ -141,9 +141,6 @@ export async function POST(req: NextRequest) {
           currentEducation = EDUCATION_LABELS.find(e => cleanLabel.startsWith(e))!; isHeader = true
         }
 
-        // 性別・学歴ヘッダー行はステート更新のみでデータとしては登録しない
-        if (isHeader) continue
-
         // 勤続年数計のみプレビュー（データ列 = colBase + dataColOffset + offset）
         const tc = TENURE_CATS[0]
         const base = firstBlock.colBase + dataColOffset + tc.offset
@@ -152,8 +149,10 @@ export async function POST(req: NextRequest) {
         const wk = n(cv(ws, r, base + 2))
         if (sw === null && ab === null && wk === null) continue
 
-        // 年齢グループ: ヘッダー行は「学歴計」、年齢行はそのまま
-        const ageGroup = isHeader ? currentEducation : cleanLabel.replace(/^[\s　]+/, '')
+        // 年齢グループ:
+        //   isHeader（男女計/学歴計・中学・高校等）→ 「学歴計」（その学歴の年齢合計）
+        //   年齢行（～19歳・20～24歳等）→ ラベルそのまま
+        const ageGroup = isHeader ? '学歴計' : cleanLabel.replace(/^[\s　]+/, '')
 
         previewRows.push({
           roleName:      firstBlock.roleName,
