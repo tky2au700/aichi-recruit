@@ -1483,10 +1483,10 @@ function DataTab() {
                           <table className="w-full text-[10px] border-collapse whitespace-nowrap">
                             <thead className="sticky top-0 bg-background z-10">
                               <tr className="border-b border-border bg-muted/20">
-                                {selectedGroup?.target_table === 'prefecture_wages'
+                                {(selectedGroup?.target_table === 'prefecture_wages'
                                   ? ['都道府県', '性別', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
                                   : ['性別', '学歴', '年齢階級', '企業規模', '年齢', '勤続', '所定内時間', '超過時間', '月給(千円)', '所定内給与', '賞与', '労働者数(人)']
-                                }.map(h => (
+                                ).map(h => (
                                   <th key={h} className="text-left py-1.5 px-2 text-muted-foreground font-medium">{h}</th>
                                 ))}
                               </tr>
