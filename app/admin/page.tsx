@@ -730,19 +730,20 @@ function DataTab() {
   // XLSX 専用
   interface XlsxSheet {
     sheet_name:    string
-    industry_name: string
+    industry_name?: string
     row_count:     number
     parseable:     boolean
+    is_separate?:  boolean   // 都道府県別・男女別シート
   }
   interface XlsxImportResult {
     sheet_name:    string
-    industry_name: string
+    industry_name?: string
     inserted:      number
     error?:        string
   }
   interface XlsxSheetDetail {
     sheet_name:    string
-    industry_name: string
+    industry_name?: string
     preview:       Record<string, unknown>[]
   }
   interface XlsxProgress {
@@ -888,7 +889,9 @@ function DataTab() {
     try {
       const fd = new FormData()
       fd.append('file', csvFile)
-      const res  = await fetch('/api/admin/xlsx-preview', { method: 'POST', body: fd })
+      const isPrefecture = selectedGroup?.target_table === 'prefecture_wages'
+      const endpoint = isPrefecture ? '/api/admin/xlsx-preview-prefecture' : '/api/admin/xlsx-preview'
+      const res  = await fetch(endpoint, { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success) {
         setXlsxSheets(json.sheets)
@@ -932,7 +935,9 @@ function DataTab() {
       const fd = new FormData()
       fd.append('file', csvFile)
       fd.append('dataset_id', String(selectedDatasetId))
-      const res = await fetch('/api/admin/xlsx-import', { method: 'POST', body: fd })
+      const isPrefecture = selectedGroup?.target_table === 'prefecture_wages'
+      const importEndpoint = isPrefecture ? '/api/admin/xlsx-import-prefecture' : '/api/admin/xlsx-import'
+      const res = await fetch(importEndpoint, { method: 'POST', body: fd })
 
       if (!res.body) throw new Error('ストリームが取得できません')
 
@@ -1429,7 +1434,7 @@ function DataTab() {
                               ].join(' ')}
                             >
                               <td className="py-2 px-3 font-semibold">{s.sheet_name}</td>
-                              <td className="py-2 px-3 text-muted-foreground">{s.industry_name}</td>
+                              <td className="py-2 px-3 text-muted-foreground">{s.industry_name ?? s.sheet_name}</td>
                               <td className="py-2 px-3 text-right">{s.row_count.toLocaleString()}行</td>
                               <td className="py-2 px-3">
                                 {isLoading

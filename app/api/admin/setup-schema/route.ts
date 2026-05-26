@@ -61,7 +61,30 @@ export async function POST() {
     `)
     results.push('datasets: OK')
 
-    // 3. occupation_wages テーブル
+    // 3. prefecture_wages テーブル
+    await query(`
+      CREATE TABLE IF NOT EXISTS prefecture_wages (
+        id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        dataset_id      INT UNSIGNED NOT NULL,
+        prefecture      VARCHAR(20)  NOT NULL,
+        sex             ENUM('計','男','女') NOT NULL DEFAULT '計',
+        age             DECIMAL(5,1),
+        tenure_years    DECIMAL(5,1),
+        scheduled_hours DECIMAL(6,1),
+        overtime_hours  DECIMAL(6,1),
+        monthly_wage    DECIMAL(10,1),
+        scheduled_wage  DECIMAL(10,1),
+        annual_bonus    DECIMAL(10,1),
+        workers         INT,
+        annual_income   DECIMAL(10,1),
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dataset  (dataset_id),
+        INDEX idx_pref_sex (prefecture, sex)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+    results.push('prefecture_wages: OK')
+
+    // 4. occupation_wages テーブル
     await query(`
       CREATE TABLE IF NOT EXISTS occupation_wages (
         id               INT AUTO_INCREMENT PRIMARY KEY,
