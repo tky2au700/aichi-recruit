@@ -141,6 +141,9 @@ export async function POST(req: NextRequest) {
           currentEducation = EDUCATION_LABELS.find(e => cleanLabel.startsWith(e))!; isHeader = true
         }
 
+        // 性別・学歴ヘッダー行はステート更新のみでデータとしては登録しない
+        if (isHeader) continue
+
         // 勤続年数計のみプレビュー（データ列 = colBase + dataColOffset + offset）
         const tc = TENURE_CATS[0]
         const base = firstBlock.colBase + dataColOffset + tc.offset
