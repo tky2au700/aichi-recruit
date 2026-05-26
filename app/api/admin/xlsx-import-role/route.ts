@@ -116,34 +116,42 @@ function parseSheet(ws: XLSX.WorkSheet, surveyYear: number): RoleRow[] {
   const maxCol = range.e.c
   const rows: RoleRow[] = []
 
-  // ブロック情報を収集（Row 4: 表頭分割, Row 8: 役職名）
+  // 役職行・企業規模行・データ開始行を動的に探す
+  let roleRow = -1
+  let sizeRow = -1
+  let dataStartRow = 12
+  for (let r = 0; r <= Math.min(20, maxRow); r++) {
+    const label = clean(cv(ws, r, 0)) || clean(cv(ws, r, 1))
+    if (label === '役職') roleRow = r
+    if (label === '企業規模') sizeRow = r
+    if (label === '区分' || label === '区　分') dataStartRow = r + 3
+  }
+
+  // ブロック情報を収集
   type Block = { colBase: number; roleName: string; enterpriseSize: string }
   const blocks: Block[] = []
 
-  // ブロックの先頭列を特定（Row4 に '01', '02' ... がある列）
-  for (let c = 2; c <= maxCol; c += BLOCK_WIDTH) {
-    const roleCell = clean(cv(ws, 7, c)) // Row 8 (0-indexed=7)
+  for (let c = 2; c <= maxCol; c++) {
+    const roleCell = roleRow >= 0 ? clean(cv(ws, roleRow, c)) : ''
     if (!roleCell) continue
 
-    // 役職コードと企業規模を抽出 e.g. "101部長級"
     const codeMatch = roleCell.match(/^(\d+)(.+)$/)
     const roleName = codeMatch
       ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2])
       : roleCell
 
-    // Row 7 企業規模 (Row 7 = index 6)
-    const sizeCell = clean(cv(ws, 6, c)) || '10人以上'
-
+    const sizeCell = (sizeRow >= 0 ? clean(cv(ws, sizeRow, c)) : '') || '10人以上'
     blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
+    c += 29 // 1ブロック = 3列×10区分 = 30列
   }
 
   if (blocks.length === 0) return rows
 
-  // データ行をパース (Row 13 = 0-indexed 12 から)
+  // データ行をパース
   let currentSex: '計' | '男' | '女' = '計'
   let currentEducation = '学歴計'
 
-  for (let r = 12; r <= maxRow; r++) {
+  for (let r = dataStartRow; r <= maxRow; r++) {
     const rawLabel = String(cv(ws, r, 1) ?? '').trim()
     const cleanLabel = rawLabel.replace(/[\r\n]/g, '').trim()
 

@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
 
+    console.log('[v0] role-preview: sheetNames =', wb.SheetNames)
     const sheetPreviews: Array<{
       sheetName: string
       blocks: Array<{ roleName: string; enterpriseSize: string }>
@@ -67,17 +68,33 @@ export async function POST(req: NextRequest) {
       const maxRow = range.e.r
       const maxCol = range.e.c
 
-      // ブロック収集
+      console.log('[v0] role-preview sheet:', sheetName, 'maxRow=', maxRow, 'maxCol=', maxCol)
+
+      // 役職行・企業規模行・データ開始行を動的に探す
+      let roleRow = -1
+      let sizeRow = -1
+      let dataStartRow = 12
+      for (let r = 0; r <= Math.min(20, maxRow); r++) {
+        const label = clean(cv(ws, r, 0)) || clean(cv(ws, r, 1))
+        if (label === '役職') roleRow = r
+        if (label === '企業規模') sizeRow = r
+        if (label === '区分' || label === '区　分') dataStartRow = r + 3
+      }
+      console.log('[v0] role-preview roleRow=', roleRow, 'sizeRow=', sizeRow, 'dataStartRow=', dataStartRow)
+
+      // ブロック収集: col1は区分ラベル列、col2以降にデータブロックが並ぶ
       const blocks: Array<{ colBase: number; roleName: string; enterpriseSize: string }> = []
-      for (let c = 2; c <= maxCol; c += BLOCK_WIDTH) {
-        const roleCell = clean(cv(ws, 7, c))
+      for (let c = 2; c <= maxCol; c++) {
+        const roleCell = roleRow >= 0 ? clean(cv(ws, roleRow, c)) : ''
         if (!roleCell) continue
         const codeMatch = roleCell.match(/^(\d+)(.+)$/)
         const roleName = codeMatch ? (ROLE_CODE_MAP[codeMatch[1]] ?? codeMatch[2]) : roleCell
-        const sizeCell = clean(cv(ws, 6, c)) || '10人以上'
+        const sizeCell = (sizeRow >= 0 ? clean(cv(ws, sizeRow, c)) : '') || '10人以上'
         blocks.push({ colBase: c, roleName, enterpriseSize: sizeCell })
+        // 1ブロック = 3列×10勤続区分 = 30列、次ブロックへジャンプ
+        c += 29
       }
-
+      console.log('[v0] role-preview blocks found:', blocks.length, blocks.map(b => b.roleName + '/' + b.enterpriseSize))
       // プレビュー行（先頭ブロック × 先頭20行）
       const previewRows: typeof sheetPreviews[0]['preview'] = []
       const firstBlock = blocks[0]
@@ -85,11 +102,10 @@ export async function POST(req: NextRequest) {
 
       let currentSex: string = '計'
       let currentEducation = '学歴計'
-      let count = 0
 
       const EDUCATION_LABELS = ['中学', '高校', '専門学校', '高専・短大', '大学', '大学院', '不明']
 
-      for (let r = 12; r <= maxRow && previewRows.length < 20; r++) {
+      for (let r = dataStartRow; r <= maxRow && previewRows.length < 20; r++) {
         const rawLabel = String(cv(ws, r, 1) ?? '').trim()
         const cleanLabel = rawLabel.replace(/[\r\n]/g, '').trim()
         if (!cleanLabel) continue
