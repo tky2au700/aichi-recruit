@@ -110,6 +110,14 @@ export async function POST(req: NextRequest) {
         // 1ブロック = 役職コード兼ラベル列(1) + 3列×10勤続区分(30) = 31列
         c += 30
       }
+      // blocksが空の場合はシート名から役職・企業規模を解析してフォールバック
+      if (blocks.length === 0) {
+        const m = sheetName.match(/[（(]([^)）]+)[)）](.+)/)
+        if (m) {
+          blocks.push({ colBase: 2, roleName: m[2].trim(), enterpriseSize: m[1].trim() })
+        }
+      }
+
       // プレビュー行（先頭ブロック × 先頭20行）
       const previewRows: typeof sheetPreviews[0]['preview'] = []
       const firstBlock = blocks[0]

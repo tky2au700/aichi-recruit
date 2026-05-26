@@ -67,8 +67,18 @@ type RoleRow = {
   annualIncome: number | null
 }
 
+/** シート名から役職名と企業規模を解析するフォールバック */
+function parseSheetName(sheetName: string): { roleName: string; enterpriseSize: string } | null {
+  // 例: "(10人以上)部長級" "(1000人以上)課長級" "(100〜999人)係長級"
+  const m = sheetName.match(/[（(]([^)）]+)[)）](.+)/)
+  if (!m) return null
+  const size = m[1].trim()
+  const role = m[2].trim()
+  return { roleName: role, enterpriseSize: size }
+}
+
 /** 1シートをパース */
-function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
+function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number, sheetName = ''): RoleRow[] {
   const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1:A1')
   const maxRow = range.e.r
   const maxCol = range.e.c
@@ -107,7 +117,16 @@ function parseSheet(ws: XLSX.WorkSheet, _surveyYear: number): RoleRow[] {
     c += 30
   }
 
-  if (blocks.length === 0) return rows
+  // blocksが空の場合（結合セルで役職コードを読めない）: シート名から解析してフォールバック
+  if (blocks.length === 0) {
+    const fallback = parseSheetName(sheetName)
+    if (fallback) {
+      // データ列はcol2から始まると仮定
+      blocks.push({ colBase: 2, roleName: fallback.roleName, enterpriseSize: fallback.enterpriseSize })
+    } else {
+      return rows
+    }
+  }
 
   // col1=ラベル列、col2=データ開始
   const LABEL_OFFSET = -1
@@ -241,8 +260,7 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            const parsed = parseSheet(ws, surveyYear)
-            console.log(`[v0] ${sheetName}: parsed=${parsed.length}, datasetId=${datasetId}`)
+            const parsed = parseSheet(ws, surveyYear, sheetName)
 
             if (parsed.length === 0) {
               send({ type: 'sheet', sheet_name: sheetName, inserted: 0, error: 'データ行なし' })
