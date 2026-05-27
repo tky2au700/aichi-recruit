@@ -55,16 +55,17 @@ const SEX_OPTIONS = [
   { value: '男', label: '男性' },
   { value: '女', label: '女性' },
 ]
+// DB値はカンマ付き（'1,000人以上'）に合わせる
 const SIZE_OPTIONS = [
   { value: '企業規模計', label: '企業規模計' },
-  { value: '1000人以上', label: '1000人以上' },
+  { value: '1,000人以上', label: '1,000人以上' },
   { value: '100～999人', label: '100〜999人' },
   { value: '10～99人',   label: '10〜99人' },
 ]
 const SEX_TO_PARAM:  Record<string, string> = { '男': 'male', '女': 'female' }
 const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
-const SIZE_TO_PARAM: Record<string, string> = { '1000人以上': 'large', '100～999人': 'medium', '10～99人': 'small' }
-const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100～999人', small: '10～99人' }
+const SIZE_TO_PARAM: Record<string, string> = { '1,000人以上': 'large', '100～999人': 'medium', '10～99人': 'small' }
+const PARAM_TO_SIZE: Record<string, string> = { large: '1,000人以上', medium: '100～999人', small: '10～99人' }
 
 type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
 type SortDir = 'asc' | 'desc'
@@ -226,7 +227,7 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
   }
 
   const sexLabelMap: Record<string, string> = { '男': '男性', '女': '女性' }
-  const sizeLabelMap: Record<string, string> = { '1000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
+  const sizeLabelMap: Record<string, string> = { '1,000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
   const currentSexLabel  = sex  !== '計'        ? (sexLabelMap[sex]   ?? null) : null
   const currentSizeLabel = size !== '企業規模計' ? (sizeLabelMap[size] ?? null) : null
   const currentYearStr   = surveyYear ? `${surveyYear}年` : (meta?.survey_year ? `${meta.survey_year}年` : '')
