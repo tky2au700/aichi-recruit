@@ -5,8 +5,9 @@ import { Suspense } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   TrendingUp, Building2, MapPin, GraduationCap, BarChart3,
-  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search,
+  Menu, X, ChevronDown, Users, Clock, Award, LineChart, BarChart2, Search, Briefcase,
   Factory, Zap, Truck, ShoppingBag, Banknote, GraduationCap as GradIcon, HeartPulse, Wrench, Cpu,
+  Activity,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
@@ -40,16 +41,16 @@ const rankingItems = [
     color: '#1a73e8',
   },
   {
-    href: '/salary/ranking/occupation?sex=male',
+    href: '/salary/ranking/male',
     label: '男性年収ランキング',
-    description: '男性労働者の職種別ランキング',
+    description: '男性の年齢階級別年収ランキング',
     icon: Users,
     color: '#1a73e8',
   },
   {
-    href: '/salary/ranking/occupation?sex=female',
+    href: '/salary/ranking/female',
     label: '女性年収ランキング',
-    description: '女性労働者の職種別ランキング',
+    description: '女性の年齢階級別年収ランキング',
     icon: Users,
     color: '#e8336d',
   },
@@ -88,12 +89,34 @@ const rankingItems = [
     icon: Users,
     color: '#0891b2',
   },
+  {
+    href: '/salary/ranking/role',
+    label: '役職別年収ランキング',
+    description: '部長・課長など役職別の年収比較',
+    icon: Briefcase,
+    color: '#7c3aed',
+  },
+  {
+    href: '/salary/ranking/education',
+    label: '学歴別年収ランキング',
+    description: '高卒・大卒・大学院卒の年収比較',
+    icon: GraduationCap,
+    color: '#16a34a',
+  },
+  {
+    href: '/salary/ranking/age-group',
+    label: '年齢階級別年収ランキング',
+    description: '10代〜70代の年齢帯別年収比較',
+    icon: BarChart3,
+    color: '#7c3aed',
+  },
 ]
 
 const categoryItems = [
-  { href: '/salary/prefecture', label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
-  { href: '/salary/education',  label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
-  { href: '/salary/age',        label: '年齢・勤続別', icon: BarChart3,     description: '年齢・経験年数と年収の関係' },
+  { href: '/salary/prefecture',            label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
+  { href: '/salary/ranking/education',     label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
+  { href: '/salary/ranking/age-group',     label: '年齢別',       icon: BarChart3,     description: '年齢階級別の年収比較' },
+  { href: '/salary/ranking/role',          label: '役職別',       icon: Briefcase,     description: '部長・課長など役職別の年収' },
 ]
 
 function NavInner() {
@@ -115,6 +138,7 @@ function NavInner() {
 
   const isIndustryActive   = pathname.startsWith('/salary/industry') || pathname.startsWith('/salary/ranking/industry')
   const isOccupationActive = !isIndustryActive && (pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation'))
+  const isTrendActive      = pathname.startsWith('/salary/trend')
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -162,6 +186,19 @@ function NavInner() {
 
           {/* ---- デスクトップナビ ---- */}
           <nav className="hidden md:flex items-center gap-1 flex-1">
+
+            {/* 年収推移 */}
+            <Link
+              href="/salary/trend"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isTrendActive
+                  ? 'bg-green-50 text-[#16a34a]'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              年収推移
+            </Link>
 
             {/* メガメニュートリガー: 職種別 */}
             <div
@@ -399,8 +436,22 @@ function NavInner() {
               </button>
             </form>
           </div>
+          {/* 年収推移 */}
+          <div className="px-4 pt-2 pb-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">推移</p>
+            <Link
+              href="/salary/trend"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#16a34a18' }}>
+                <Activity className="w-3.5 h-3.5" style={{ color: '#16a34a' }} />
+              </div>
+              <span className="text-sm text-gray-700 font-medium">年収推移グラフ</span>
+            </Link>
+          </div>
           {/* ランキング */}
-          <div className="px-4 pt-1 pb-1">
+          <div className="border-t border-gray-100 px-4 pt-3 pb-1">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">ランキング</p>
             {rankingItems.map(({ href, label, icon: Icon, color }) => (
               <Link

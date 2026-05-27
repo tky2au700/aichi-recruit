@@ -381,7 +381,7 @@ export function OccupationDetailClient({ slug }: { slug: string }) {
     .map(size => data.latest_data.find(r => r.sex === sexTab && r.enterprise_size === size))
     .filter(Boolean) as DetailRow[]
 
-  // 性別別テーブル用（企��規模タブでフィルタ）
+  // 性別別テーブル用（企業規模タブでフィルタ）
   const sexRows = SEX_ORDER
     .map(sex => data.latest_data.find(r => r.sex === sex && r.enterprise_size === sizeTab))
     .filter(Boolean) as DetailRow[]

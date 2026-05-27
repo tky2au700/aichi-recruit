@@ -1,0 +1,62 @@
+import type { Metadata } from 'next'
+import { Nav } from '@/components/nav'
+import { EducationRankingClient } from './client'
+import { buildMetadata } from '@/lib/seo'
+
+const BASE_PATH = '/salary/ranking/education'
+
+type SortKey = 'annual_income' | 'monthly_wage' | 'annual_bonus' | 'age' | 'tenure_years' | 'overtime_hours' | 'hourly_wage'
+type SortDir  = 'asc' | 'desc'
+type SearchParams = Promise<{ sex?: string; size?: string; year?: string; sort?: string; dir?: string }>
+
+const SORT_LABEL: Record<string, string> = {
+  annual_income: '年収', monthly_wage: '月給', annual_bonus: '賞与',
+  age: '平均年齢', tenure_years: '勤続年数', overtime_hours: '残業時間', hourly_wage: '時給',
+}
+
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const { year } = await searchParams
+  const yearStr = year ? `${year}年` : '2025年'
+  return buildMetadata({
+    title: `学歴別平均年収ランキング${yearStr} | AIリクルート`,
+    description: `${yearStr}調査の賃金構造基本統計調査に基づく学歴別平均年収ランキング。高校卒・専門学校卒・短大卒・大学卒・大学院卒の年収を性別・企業規模別で比較できます。`,
+    keywords: ['学歴別年収', '学歴別ランキング', '大卒 年収', '高卒 年収', '学歴 年収差'],
+    path: BASE_PATH,
+  })
+}
+
+export default async function EducationRankingPage({ searchParams }: { searchParams: SearchParams }) {
+  const { sex, size, year, sort, dir } = await searchParams
+
+  const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
+  const PARAM_TO_SIZE: Record<string, string> = { large: '1,000人以上', medium: '100～999人', small: '10～99人' }
+
+  const validSort = (sort && sort in SORT_LABEL ? sort : 'annual_income') as SortKey
+  const validDir  = (dir === 'asc' ? 'asc' : 'desc') as SortDir
+  const yearStr   = year ? `${year}年` : '2025年'
+  const sortLabel = SORT_LABEL[validSort] ?? '年収'
+
+  const sexLabel  = sex  ? (PARAM_TO_SEX[sex]   ?? null) : null
+  const sizeLabel = size ? (PARAM_TO_SIZE[size]  ?? null) : null
+
+  const sizeLabelMap: Record<string, string> = { '1,000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
+  const sizeName = sizeLabel ? (sizeLabelMap[sizeLabel] ?? null) : null
+
+  let pageHeading = `学歴別平均${sortLabel}ランキング${yearStr}`
+  if (sizeName) pageHeading = `${sizeName}の${pageHeading}${sexLabel ? `・${sexLabel}` : ''}`
+  else if (sexLabel) pageHeading = `${sexLabel}の${pageHeading}`
+
+  return (
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      <Nav />
+      <EducationRankingClient
+        initialSex={sex}
+        initialSize={size}
+        initialYear={year ? Number(year) : null}
+        initialSort={validSort}
+        initialDir={validDir}
+        pageHeading={pageHeading}
+      />
+    </div>
+  )
+}

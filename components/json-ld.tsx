@@ -158,6 +158,180 @@ export function IndustryJsonLd({
   )
 }
 
+// ---- 共通Dataset生成ヘルパー ----
+function makeDataset(name: string, description: string, url: string, surveyYear: number, annualIncomeWan: number | null, monthlyWageWan: number | null, annualBonusWan: number | null) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name,
+    description,
+    url,
+    creator: { '@type': 'Organization', name: '厚生労働省', url: 'https://www.mhlw.go.jp/' },
+    publisher: { '@type': 'Organization', name: 'AIリクルート', url: BASE_URL },
+    temporalCoverage: `${surveyYear}`,
+    license: 'https://www.e-stat.go.jp/terms-of-use',
+    ...(annualIncomeWan != null && {
+      variableMeasured: [
+        { '@type': 'PropertyValue', name: '平均年収', value: annualIncomeWan * 10000, unitCode: 'JPY' },
+        ...(monthlyWageWan != null ? [{ '@type': 'PropertyValue', name: '月給', value: monthlyWageWan * 10000, unitCode: 'JPY' }] : []),
+        ...(annualBonusWan != null ? [{ '@type': 'PropertyValue', name: '年間賞与', value: annualBonusWan * 10000, unitCode: 'JPY' }] : []),
+      ],
+    }),
+  }
+}
+
+// ---- 都道府県詳細 JSON-LD ----
+interface PrefectureJsonLdProps {
+  prefectureName: string
+  annualIncomeWan: number | null
+  monthlyWageWan: number | null
+  annualBonusWan: number | null
+  surveyYear: number
+  slug: string
+}
+
+export function PrefectureJsonLd({ prefectureName, annualIncomeWan, monthlyWageWan, annualBonusWan, surveyYear, slug }: PrefectureJsonLdProps) {
+  const url = `${BASE_URL}/salary/prefecture/${slug}`
+  const title = `${prefectureName}の平均年収【${surveyYear}年】`
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'AIリクルート', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: '都道府県別年収ランキング', item: `${BASE_URL}/salary/prefecture` },
+      { '@type': 'ListItem', position: 3, name: title, item: url },
+    ],
+  }
+
+  const dataset = makeDataset(
+    `${prefectureName}の年収データ（${surveyYear}年）`,
+    `賃金構造基本統計調査による${prefectureName}の${surveyYear}年平均年収・月給・賞与データ`,
+    url, surveyYear, annualIncomeWan, monthlyWageWan, annualBonusWan,
+  )
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dataset) }} />
+    </>
+  )
+}
+
+// ---- 学歴詳細 JSON-LD ----
+interface EducationJsonLdProps {
+  educationName: string
+  annualIncomeWan: number | null
+  monthlyWageWan: number | null
+  annualBonusWan: number | null
+  surveyYear: number
+  slug: string
+}
+
+export function EducationJsonLd({ educationName, annualIncomeWan, monthlyWageWan, annualBonusWan, surveyYear, slug }: EducationJsonLdProps) {
+  const url = `${BASE_URL}/salary/education/${slug}`
+  const title = `${educationName}の平均年収【${surveyYear}年】`
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'AIリクルート', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: '学歴別年収ランキング', item: `${BASE_URL}/salary/education` },
+      { '@type': 'ListItem', position: 3, name: title, item: url },
+    ],
+  }
+
+  const dataset = makeDataset(
+    `${educationName}の年収データ（${surveyYear}年）`,
+    `賃金構造基本統計調査による${educationName}の${surveyYear}年平均年収・月給・賞与データ`,
+    url, surveyYear, annualIncomeWan, monthlyWageWan, annualBonusWan,
+  )
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dataset) }} />
+    </>
+  )
+}
+
+// ---- 年齢階級詳細 JSON-LD ----
+interface AgeGroupJsonLdProps {
+  ageGroup: string
+  annualIncomeWan: number | null
+  monthlyWageWan: number | null
+  annualBonusWan: number | null
+  surveyYear: number
+  slug: string
+}
+
+export function AgeGroupJsonLd({ ageGroup, annualIncomeWan, monthlyWageWan, annualBonusWan, surveyYear, slug }: AgeGroupJsonLdProps) {
+  const url = `${BASE_URL}/salary/age-group/${slug}`
+  const title = `${ageGroup}の平均年収【${surveyYear}年】`
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'AIリクルート', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: '年齢別年収データ', item: `${BASE_URL}/salary/age` },
+      { '@type': 'ListItem', position: 3, name: title, item: url },
+    ],
+  }
+
+  const dataset = makeDataset(
+    `${ageGroup}の年収データ（${surveyYear}年）`,
+    `賃金構造基本統計調査による${ageGroup}の${surveyYear}年平均年収・月給・賞与データ`,
+    url, surveyYear, annualIncomeWan, monthlyWageWan, annualBonusWan,
+  )
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dataset) }} />
+    </>
+  )
+}
+
+// ---- 役職詳細 JSON-LD ----
+interface RoleJsonLdProps {
+  roleName: string
+  annualIncomeWan: number | null
+  monthlyWageWan: number | null
+  annualBonusWan: number | null
+  surveyYear: number
+  slug: string
+}
+
+export function RoleJsonLd({ roleName, annualIncomeWan, monthlyWageWan, annualBonusWan, surveyYear, slug }: RoleJsonLdProps) {
+  const url = `${BASE_URL}/salary/role/${slug}`
+  const title = `${roleName}の平均年収【${surveyYear}年】`
+
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'AIリクルート', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: '役職別年収ランキング', item: `${BASE_URL}/salary/ranking/role` },
+      { '@type': 'ListItem', position: 3, name: title, item: url },
+    ],
+  }
+
+  const dataset = makeDataset(
+    `${roleName}の年収データ（${surveyYear}年）`,
+    `賃金構造基本統計調査による${roleName}の${surveyYear}年平均年収・月給・賞与データ`,
+    url, surveyYear, annualIncomeWan, monthlyWageWan, annualBonusWan,
+  )
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dataset) }} />
+    </>
+  )
+}
+
 interface RankingJsonLdProps {
   title: string
   description: string
