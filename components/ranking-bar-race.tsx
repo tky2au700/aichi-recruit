@@ -430,7 +430,7 @@ export function RankingBarRace({
                   </g>
                 )}
                 {/* ツールチップ */}
-                <rect x={tx} y={ty} width={tipW} height={tipH} rx={8} fill="rgba(15,23,42,0.94)" />
+                <rect x={tx} y={ty} width={tipW} height={tipH} rx={8} fill={e.color} fillOpacity={0.95} />
                 {tipLines.map((line, li) => (
                   <text
                     key={li}
@@ -438,7 +438,7 @@ export function RankingBarRace({
                     dominantBaseline="middle"
                     fontSize={li === 0 ? 11 : 10}
                     fontWeight={li === 0 ? 700 : 500}
-                    fill={li === 0 ? '#fff' : li === 1 ? '#93C5FD' : '#86EFAC'}
+                    fill={li === 0 ? '#fff' : 'rgba(255,255,255,0.85)'}
                     fontFamily="'Noto Sans JP',sans-serif"
                   >{line}</text>
                 ))}
