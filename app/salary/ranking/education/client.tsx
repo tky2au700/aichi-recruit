@@ -245,6 +245,13 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
       <div style={S.hero}>
         <div style={S.heroInner}>
           <h1 style={S.h1}>{pageHeading ?? dynamicHeading}</h1>
+          {(currentSexLabel || currentSizeLabel) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {[currentSexLabel, currentSizeLabel].filter(Boolean).map(tag => (
+                <span key={tag} style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, border: '1.5px solid #CBD5E1', background: '#F1F5F9', color: '#475569' }}>{tag}</span>
+              ))}
+            </div>
+          )}
           <p style={S.subtitle}>
             {meta ? `${meta.survey_group_name}　${meta.survey_year}年調査` : '賃金構造基本統計調査に基づく学歴別データ'}
           </p>
@@ -287,6 +294,9 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
+              filterTags={[currentSexLabel, size !== '企業規模計' ? size : null].filter((t): t is string => !!t)}
             />
           </div>
         )}

@@ -16,10 +16,13 @@ export interface ScatterItem {
 }
 
 interface RankingBarRaceProps {
-  data:          ScatterItem[]
-  title:         string
-  surveyYear:    number | null
-  primaryColor?: string
+  data:           ScatterItem[]
+  title?:         string
+  surveyYear:     number | null
+  primaryColor?:  string
+  defaultXKey?:   keyof ScatterItem
+  defaultYKey?:   keyof ScatterItem
+  filterTags?:    string[]
 }
 
 interface AxisDef {
@@ -60,8 +63,9 @@ const LABEL_C = '#475569'
 
 function getVal(item: ScatterItem, key: keyof ScatterItem): number | null {
   const v = item[key]
-  if (v == null || typeof v !== 'number') return null
-  return v
+  if (v == null) return null
+  const n = typeof v === 'number' ? v : parseFloat(v as string)
+  return isNaN(n) ? null : n
 }
 
 function nice(min: number, max: number, steps: number) {
@@ -89,14 +93,16 @@ const truncateLabel = (text: string, maxFullWidth = 12): string => {
 }
 
 type Entry = {
-  i: number; item: OccupationWage; color: string
+  i: number; item: ScatterItem; color: string
   dx: number; dy: number; xv: number; yv: number
   lx: number; ly: number; goRight: boolean; showLabel: boolean
 }
 
-export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
-  const [xAxis,         setXAxis]         = useState<AxisDef>(AXIS_OPTIONS[0])
-  const [yAxis,         setYAxis]         = useState<AxisDef>(AXIS_OPTIONS[1])
+export function RankingBarRace({ data, surveyYear, defaultXKey, defaultYKey, filterTags }: RankingBarRaceProps) {
+  const initX = AXIS_OPTIONS.find(a => a.key === defaultXKey) ?? AXIS_OPTIONS[0]
+  const initY = AXIS_OPTIONS.find(a => a.key === defaultYKey) ?? AXIS_OPTIONS[1]
+  const [xAxis,         setXAxis]         = useState<AxisDef>(initX)
+  const [yAxis,         setYAxis]         = useState<AxisDef>(initY)
   const [hoveredIdx,    setHoveredIdx]    = useState<number | null>(null)
   const [displayMode,   setDisplayMode]   = useState<'top20' | 'bottom20' | 'all'>('top20')
   const [sharing,       setSharing]       = useState(false)
@@ -735,6 +741,18 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.4 }}>散布図</div>
             {surveyYear && (
               <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 3 }}>{surveyYear}年調査</div>
+            )}
+            {filterTags && filterTags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {filterTags.map(tag => (
+                  <span key={tag} style={{
+                    fontSize: 10, fontWeight: 600, padding: '2px 7px',
+                    borderRadius: 99, border: '1px solid #E2E8F0',
+                    background: '#F1F5F9', color: '#475569',
+                    whiteSpace: 'nowrap',
+                  }}>{tag}</span>
+                ))}
+              </div>
             )}
           </div>
 

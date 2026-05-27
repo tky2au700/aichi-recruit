@@ -32,90 +32,22 @@ const industryQuickLinks = [
   { href: '/salary/industry/%EF%BC%B0%E5%8C%BB%E7%99%82%EF%BC%8C%E7%A6%8F%E7%A5%89', label: '医療・福祉', icon: HeartPulse,  color: '#e8336d' },
 ]
 
-const rankingItems = [
-  {
-    href: '/salary/ranking/occupation',
-    label: '職種別年収ランキング',
-    description: '全職種の年収を一覧',
-    icon: TrendingUp,
-    color: '#1a73e8',
-  },
-  {
-    href: '/salary/ranking/male',
-    label: '男性年収ランキング',
-    description: '男性の年齢階級別年収ランキング',
-    icon: Users,
-    color: '#1a73e8',
-  },
-  {
-    href: '/salary/ranking/female',
-    label: '女性年収ランキング',
-    description: '女性の年齢階級別年収ランキング',
-    icon: Users,
-    color: '#e8336d',
-  },
-  {
-    href: '/salary/ranking/occupation?sort=annual_bonus',
-    label: 'ボーナスランキング',
-    description: '年間賞与額が多い職種',
-    icon: Award,
-    color: '#f59e0b',
-  },
-  {
-    href: '/salary/ranking/overtime-wage',
-    label: '残業・時給ランキング',
-    description: '残業時間・時給換算のランキング',
-    icon: Clock,
-    color: '#0ea5e9',
-  },
-  {
-    href: '/salary/ranking/growth',
-    label: '年収増加率ランキング',
-    description: '過去数年で最も伸びた職種',
-    icon: LineChart,
-    color: '#16a34a',
-  },
-  {
-    href: '/salary/ranking/high-income-low-overtime',
-    label: '残業少ない高年収',
-    description: '月10時間以下残業で高年収',
-    icon: BarChart2,
-    color: '#7c3aed',
-  },
-  {
-    href: '/salary/ranking/high-income-large-workforce',
-    label: '需要×高年収ランキング',
-    description: '労働者数が多く年収も高い職種',
-    icon: Users,
-    color: '#0891b2',
-  },
-  {
-    href: '/salary/ranking/role',
-    label: '役職別年収ランキング',
-    description: '部長・課長など役職別の年収比較',
-    icon: Briefcase,
-    color: '#7c3aed',
-  },
-  {
-    href: '/salary/ranking/education',
-    label: '学歴別年収ランキング',
-    description: '高卒・大卒・大学院卒の年収比較',
-    icon: GraduationCap,
-    color: '#16a34a',
-  },
-  {
-    href: '/salary/ranking/age-group',
-    label: '年齢階級別年収ランキング',
-    description: '10代〜70代の年齢帯別年収比較',
-    icon: BarChart3,
-    color: '#7c3aed',
-  },
+type RankingItem = { href: string; label: string; description: string; icon: React.ElementType; color: string }
+
+const rankingItems: RankingItem[] = [
+  { href: '/salary/ranking/occupation',                   label: '職種別年収ランキング',    description: '全職種の年収を一覧',             icon: TrendingUp, color: '#1a73e8' },
+  { href: '/salary/ranking/occupation?sex=male',          label: '男性職種別ランキング',    description: '男性労働者の職種別年収',         icon: Users,      color: '#1a73e8' },
+  { href: '/salary/ranking/occupation?sex=female',        label: '女性職種別ランキング',    description: '女性労働者の職種別年収',         icon: Users,      color: '#e8336d' },
+  { href: '/salary/ranking/occupation?sort=annual_bonus', label: 'ボーナスランキング',      description: '年間賞与額が多い職種',           icon: Award,      color: '#f59e0b' },
+  { href: '/salary/ranking/overtime-wage',                label: '残業・時給ランキング',    description: '残業時間・時給換算のランキング', icon: Clock,      color: '#0ea5e9' },
+  { href: '/salary/ranking/growth',                       label: '年収増加率ランキング',    description: '過去数年で最も伸びた職種',       icon: LineChart,  color: '#16a34a' },
+  { href: '/salary/ranking/high-income-low-overtime',     label: '残業少ない高年収',        description: '月10時間以下残業で高年収',       icon: BarChart2,  color: '#7c3aed' },
+  { href: '/salary/ranking/high-income-large-workforce',  label: '需要×高年収ランキング',   description: '労働者数が多く年収も高い職種',   icon: Users,      color: '#0891b2' },
 ]
 
 const categoryItems = [
   { href: '/salary/prefecture',            label: '都道府県別',   icon: MapPin,        description: '地域ごとの賃金水準' },
   { href: '/salary/ranking/education',     label: '学歴別',       icon: GraduationCap, description: '学歴による年収の違い' },
-  { href: '/salary/ranking/age-group',     label: '年齢別',       icon: BarChart3,     description: '年齢階級別の年収比較' },
   { href: '/salary/ranking/role',          label: '役職別',       icon: Briefcase,     description: '部長・課長など役職別の年収' },
 ]
 
@@ -127,18 +59,22 @@ function NavInner() {
     ? `${pathname}?${navSearchParams.toString()}`
     : pathname
 
-  const [mobileOpen, setMobileOpen]       = useState(false)
-  const [megaOpen, setMegaOpen]           = useState(false)
+  const [mobileOpen, setMobileOpen]             = useState(false)
+  const [megaOpen, setMegaOpen]                 = useState(false)
   const [industryMegaOpen, setIndustryMegaOpen] = useState(false)
-  const [searchQ, setSearchQ]             = useState('')
+  const [ageDropOpen, setAgeDropOpen]           = useState(false)
+  const [searchQ, setSearchQ]                   = useState('')
   const megaRef         = useRef<HTMLDivElement>(null)
   const industryMegaRef = useRef<HTMLDivElement>(null)
+  const ageDropRef      = useRef<HTMLDivElement>(null)
   const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
   const industryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ageTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isIndustryActive   = pathname.startsWith('/salary/industry') || pathname.startsWith('/salary/ranking/industry')
   const isOccupationActive = !isIndustryActive && (pathname.startsWith('/salary/ranking') || pathname.startsWith('/salary/occupation'))
   const isTrendActive      = pathname.startsWith('/salary/trend')
+  const isAgeActive        = pathname.startsWith('/salary/ranking/age-group') || pathname.startsWith('/salary/ranking/male') || pathname.startsWith('/salary/ranking/female')
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -162,10 +98,18 @@ function NavInner() {
   function closeIndustryMega() {
     industryTimerRef.current = setTimeout(() => setIndustryMegaOpen(false), 120)
   }
+  function openAgeDrop()  {
+    if (ageTimerRef.current) clearTimeout(ageTimerRef.current)
+    setAgeDropOpen(true)
+  }
+  function closeAgeDrop() {
+    ageTimerRef.current = setTimeout(() => setAgeDropOpen(false), 120)
+  }
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current)
     if (industryTimerRef.current) clearTimeout(industryTimerRef.current)
+    if (ageTimerRef.current) clearTimeout(ageTimerRef.current)
   }, [])
 
   return (
@@ -235,32 +179,29 @@ function NavInner() {
                   <div className="relative bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
 
                     {/* ランキング一覧 */}
-                    <div className="px-5 pt-4 pb-2">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">ランキング</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-0.5 px-3 pb-3">
+                    <div className="grid grid-cols-2 gap-0.5 px-3 pt-3 pb-3">
                       {rankingItems.map(({ href, label, description, icon: Icon, color }) => (
                         <Link
                           key={href}
                           href={href}
                           onClick={() => setMegaOpen(false)}
-                          className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors group ${
-                            pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          className={`flex items-start gap-2.5 px-2 py-2 rounded-xl transition-colors group ${
+                            fullPath === href ? 'bg-blue-50' : 'hover:bg-gray-50'
                           }`}
                         >
                           <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                             style={{ background: `${color}18` }}
                           >
-                            <Icon className="w-4 h-4" style={{ color }} />
+                            <Icon className="w-3.5 h-3.5" style={{ color }} />
                           </div>
                           <div className="min-w-0">
-                            <p className={`text-[13px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
-                              pathname === href ? 'text-[#1a73e8]' : 'text-gray-800'
+                            <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
+                              fullPath === href ? 'text-[#1a73e8]' : 'text-gray-800'
                             }`}>
                               {label}
                             </p>
-                            <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
                           </div>
                         </Link>
                       ))}
@@ -375,6 +316,64 @@ function NavInner() {
               )}
             </div>
 
+            {/* 年齢別ドロップダウン */}
+            <div
+              ref={ageDropRef}
+              className="relative"
+              onMouseEnter={openAgeDrop}
+              onMouseLeave={closeAgeDrop}
+            >
+              <button
+                aria-haspopup="true"
+                aria-expanded={ageDropOpen}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors select-none ${
+                  isAgeActive
+                    ? 'bg-blue-50 text-[#1a73e8]'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                年齢別
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${ageDropOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {ageDropOpen && (
+                <div
+                  onMouseEnter={openAgeDrop}
+                  onMouseLeave={closeAgeDrop}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50"
+                  style={{ width: 220 }}
+                >
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden py-1.5">
+                    {[
+                      { href: '/salary/ranking/age-group', label: '年齢別年収ランキング', description: '10代〜70代の年収比較',  color: '#7c3aed' },
+                      { href: '/salary/ranking/male',      label: '男性年齢別',           description: '男性の年齢階級別年収',  color: '#1a73e8' },
+                      { href: '/salary/ranking/female',    label: '女性年齢別',           description: '女性の年齢階級別年収',  color: '#e8336d' },
+                    ].map(({ href, label, description, color }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setAgeDropOpen(false)}
+                        className={`flex items-start gap-2.5 mx-1.5 px-2 py-2 rounded-lg transition-colors group ${
+                          pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
+                            pathname === href ? 'text-[#1a73e8]' : 'text-gray-800'
+                          }`} style={{ color: pathname === href ? color : undefined }}>
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* カテゴリリンク */}
             {categoryItems.map(({ href, label, icon: Icon }) => {
               const active = pathname.startsWith(href)
@@ -452,7 +451,7 @@ function NavInner() {
           </div>
           {/* ランキング */}
           <div className="border-t border-gray-100 px-4 pt-3 pb-1">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">ランキング</p>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">職種別</p>
             {rankingItems.map(({ href, label, icon: Icon, color }) => (
               <Link
                 key={href}
@@ -475,6 +474,25 @@ function NavInner() {
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
                   <Icon className="w-3.5 h-3.5" style={{ color }} />
                 </div>
+                <span className="text-sm text-gray-700 font-medium">{label}</span>
+              </Link>
+            ))}
+          </div>
+          {/* 年齢別 */}
+          <div className="border-t border-gray-100 px-4 pt-3 pb-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">年齢別</p>
+            {[
+              { href: '/salary/ranking/age-group', label: '年齢別年収ランキング' },
+              { href: '/salary/ranking/male',      label: '男性年齢別' },
+              { href: '/salary/ranking/female',    label: '女性年齢別' },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <BarChart3 className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-700 font-medium">{label}</span>
               </Link>
             ))}

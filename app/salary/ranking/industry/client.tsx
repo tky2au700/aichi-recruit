@@ -374,6 +374,8 @@ export function IndustryRankingClient() {
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.avg_age != null ? 'age' : data[0]?.total_workers != null ? 'workers' : 'tenure'}
             />
           </div>
         )}

@@ -404,6 +404,8 @@ export function OvertimeWageRankingClient({
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey="overtime"
             />
           </div>
         )}

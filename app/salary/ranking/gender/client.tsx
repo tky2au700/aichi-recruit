@@ -220,6 +220,11 @@ export function GenderRankingClient({ fixedSex, initialSize, initialYear, initia
       <div style={S.hero}>
         <div style={S.heroInner}>
           <h1 style={S.h1}>{pageHeading ?? dynamicHeading}</h1>
+          {currentSizeLabel && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, border: '1.5px solid #CBD5E1', background: '#F1F5F9', color: '#475569' }}>{currentSizeLabel}</span>
+            </div>
+          )}
           <p style={S.subtitle}>
             {meta ? `${meta.survey_group_name}　${meta.survey_year}年調査` : `賃金構造基本統計調査に基づく${sexLabel}データ`}
           </p>
@@ -262,6 +267,9 @@ export function GenderRankingClient({ fixedSex, initialSize, initialYear, initia
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
+              filterTags={[sexLabel, size].filter(t => t && t !== '企業規模計')}
             />
           </div>
         )}
