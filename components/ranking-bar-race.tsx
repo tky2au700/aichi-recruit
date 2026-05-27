@@ -91,7 +91,7 @@ const truncateLabel = (text: string, maxFullWidth = 12): string => {
 }
 
 type Entry = {
-  i: number; item: OccupationWage; color: string
+  i: number; item: ScatterItem; color: string
   dx: number; dy: number; xv: number; yv: number
   lx: number; ly: number; goRight: boolean; showLabel: boolean
 }
