@@ -590,33 +590,14 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             {/* 背景（ズーム外） */}
             <rect x={0} y={0} width={W} height={H} fill={BG} rx={8} />
 
-            {/* ズーム・パン対象グループ（clipPathでチャートエリアに制限） */}
+            {/* ズーム・パン対象グループ */}
             <defs>
               <clipPath id="chart-clip">
                 <rect x={PAD_L} y={PAD_T} width={W - PAD_L - PAD_R} height={H - PAD_T - PAD_B} />
               </clipPath>
             </defs>
-            <g transform={`translate(${panX}, ${panY}) scale(${zoom})`} style={{ transformOrigin: '0 0' }}>
-              <g clipPath="url(#chart-clip)">
 
-            {/* グリッド線 */}
-            {yTicks.map(v => (
-              <line key={`yg-${v}`} x1={PAD_L} y1={toY(v)} x2={W - PAD_R} y2={toY(v)}
-                stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
-            ))}
-            {xTicks.map(v => (
-              <line key={`xg-${v}`} x1={toX(v)} y1={PAD_T} x2={toX(v)} y2={H - PAD_B}
-                stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
-            ))}
-
-            {/* 軸線 */}
-            <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
-            <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
-
-              </g>{/* /clipPath */}
-            </g>{/* /zoom-pan */}
-
-            {/* 軸ラベル（目盛り）—ズーム外 */}
+            {/* 軸ラベル（目盛り）— ズーム外・常に固定 */}
             {yTicks.map(v => (
               <text key={`yt-${v}`} x={PAD_L - 6} y={toY(v)}
                 textAnchor="end" dominantBaseline="middle"
@@ -632,7 +613,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               </text>
             ))}
 
-            {/* 軸タイトル */}
+            {/* 軸タイトル — ズーム外 */}
             <text
               transform={`translate(13,${PAD_T + (H - PAD_T - PAD_B) / 2}) rotate(-90)`}
               textAnchor="middle" dominantBaseline="middle"
@@ -645,93 +626,99 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               {xAxis.label}（{xAxis.unit}）
             </text>
 
-            {/* 調査年透��し */}
-            {surveyYear && (
-              <text x={W - PAD_R - 8} y={H - PAD_B - 8} textAnchor="end" dominantBaseline="auto"
-                fontSize={44} fontWeight={700} fill="rgba(0,0,0,0.05)" fontFamily="'Noto Sans JP',sans-serif">
-                {surveyYear}年
-              </text>
-            )}
+            {/* ズーム・パン変換グループ（チャートエリアにclip） */}
+            <g clipPath="url(#chart-clip)">
+              <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
 
+                {/* グリッド線 */}
+                {yTicks.map(v => (
+                  <line key={`yg-${v}`} x1={PAD_L} y1={toY(v)} x2={W - PAD_R} y2={toY(v)}
+                    stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
+                ))}
+                {xTicks.map(v => (
+                  <line key={`xg-${v}`} x1={toX(v)} y1={PAD_T} x2={toX(v)} y2={H - PAD_B}
+                    stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
+                ))}
 
+                {/* 軸線 */}
+                <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
+                <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
 
-            {/* ドット（非ホバー） */}
-            {entries.map(e => e.i === hoveredIdx ? null : (
-              <circle key={`d-${e.i}`} cx={e.dx} cy={e.dy} r={DOT_R}
-                fill={e.color}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredIdx(e.i)}
-                onMouseLeave={() => setHoveredIdx(null)}
-              />
-            ))}
+                {/* 調査年透かし */}
+                {surveyYear && (
+                  <text x={W - PAD_R - 8} y={H - PAD_B - 8} textAnchor="end" dominantBaseline="auto"
+                    fontSize={44 / zoom} fontWeight={700} fill="rgba(0,0,0,0.05)" fontFamily="'Noto Sans JP',sans-serif">
+                    {surveyYear}年
+                  </text>
+                )}
 
-            {/* ラベル（showLabel=trueかつ非ホバーのみ） */}
-            {entries.map(e => {
-              if (e.i === hoveredIdx) return null
-              if (!e.showLabel) return null
-              return (
-                <text key={`lb-${e.i}`}
-                  x={e.lx} y={e.ly}
-                  textAnchor="middle" dominantBaseline="auto"
-                  fontSize={LABEL_FS} fontWeight={500}
-                  fill="#000000" fillOpacity={0.85}
-                  fontFamily="'Noto Sans JP',sans-serif"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {truncateLabel(e.item.name)}
-                </text>
-              )
-            })}
-
-            {/* ホバー：ドット拡大（ズーム内）+ ツールチップ（ズーム外スクリーン座標） */}
-            {hovered && (() => {
-              const e = hovered
-              // スクリーン座標（zoom・pan 変換後）
-              const sx = e.dx * zoom + panX
-              const sy = e.dy * zoom + panY
-              const slx = e.lx * zoom + panX
-              const sly = e.ly * zoom + panY
-
-              const tipLines = [
-                e.item.name,
-                `${xAxis.label}: ${xAxis.format(e.xv)}`,
-                `${yAxis.label}: ${yAxis.format(e.yv)}`,
-              ]
-              const tipW = 210, tipLH = 18, tipH = tipLines.length * tipLH + 14
-              let tx = sx + (DOT_R + 10), ty = sy - tipH / 2
-              if (tx + tipW > W - PAD_R) tx = sx - (DOT_R + 10) - tipW
-              if (tx < PAD_L)            tx = PAD_L
-              if (ty < PAD_T)            ty = PAD_T
-              if (ty + tipH > H - PAD_B) ty = H - PAD_B - tipH
-
-              return (
-                <g>
-                  {/* ホバードット（ズーム内に配置） */}
-                  <circle cx={sx} cy={sy} r={(DOT_R + 3)} fill={e.color} opacity={0.25} />
-                  <circle cx={sx} cy={sy} r={(DOT_R + 1)} fill={e.color}
-                    stroke="#fff" strokeWidth={1.5}
+                {/* ドット（非ホバー） */}
+                {entries.map(e => e.i === hoveredIdx ? null : (
+                  <circle key={`d-${e.i}`} cx={e.dx} cy={e.dy} r={DOT_R}
+                    fill={e.color}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHoveredIdx(e.i)}
-                    onMouseLeave={() => setHoveredIdx(null)} />
-                  {/* ラベル（ホバー時） */}
-                  <text x={slx} y={sly}
-                    textAnchor="middle" dominantBaseline="auto"
-                    fontSize={LABEL_FS} fontWeight={700}
-                    fill="#000000" fillOpacity={1}
-                    fontFamily="'Noto Sans JP',sans-serif"
-                    style={{ pointerEvents: 'none' }}>
-                    {truncateLabel(e.item.name)}
-                  </text>
-                  {/* ツールチップ */}
-                  <rect x={tx} y={ty} width={tipW} height={tipH} rx={8}
-                    fill={e.color} fillOpacity={0.95} />
-                  <rect x={tx} y={ty} width={tipW} height={tipH} rx={8}
-                    fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
-                  {tipLines.map((line, li) => (
-                    <text key={li}
-                      x={tx + 12} y={ty + 7 + li * tipLH + tipLH / 2}
-                      dominantBaseline="middle"
-                      fontSize={li === 0 ? 11 : 10} fontWeight={li === 0 ? 700 : 500}
+                    onMouseLeave={() => setHoveredIdx(null)}
+                  />
+                ))}
+
+                {/* ラベル（showLabel=trueかつ非ホバーのみ） */}
+                {entries.map(e => {
+                  if (e.i === hoveredIdx) return null
+                  if (!e.showLabel) return null
+                  return (
+                    <text key={`lb-${e.i}`}
+                      x={e.lx} y={e.ly}
+                      textAnchor="middle" dominantBaseline="auto"
+                      fontSize={LABEL_FS / zoom} fontWeight={500}
+                      fill="#000000" fillOpacity={0.85}
+                      fontFamily="'Noto Sans JP',sans-serif"
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      {truncateLabel(e.item.name)}
+                    </text>
+                  )
+                })}
+
+                {/* ホバー：ドット拡大 */}
+                {hovered && (() => {
+                  const e = hovered
+                  const tipLines = [
+                    e.item.name,
+                    `${xAxis.label}: ${xAxis.format(e.xv)}`,
+                    `${yAxis.label}: ${yAxis.format(e.yv)}`,
+                  ]
+                  const tipW = 210 / zoom, tipLH = 18 / zoom, tipH = tipLines.length * tipLH + 14 / zoom
+                  let tx = e.dx + (DOT_R + 10) / zoom, ty = e.dy - tipH / 2
+                  if (tx * zoom + panX + tipW * zoom > W - PAD_R) tx = e.dx - (DOT_R + 10) / zoom - tipW
+                  if (ty < PAD_T / zoom) ty = PAD_T / zoom
+                  if (ty + tipH > (H - PAD_B) / zoom) ty = (H - PAD_B) / zoom - tipH
+
+                  return (
+                    <g>
+                      <circle cx={e.dx} cy={e.dy} r={(DOT_R + 3) / zoom} fill={e.color} opacity={0.25} />
+                      <circle cx={e.dx} cy={e.dy} r={(DOT_R + 1) / zoom} fill={e.color}
+                        stroke="#fff" strokeWidth={1.5 / zoom}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => setHoveredIdx(e.i)}
+                        onMouseLeave={() => setHoveredIdx(null)} />
+                      <text x={e.lx} y={e.ly}
+                        textAnchor="middle" dominantBaseline="auto"
+                        fontSize={LABEL_FS / zoom} fontWeight={700}
+                        fill="#000000" fillOpacity={1}
+                        fontFamily="'Noto Sans JP',sans-serif"
+                        style={{ pointerEvents: 'none' }}>
+                        {truncateLabel(e.item.name)}
+                      </text>
+                      <rect x={tx} y={ty} width={tipW} height={tipH} rx={8 / zoom}
+                        fill={e.color} fillOpacity={0.95} />
+                      <rect x={tx} y={ty} width={tipW} height={tipH} rx={8 / zoom}
+                        fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1 / zoom} />
+                      {tipLines.map((line, li) => (
+                        <text key={li}
+                          x={tx + 12 / zoom} y={ty + 7 / zoom + li * tipLH + tipLH / 2}
+                          dominantBaseline="middle"
+                          fontSize={(li === 0 ? 11 : 10) / zoom} fontWeight={li === 0 ? 700 : 500}
                       fill={li === 0 ? '#fff' : 'rgba(255,255,255,0.8)'}
                       fontFamily="'Noto Sans JP',sans-serif">
                       {line}
@@ -740,6 +727,9 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                 </g>
               )
             })()}
+
+              </g>{/* /scale */}
+            </g>{/* /clipPath */}
           </svg>
 
           {/* 出典 */}
@@ -768,7 +758,15 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <button onClick={() => { setZoom(z => Math.min(8, +(z * 1.3).toFixed(2))); }} style={{
+              <button onClick={() => {
+                const cx = W / 2, cy = H / 2
+                setZoom(z => {
+                  const next = Math.min(8, +(z * 1.3).toFixed(2))
+                  setPanX(px => cx - (cx - px) * (next / z))
+                  setPanY(py => cy - (cy - py) * (next / z))
+                  return next
+                })
+              }} style={{
                 flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 14, fontWeight: 700,
                 cursor: 'pointer', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#334155',
               }}>+</button>
