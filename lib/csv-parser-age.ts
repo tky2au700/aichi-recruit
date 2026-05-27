@@ -195,63 +195,6 @@ function isPositiveNum(s: string): boolean {
   return !isNaN(n) && n > 0
 }
 
-// -------------------- フォーマットC（2019年以前・ワイド形式）パーサー --------------------
-// 構造: 1行に4企業規模が横並び
-//   cols[0～5]: 識別コード等
-//   cols[6]: 性別コード（1=計,2=男,3=女等）
-//   cols[7]: 連番
-//   cols[8]: ラベル（学歴名 or 年齢 or 性別+学歴集計）
-//   cols[9 ～ 16]:  企業規模計 (年齢,勤続,所定内時間,超過時間,月給,所定内給与,賞与,労働者数)
-//   cols[17 ～ 24]: 1,000人以上
-//   cols[25 ～ 32]: 100～999人
-//   cols[33 ～ 40]: 10～99人
-
-function parseAgeWageCsvFormatC(logicalRows: string[][]): AgeWageRow[] {
-  const BLOCKS_C: Array<{ label: AgeWageRow['enterprise_size']; start: number }> = [
-    { label: '企業規模計',   start: 9  },
-    { label: '1,000人以上', start: 17 },
-    { label: '100～999人',  start: 25 },
-    { label: '10～99人',    start: 33 },
-  ]
-
-  const results: AgeWageRow[] = []
-  let currentSex: '計' | '男' | '女' = '計'
-  let currentEducation = '学歴計'
-
-  for (const cols of logicalRows) {
-    // データ行判定: cols[0]が 'A1N11' 等の識別コードで始まる
-    if (!cols[0] || !cols[0].trim().match(/^[A-Z][0-9A-Z]+/i)) continue
-    // cols[9] (企業規模計の年齢) が数値であること
-    if (!isPositiveNum(cols[9] ?? '')) continue
-
-    const rawLabel = (cols[8] ?? '').replace(/\r\n|\r|\n/g, '\n')
-    if (!rawLabel.trim()) continue
-
-    const parsed = parseLabelParts(rawLabel)
-
-    if (parsed.sex !== null)       currentSex = parsed.sex
-    if (parsed.education !== null) currentEducation = parsed.education
-
-    let finalAgeGroup: string
-    if (parsed.ageGroup !== null) {
-      finalAgeGroup = parsed.ageGroup
-    } else if (parsed.education !== null || parsed.sex !== null) {
-      finalAgeGroup = '学歴計'
-    } else {
-      continue
-    }
-
-    const base = { sex: currentSex, education: currentEducation, age_group: finalAgeGroup }
-
-    for (const { label, start } of BLOCKS_C) {
-      const row = buildRow(base, cols, start, label)
-      if (row) results.push(row)
-    }
-  }
-
-  return results
-}
-
 // -------------------- メインパーサー --------------------
 
 export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
@@ -259,38 +202,37 @@ export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
   const results: AgeWageRow[] = []
 
   // -------- フォーマット自動判定 --------
-  // フォーマットC（2019年以前・ワイド形式）:
-  //   先頭のデータ行が cols[0]='A1N11...' かつ cols[9] が年齢数値、列数が33以上
-  // フォーマットA（2025年〜）: 「区　分」が cols[1]
-  // フォーマットB（〜2024年）: 「区　分」が cols[0]
-
-  // フォーマットC検出: 先頭50行以内に A1N11 行があり cols.length >= 33
-  for (let r = 0; r < Math.min(50, logicalRows.length); r++) {
-    const cols = logicalRows[r]
-    if (!cols) continue
-    if (cols[0]?.trim().match(/^[A-Z][0-9A-Z]+/i) && cols.length >= 33 && isPositiveNum(cols[9] ?? '')) {
-      return parseAgeWageCsvFormatC(logicalRows)
-    }
-  }
-
-  // フォーマットA/B
+  // ヘッダー行の「区　分」列位置でフォーマットを判定する:
+  //   フォーマットA（2025年〜）: 「区　分」が cols[2] → labelOffset=2, dataOffset=3
+  //   フォーマットB（〜2024年）: 「区　分」が cols[0] → labelOffset=1, dataOffset=2
+  //
+  // 「区　分」が見つからない場合は、データ行の列数で推定:
+  //   cols[0] が空で cols[1] にラベル → フォーマットB
   let dataStart = -1
   let labelOffset = 2
   let dataOffset  = 3
 
+  // ヘッダー行スキャン（先頭15行以内）
+  // 「区　分」がある列でフォーマットを判定する:
+  //   col[0] に「区　分」→ フォーマットB（2024年以前）: labelOffset=1, dataOffset=2
+  //   col[1] に「区　分」→ フォーマットA（2025年〜）:  labelOffset=2, dataOffset=3
+  let formatDetected = false
   for (let r = 0; r < Math.min(15, logicalRows.length); r++) {
     const cols = logicalRows[r]
     if (!cols) continue
     const n0 = norm(cols[0] ?? '')
     const n1 = norm(cols[1] ?? '')
     if (n0 === '区分' || n0.startsWith('区分')) {
-      labelOffset = 1; dataOffset = 2; break
+      // 2024年以前: col[0]に「区　分」→ labelOffset=1（データはcol[2]から）
+      labelOffset = 1; dataOffset = 2; formatDetected = true; break
     }
     if (n1 === '区分' || n1.startsWith('区分')) {
-      labelOffset = 2; dataOffset = 3; break
+      // 2025年〜: col[1]に「区　分」→ labelOffset=2（データはcol[3]から）
+      labelOffset = 2; dataOffset = 3; formatDetected = true; break
     }
   }
 
+  // データ開始行検出: dataOffset列目が正の数値（年齢: 10〜80）になる行
   for (let r = 5; r < logicalRows.length; r++) {
     const cols = logicalRows[r]
     if (!cols || cols.length < 10) continue
@@ -301,17 +243,24 @@ export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
     }
   }
 
+  // フォーマット未検出かつデータ行も見つからない場合は空を返す
   if (dataStart === -1) return []
 
   const BLOCKS = getBlocks(dataOffset)
+
   let currentSex: '計' | '男' | '女' = '計'
   let currentEducation = '学歴計'
 
   for (let i = dataStart; i < logicalRows.length; i++) {
     const cols = logicalRows[i]
     if (!cols || cols.length < 10) continue
+
+    // データ列（dataOffset）が正の数値でなければスキップ
     if (!isPositiveNum(cols[dataOffset] ?? '')) continue
 
+    // フォーマットAの特殊ケース:
+    // 集計行（性別+学歴）は cols[1] にラベルがあり cols[2] は空
+    // → cols[labelOffset] が空のとき cols[labelOffset-1] も確認する
     let rawLabel = cols[labelOffset] ?? ''
     if (!rawLabel.trim() && labelOffset > 0) {
       rawLabel = cols[labelOffset - 1] ?? ''
@@ -327,12 +276,17 @@ export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
     if (parsed.ageGroup !== null) {
       finalAgeGroup = parsed.ageGroup
     } else if (parsed.education !== null || parsed.sex !== null) {
+      // 学歴行 or 性別+学歴集計行 → 学歴計
       finalAgeGroup = '学歴計'
     } else {
       continue
     }
 
-    const base = { sex: currentSex, education: currentEducation, age_group: finalAgeGroup }
+    const base = {
+      sex:       currentSex,
+      education: currentEducation,
+      age_group: finalAgeGroup,
+    }
 
     for (const { label, start } of BLOCKS) {
       const row = buildRow(base, cols, start, label)
