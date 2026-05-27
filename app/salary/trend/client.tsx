@@ -8,16 +8,13 @@ import {
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 // ---- カラーパレット ----
-const COLORS = {
+const C = {
   total:  '#1a73e8',
   male:   '#0891b2',
   female: '#e8336d',
-  // 年齢階級別
-  age: ['#1a73e8','#0891b2','#16a34a','#f59e0b','#7c3aed','#e8336d','#d97706','#0ea5e9','#64748b','#dc2626','#2dd4bf','#a855f7'],
-  // 企業規模別
-  size: ['#1a73e8','#16a34a','#f59e0b','#e8336d'],
-  // 学歴別
-  edu:  ['#1a73e8','#0891b2','#16a34a','#f59e0b','#e8336d','#7c3aed'],
+  age:    ['#1a73e8','#0891b2','#16a34a','#f59e0b','#7c3aed','#e8336d','#d97706','#0ea5e9','#64748b','#dc2626','#2dd4bf','#a855f7'],
+  size:   ['#1a73e8','#16a34a','#f59e0b','#e8336d'],
+  edu:    ['#1a73e8','#0891b2','#16a34a','#f59e0b','#e8336d','#7c3aed'],
 }
 
 interface TrendData {
@@ -32,17 +29,14 @@ interface TrendData {
   error?: string
 }
 
-// 万円単位フォーマット
 function fmtY(v: number) { return `${Math.round(v)}万` }
-function fmtTip(v: number) { return `${v.toFixed(1)}万円` }
 
-// 最新年からの変化率バッジ
-function GrowthBadge({ data, key1, key2 }: { data: Record<string, any>[]; key1: string; key2?: string }) {
-  const k = key2 ?? key1
+// 変化率バッジ
+function GrowthBadge({ data, dataKey }: { data: Record<string, any>[]; dataKey: string }) {
   if (!data || data.length < 2) return null
-  const first = data[0]?.[k]
-  const last  = data[data.length - 1]?.[k]
-  if (!first || !last) return null
+  const first = data[0]?.[dataKey]
+  const last  = data[data.length - 1]?.[dataKey]
+  if (first == null || last == null) return null
   const pct = ((last - first) / first) * 100
   const pos = pct >= 0
   return (
@@ -56,6 +50,28 @@ function GrowthBadge({ data, key1, key2 }: { data: Record<string, any>[]; key1: 
   )
 }
 
+// カスタムツールチップ
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+      padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,0,0,0.10)', fontSize: 12,
+    }}>
+      <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: 6, fontSize: 13 }}>{label}年</p>
+      {payload.map((p: any) => (
+        p.value != null && (
+          <div key={p.dataKey} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
+            <span style={{ color: '#475569', flex: 1 }}>{p.name}</span>
+            <span style={{ fontWeight: 700, color: '#0f172a' }}>{Number(p.value).toFixed(1)}万円</span>
+          </div>
+        )
+      ))}
+    </div>
+  )
+}
+
 // セクションカード
 function SectionCard({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -64,48 +80,30 @@ function SectionCard({ title, badge, children }: { title: string; badge?: React.
         <span className="text-[15px] font-bold text-gray-900">{title}</span>
         {badge}
       </div>
-      <div className="px-4 py-4">{children}</div>
+      <div className="px-4 pt-4 pb-2">{children}</div>
     </div>
   )
 }
 
 // 共通折れ線グラフ
 function TrendLineChart({
-  data, lines, colors, unit = '万円',
+  data, lines,
 }: {
   data: Record<string, any>[]
   lines: { key: string; label: string; color: string }[]
-  unit?: string
 }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+      <LineChart data={data} margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-        <XAxis
-          dataKey="year"
-          tickFormatter={v => `${v}年`}
-          tick={{ fontSize: 12, fill: '#64748b' }}
-        />
-        <YAxis
-          tickFormatter={fmtY}
-          tick={{ fontSize: 11, fill: '#64748b' }}
-          width={54}
-        />
-        <Tooltip
-          formatter={(v: any) => [fmtTip(Number(v)), '']}
-          labelFormatter={l => `${l}年`}
-          contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-          labelStyle={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}
-        />
+        <XAxis dataKey="year" tickFormatter={v => `${v}年`} tick={{ fontSize: 12, fill: '#64748b' }} />
+        <YAxis tickFormatter={fmtY} tick={{ fontSize: 11, fill: '#64748b' }} width={54} />
+        <Tooltip content={<CustomTooltip />} />
         <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
         {lines.map(({ key, label, color }) => (
           <Line
-            key={key}
-            type="monotone"
-            dataKey={key}
-            name={label}
-            stroke={color}
-            strokeWidth={2.5}
+            key={key} type="monotone" dataKey={key} name={label}
+            stroke={color} strokeWidth={2.5}
             dot={{ r: 4, fill: color, strokeWidth: 0 }}
             activeDot={{ r: 6 }}
             connectNulls
@@ -116,13 +114,70 @@ function TrendLineChart({
   )
 }
 
+// 年別データテーブル
+function YearTable({ data, columns }: {
+  data: Record<string, any>[]
+  columns: { key: string; label: string; color: string }[]
+}) {
+  return (
+    <div className="overflow-x-auto mt-4">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="border-t border-gray-100">
+            <th className="text-left py-2 px-3 font-semibold text-gray-500 w-16">年</th>
+            {columns.map(c => (
+              <th key={c.key} className="text-right py-2 px-3 font-semibold" style={{ color: c.color }}>
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(row => (
+            <tr key={row.year} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+              <td className="py-2 px-3 font-semibold text-gray-700">{row.year}年</td>
+              {columns.map(c => (
+                <td key={c.key} className="text-right py-2 px-3 text-gray-700 tabular-nums">
+                  {row[c.key] != null ? `${Number(row[c.key]).toFixed(1)}万円` : '−'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // KPIカード
 function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-col gap-1">
       <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">{label}</span>
-      <span className="text-[26px] font-bold" style={{ color }}>{value}</span>
+      <span className="text-[26px] font-bold leading-tight" style={{ color }}>{value}</span>
       {sub && <span className="text-[11px] text-gray-400">{sub}</span>}
+    </div>
+  )
+}
+
+// 展開可能テーブル
+function CollapsibleTable({ data, columns }: {
+  data: Record<string, any>[]
+  columns: { key: string; label: string; color: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-gray-600 transition-colors px-2 py-1 rounded"
+      >
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} viewBox="0 0 12 12" fill="currentColor">
+          <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        年別データ一覧
+      </button>
+      {open && <YearTable data={data} columns={columns} />}
     </div>
   )
 }
@@ -148,14 +203,22 @@ export function TrendClient() {
     )
   }
 
-  const latestYear  = data.years[data.years.length - 1]
-  const latestTotal = data.overall.find(r => r.year === latestYear)
-  const latestMale  = latestTotal?.male
-  const latestFemale = latestTotal?.female
+  const latestYear   = data.years[data.years.length - 1]
+  const latestTotal  = data.overall.find(r => r.year === latestYear)
 
-  // 年齢別: 主要年齢帯のみ表示（絞り込み）
-  const mainAgeGroups = ['20～24歳','25～29歳','30～34歳','35～39歳','40～44歳','45～49歳','50～54歳','55～59歳']
-  const ageGroupsToShow = data.ageGroups.filter(ag => mainAgeGroups.includes(ag))
+  // 主要年齢帯に絞り込む
+  const mainAges = ['20～24歳','25～29歳','30～34歳','35～39歳','40～44歳','45～49歳','50～54歳','55～59歳']
+  const ageGroupsToShow = data.ageGroups.filter(ag => mainAges.includes(ag))
+
+  // 全体・男女別のテーブルカラム
+  const overallCols = [
+    { key: '男女計', label: '男女計', color: C.total },
+    { key: '男性',   label: '男性',   color: C.male  },
+    { key: '女性',   label: '女性',   color: C.female },
+  ]
+  const overallTableData = data.overall.map(r => ({
+    year: r.year, '男女計': r.total, '男性': r.male, '女性': r.female,
+  }))
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -163,31 +226,30 @@ export function TrendClient() {
       <div className="bg-white border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 lg:px-6 py-8">
           <div className="flex flex-col gap-1">
-            <p className="text-[11px] font-semibold text-[#1a73e8] uppercase tracking-widest">賃金構造基本統計調査 2021〜2025年</p>
+            <p className="text-[11px] font-semibold text-[#1a73e8] uppercase tracking-widest">賃金構造基本統計調査 {data.years[0]}〜{latestYear}年</p>
             <h1 className="text-2xl font-bold text-gray-900 text-balance">年収推移グラフ</h1>
             <p className="text-sm text-gray-500 mt-1">
               e-Statの賃金構造基本統計調査に基づく日本の年収トレンドデータです。全体・男女別・年齢階級別・企業規模別・学歴別の推移を可視化しています。
             </p>
           </div>
-          {/* KPIカード */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
             <KpiCard
               label={`${latestYear}年 全体平均`}
               value={latestTotal?.total ? `${latestTotal.total.toFixed(1)}万円` : '−'}
               sub="男女計・企業規模計"
-              color="#1a73e8"
+              color={C.total}
             />
             <KpiCard
               label={`${latestYear}年 男性平均`}
-              value={latestMale ? `${latestMale.toFixed(1)}万円` : '−'}
+              value={latestTotal?.male ? `${latestTotal.male.toFixed(1)}万円` : '−'}
               sub="全年齢・企業規模計"
-              color="#0891b2"
+              color={C.male}
             />
             <KpiCard
               label={`${latestYear}年 女性平均`}
-              value={latestFemale ? `${latestFemale.toFixed(1)}万円` : '−'}
+              value={latestTotal?.female ? `${latestTotal.female.toFixed(1)}万円` : '−'}
               sub="全年齢・企業規模計"
-              color="#e8336d"
+              color={C.female}
             />
             <KpiCard
               label="調査対象期間"
@@ -201,91 +263,64 @@ export function TrendClient() {
 
       <div className="mx-auto max-w-7xl px-4 lg:px-6 py-8 flex flex-col gap-6">
 
-        {/* 1. 全体の年収推移 */}
+        {/* 1. 男女別年収推移（統合カード） */}
         <SectionCard
-          title="全体の年収推移"
-          badge={<GrowthBadge data={data.overall} key1="total" />}
+          title="全体・男女別の年収推移"
+          badge={<GrowthBadge data={overallTableData} dataKey="男女計" />}
         >
           <TrendLineChart
-            data={data.overall.map(r => ({ year: r.year, '男女計': r.total }))}
-            lines={[{ key: '男女計', label: '男女計', color: COLORS.total }]}
-          />
-        </SectionCard>
-
-        {/* 2. 男性・女性の年収推移 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SectionCard
-            title="男性の年収推移"
-            badge={<GrowthBadge data={data.overall} key1="male" />}
-          >
-            <TrendLineChart
-              data={data.overall.map(r => ({ year: r.year, '男性': r.male }))}
-              lines={[{ key: '男性', label: '男性', color: COLORS.male }]}
-            />
-          </SectionCard>
-          <SectionCard
-            title="女性の年収推移"
-            badge={<GrowthBadge data={data.overall} key1="female" />}
-          >
-            <TrendLineChart
-              data={data.overall.map(r => ({ year: r.year, '女性': r.female }))}
-              lines={[{ key: '女性', label: '女性', color: COLORS.female }]}
-            />
-          </SectionCard>
-        </div>
-
-        {/* 3. 男女比較（同グラフ） */}
-        <SectionCard title="男女別年収推移の比較">
-          <TrendLineChart
-            data={data.overall.map(r => ({ year: r.year, '男性': r.male, '女性': r.female, '男女計': r.total }))}
+            data={overallTableData}
             lines={[
-              { key: '男女計', label: '男女計', color: COLORS.total },
-              { key: '男性',   label: '男性',   color: COLORS.male },
-              { key: '女性',   label: '女性',   color: COLORS.female },
+              { key: '男女計', label: '男女計', color: C.total },
+              { key: '男性',   label: '男性',   color: C.male  },
+              { key: '女性',   label: '女性',   color: C.female },
             ]}
           />
+          <CollapsibleTable data={overallTableData} columns={overallCols} />
         </SectionCard>
 
-        {/* 4. 年齢階級別の年収推移 */}
-        <SectionCard title="年齢階級別の年収推移">
-          <p className="text-[12px] text-gray-400 mb-3">20〜59歳の主要年齢帯（男女計・企業規模計）</p>
+        {/* 2. 年齢階級別の年収推移 */}
+        <SectionCard title="年齢階級別の年収推移（男女計・企業規模計）">
           <TrendLineChart
             data={data.byAge}
             lines={ageGroupsToShow.map((ag, i) => ({
-              key: ag,
-              label: ag,
-              color: COLORS.age[i % COLORS.age.length],
+              key: ag, label: ag, color: C.age[i % C.age.length],
             }))}
+          />
+          <CollapsibleTable
+            data={data.byAge}
+            columns={ageGroupsToShow.map((ag, i) => ({ key: ag, label: ag, color: C.age[i % C.age.length] }))}
           />
         </SectionCard>
 
-        {/* 5. 企業規模別の年収推移 */}
-        <SectionCard title="企業規模別の年収推移">
-          <p className="text-[12px] text-gray-400 mb-3">男女計・全学歴</p>
+        {/* 3. 企業規模別の年収推移 */}
+        <SectionCard title="企業規模別の年収推移（男女計・全学歴）">
           <TrendLineChart
             data={data.bySize}
             lines={data.sizes.map((s, i) => ({
-              key: s,
-              label: s,
-              color: COLORS.size[i % COLORS.size.length],
+              key: s, label: s, color: C.size[i % C.size.length],
             }))}
+          />
+          <CollapsibleTable
+            data={data.bySize}
+            columns={data.sizes.map((s, i) => ({ key: s, label: s, color: C.size[i % C.size.length] }))}
           />
         </SectionCard>
 
-        {/* 6. 学歴別の年収推移 */}
-        <SectionCard title="学歴別の年収推移">
-          <p className="text-[12px] text-gray-400 mb-3">男女計・企業規模計</p>
+        {/* 4. 学歴別の年収推移 */}
+        <SectionCard title="学歴別の年収推移（男女計・企業規模計）">
           <TrendLineChart
             data={data.byEducation}
             lines={data.educations.map((e, i) => ({
-              key: e,
-              label: e,
-              color: COLORS.edu[i % COLORS.edu.length],
+              key: e, label: e, color: C.edu[i % C.edu.length],
             }))}
+          />
+          <CollapsibleTable
+            data={data.byEducation}
+            columns={data.educations.map((e, i) => ({ key: e, label: e, color: C.edu[i % C.edu.length] }))}
           />
         </SectionCard>
 
-        {/* フッター注記 */}
         <p className="text-[11px] text-gray-400 text-center pb-4">
           出典: 厚生労働省「賃金構造基本統計調査」（e-Stat）　単位: 万円　推定年収 = 月給 × 12 + 年間賞与
         </p>
@@ -310,7 +345,7 @@ function LoadingSkeleton() {
         </div>
       </div>
       <div className="mx-auto max-w-7xl px-4 lg:px-6 py-8 flex flex-col gap-6 animate-pulse">
-        {[...Array(5)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="bg-white border border-gray-200 rounded-2xl h-80" />
         ))}
       </div>
