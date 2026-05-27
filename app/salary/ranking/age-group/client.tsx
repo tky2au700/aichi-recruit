@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info, ChevronRight } from 'lucide-react'
 
 interface AgeGroupRow {
   age_group: string
@@ -306,7 +307,7 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
         <div style={S.tableCard}>
           <div style={S.tableHead}>
             <div style={S.tableTitle}>
-              <span>年齢階級別平均{currentSortLabel}ランキング</span>
+              <span>年齢��級別平均{currentSortLabel}ランキング</span>
               {!loading && <span style={S.badge}>{sortedData.length}区分</span>}
             </div>
           </div>
@@ -355,7 +356,17 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
                         onMouseEnter={e => (e.currentTarget.style.background = '#F5F3FF')}
                         onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}>
                         <td style={{ ...S.td, width: 48 }}><RankBadge rank={idx + 1} /></td>
-                        <td style={{ ...S.td, fontWeight: 600 }}>{row.age_group}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>
+                          <Link
+                            href={`/salary/age-group/${encodeURIComponent(row.age_group)}`}
+                            style={{ color: '#7c3aed', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                          >
+                            {row.age_group}
+                            <ChevronRight size={12} color="#94A3B8" />
+                          </Link>
+                        </td>
                         <td style={{ ...S.td, minWidth: 140 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: sortKey === 'annual_income' ? (idx === 0 ? '#D97706' : isAboveAvg ? '#7c3aed' : '#374151') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
                             {fmtWan(row.annual_income)}
@@ -394,7 +405,16 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
                           </span>
                           {sortKey === 'hourly_wage' && <div style={S.barWrap}><div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#7c3aed', borderRadius: 4 }} /></div>}
                         </td>
-                        <td style={{ ...S.td, color: '#94A3B8', fontSize: 12 }}>{row.age_group}</td>
+                        <td style={{ ...S.td }}>
+                          <Link
+                            href={`/salary/age-group/${encodeURIComponent(row.age_group)}`}
+                            style={{ color: '#7c3aed', textDecoration: 'none', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                          >
+                            詳細 <ChevronRight size={11} />
+                          </Link>
+                        </td>
                       </tr>
                     )
                   })}

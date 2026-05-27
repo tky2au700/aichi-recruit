@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info, ChevronRight } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -358,7 +359,17 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
                         onMouseEnter={e => (e.currentTarget.style.background = '#F0FDF4')}
                         onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#FAFBFC')}>
                         <td style={{ ...S.td, width: 48 }}><RankBadge rank={idx + 1} /></td>
-                        <td style={{ ...S.td, fontWeight: 600 }}>{row.education}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>
+                          <Link
+                            href={`/salary/education/${encodeURIComponent(row.education)}`}
+                            style={{ color: '#16a34a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                          >
+                            {row.education}
+                            <ChevronRight size={12} color="#94A3B8" />
+                          </Link>
+                        </td>
                         {/* 推定年収 */}
                         <td style={{ ...S.td, minWidth: 140 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: sortKey === 'annual_income' ? (idx === 0 ? '#D97706' : isAboveAvg ? '#16a34a' : '#374151') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
