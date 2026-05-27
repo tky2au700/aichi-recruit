@@ -80,6 +80,10 @@ export function RankingBarRace({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const [labelMode, setLabelMode] = useState<'top10' | 'bottom10'>('top10')
   const [sharing, setSharing] = useState(false)
+  const [shareModal, setShareModal] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null)
+  const [videoProgress, setVideoProgress] = useState<number | null>(null)
   const wrapRef      = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 700, h: 380 })
@@ -178,12 +182,6 @@ export function RankingBarRace({
     if (e.cardX < PAD_L)                    e.cardX = PAD_L
     if (e.cardX + e.cardW > W - PAD_R)      e.cardX = W - PAD_R - e.cardW
   })
-
-  // 共有モーダル state
-  const [shareModal, setShareModal] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null)
-  const [videoProgress, setVideoProgress] = useState<number | null>(null) // 0-100 or null
 
   // モーダルを開く（キャプチャしてプレビュー生成）
   const openShareModal = useCallback(async () => {
