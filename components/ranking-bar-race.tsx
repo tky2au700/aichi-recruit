@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import html2canvas from 'html2canvas'
 
 export interface ScatterItem {
   name:      string
@@ -191,22 +190,50 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     return { xTicks: xT, yTicks: yT, toX, toY }
   }, [data, xAxis, yAxis, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
 
-  // モーダルを開く
+  // モーダルを開く（SVG → PNG変換でプレビュー生成）
   const openShareModal = useCallback(async () => {
-    if (!containerRef.current) return
     setSharing(true)
     setVideoBlobUrl(null)
+    setPreviewUrl(null)
+    setPreviewCanvas(null)
+    setShareModal(true)   // まず即座にモーダルを開く
+
     try {
-      const c = await html2canvas(containerRef.current, {
-        backgroundColor: '#ffffff', scale: 2, useCORS: true,
+      // SVG要素を取得してBlob化
+      const svgEl = wrapRef.current?.querySelector('svg')
+      if (!svgEl) { setSharing(false); return }
+
+      const svgStr = new XMLSerializer().serializeToString(svgEl)
+      const blob   = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+      const url    = URL.createObjectURL(blob)
+
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = url
       })
-      setPreviewCanvas(c)
-      setPreviewUrl(c.toDataURL('image/png'))
-      setShareModal(true)
+
+      const scale = 2
+      const cvs = document.createElement('canvas')
+      cvs.width  = svgEl.clientWidth  * scale
+      cvs.height = svgEl.clientHeight * scale
+      const ctx2 = cvs.getContext('2d')!
+      ctx2.scale(scale, scale)
+      ctx2.fillStyle = '#fff'
+      ctx2.fillRect(0, 0, svgEl.clientWidth, svgEl.clientHeight)
+      ctx2.drawImage(img, 0, 0, svgEl.clientWidth, svgEl.clientHeight)
+      URL.revokeObjectURL(url)
+
+      setPreviewCanvas(cvs)
+      setPreviewUrl(cvs.toDataURL('image/png'))
+    } catch (e) {
+      console.log('[v0] openShareModal error:', e)
     } finally {
       setSharing(false)
     }
-  }, [])
+  }, [wrapRef])
 
   // 画像コピー
   const copyImage = useCallback(async () => {
