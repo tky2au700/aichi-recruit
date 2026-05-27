@@ -179,29 +179,32 @@ function NavInner() {
                   <div className="relative bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
 
                     {/* ランキング一覧 */}
-                    <div className="grid grid-cols-2 gap-0.5 px-3 pt-3 pb-3">
+                    <div className="px-5 pt-4 pb-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">ランキング</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-0.5 px-3 pb-3">
                       {rankingItems.map(({ href, label, description, icon: Icon, color }) => (
                         <Link
                           key={href}
                           href={href}
                           onClick={() => setMegaOpen(false)}
-                          className={`flex items-start gap-2.5 px-2 py-2 rounded-xl transition-colors group ${
+                          className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors group ${
                             fullPath === href ? 'bg-blue-50' : 'hover:bg-gray-50'
                           }`}
                         >
                           <div
-                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                             style={{ background: `${color}18` }}
                           >
-                            <Icon className="w-3.5 h-3.5" style={{ color }} />
+                            <Icon className="w-4 h-4" style={{ color }} />
                           </div>
                           <div className="min-w-0">
-                            <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
+                            <p className={`text-[13px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
                               fullPath === href ? 'text-[#1a73e8]' : 'text-gray-800'
                             }`}>
                               {label}
                             </p>
-                            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{description}</p>
                           </div>
                         </Link>
                       ))}
@@ -342,33 +345,41 @@ function NavInner() {
                   onMouseEnter={openAgeDrop}
                   onMouseLeave={closeAgeDrop}
                   className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50"
-                  style={{ width: 220 }}
+                  style={{ width: 320 }}
                 >
                   <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-gray-200 rotate-45" />
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden py-1.5">
-                    {[
-                      { href: '/salary/ranking/age-group', label: '年齢別年収ランキング', description: '10代〜70代の年収比較',  color: '#7c3aed' },
-                      { href: '/salary/ranking/male',      label: '男性年齢別',           description: '男性の年齢階級別年収',  color: '#1a73e8' },
-                      { href: '/salary/ranking/female',    label: '女性年齢別',           description: '女性の年齢階級別年収',  color: '#e8336d' },
-                    ].map(({ href, label, description, color }) => (
-                      <Link
-                        key={href}
-                        href={href}
-                        onClick={() => setAgeDropOpen(false)}
-                        className={`flex items-start gap-2.5 mx-1.5 px-2 py-2 rounded-lg transition-colors group ${
-                          pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
-                            pathname === href ? 'text-[#1a73e8]' : 'text-gray-800'
-                          }`} style={{ color: pathname === href ? color : undefined }}>
-                            {label}
-                          </p>
-                          <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
-                        </div>
-                      </Link>
-                    ))}
+                  <div className="bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+                    <div className="px-5 pt-4 pb-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">年齢別</p>
+                    </div>
+                    <div className="px-3 pb-3">
+                      {[
+                        { href: '/salary/ranking/age-group', label: '年齢別年収ランキング', description: '10代〜70代の年収比較', icon: BarChart3, color: '#7c3aed' },
+                        { href: '/salary/ranking/male',      label: '男性年齢別ランキング', description: '男性の年齢階級別年収', icon: Users,     color: '#1a73e8' },
+                        { href: '/salary/ranking/female',    label: '女性年齢別ランキング', description: '女性の年齢階級別年収', icon: Users,     color: '#e8336d' },
+                      ].map(({ href, label, description, icon: Icon, color }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setAgeDropOpen(false)}
+                          className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors group ${
+                            pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: `${color}18` }}>
+                            <Icon className="w-4 h-4" style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-[13px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
+                              pathname === href ? 'text-[#1a73e8]' : 'text-gray-800'
+                            }`}>
+                              {label}
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
