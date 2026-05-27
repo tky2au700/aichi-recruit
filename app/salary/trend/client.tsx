@@ -259,18 +259,7 @@ export function TrendClient() {
   const latestYear   = data.years[data.years.length - 1]
   const latestTotal  = data.overall.find(r => r.year === latestYear)
 
-  // 主要年齢帯に絞り込む
-  const mainAges = ['20～24歳','25～29歳','30～34歳','35～39歳','40～44歳','45～49歳','50～54歳','55～59歳']
-  const ageGroupsToShow = data.ageGroups.filter(ag => mainAges.includes(ag))
-
-  // 年齢別テーブル: 全体平均（学歴計・企業規模計）を基準列として追加
-  const byAgeWithAvg = data.byAge.map(row => {
-    // overall の男女計を「全体平均」として利用
-    const overallRow = overallTableData.find(r => r.year === row.year)
-    return { ...row, '全体平均': overallRow?.['男女計'] ?? null }
-  })
-
-  // 全体・男女別のテーブルカラム
+  // 全体・男女別のテーブルデータ（先に定義）
   const overallCols = [
     { key: '男女計', label: '男女計', color: C.total },
     { key: '男性',   label: '男性',   color: C.male  },
@@ -279,6 +268,16 @@ export function TrendClient() {
   const overallTableData = data.overall.map(r => ({
     year: r.year, '男女計': r.total, '男性': r.male, '女性': r.female,
   }))
+
+  // 主要年齢帯に絞り込む
+  const mainAges = ['20～24歳','25～29歳','30～34歳','35～39歳','40～44歳','45～49歳','50～54歳','55～59歳']
+  const ageGroupsToShow = data.ageGroups.filter(ag => mainAges.includes(ag))
+
+  // 年齢別テーブル: 全体平均（男女計）を基準列として追加
+  const byAgeWithAvg = data.byAge.map(row => {
+    const overallRow = overallTableData.find(r => r.year === row.year)
+    return { ...row, '全体平均': overallRow?.['男女計'] ?? null }
+  })
 
   return (
     <main className="min-h-screen bg-gray-50">
