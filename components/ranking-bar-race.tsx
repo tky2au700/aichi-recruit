@@ -311,6 +311,9 @@ export function RankingBarRace({
       })
     }
 
+    // ホバー判定用の positions を常に最新にセット（draw呼び出しごと）
+    itemsRef.current = positions
+
     // 描画順: ドット全件 → カード（非ホバー） → ホバーのドット+カード+ツールチップ
     entries.forEach(e => { if (e.i !== hovered) renderDot(e, false) })
     entries.forEach(e => { if (e.i !== hovered && e.showCard) renderCard(e, false) })
@@ -318,10 +321,8 @@ export function RankingBarRace({
       const e = entries[hovered]
       renderDot(e, true)
       if (e.showCard) renderCard(e, true)
-      renderTooltip(e)  // showCard の有無に関わらず常にツールチップを出す
+      renderTooltip(e)
     }
-
-    itemsRef.current = positions
 
     // ウォーターマーク
     if (surveyYear) {
@@ -363,12 +364,16 @@ export function RankingBarRace({
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top
+    // CSS座標 → canvas論理座標（style.widthとrect.widthが異なる場合に補正）
+    const scaleX = parseFloat(canvas.style.width  || String(rect.width))  / rect.width
+    const scaleY = parseFloat(canvas.style.height || String(rect.height)) / rect.height
+    const mx = (e.clientX - rect.left) * scaleX
+    const my = (e.clientY - rect.top)  * scaleY
     let found: number | null = null
     ;[...itemsRef.current].reverse().forEach(p => {
       if (found !== null) return
       const dist = Math.sqrt((mx - p.x) ** 2 + (my - p.y) ** 2)
-      if (dist < p.r + 4) found = p.i
+      if (dist < p.r + 6) found = p.i
     })
     if (found !== hoveredIdx) setHoveredIdx(found)
   }, [hoveredIdx])
