@@ -246,28 +246,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           ) : (
             <p style={S.subtitle}>{config.description}</p>
           )}
-          {/* 散布図（推定年収 × 平均年齢） */}
-          {!loading && filtered.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <RankingBarRace
-                data={filtered.map((r, i) => ({
-                  name:     r.occupation_name,
-                  income:   (r.annual_income  as number | null) ?? 0,
-                  age:      r.age             ?? null,
-                  workers:  r.workers         ?? null,
-                  tenure:   r.tenure_years    ?? null,
-                  overtime: r.overtime_hours  ?? null,
-                  bonus:    r.annual_bonus != null ? r.annual_bonus / 10000 : null,
-                  hourly:   r.hourly_wage     ?? null,
-                  monthly:  r.monthly_wage != null ? r.monthly_wage / 10000 : null,
-                  rank:     i + 1,
-                }))}
-                title={config.title}
-                surveyYear={meta?.survey_year ?? surveyYear}
-                primaryColor={pc}
-              />
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -286,6 +265,29 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
                 <div style={S.kpiValue}>{value}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 散布図（high-income-low-overtime のみ） */}
+        {config.type === 'high-income-low-overtime' && filtered.length > 0 && (
+          <div style={{ marginTop: 24, marginBottom: 8 }}>
+            <RankingBarRace
+              data={filtered.map((r, i) => ({
+                name:     r.occupation_name,
+                income:   (r.annual_income as number | null) ?? 0,
+                age:      r.age            ?? null,
+                workers:  r.workers        ?? null,
+                tenure:   r.tenure_years   ?? null,
+                overtime: r.overtime_hours ?? null,
+                bonus:    r.annual_bonus   != null ? r.annual_bonus   / 10000 : null,
+                hourly:   r.hourly_wage    ?? null,
+                monthly:  r.monthly_wage   != null ? r.monthly_wage   / 10000 : null,
+                rank:     i + 1,
+              }))}
+              title={config.title}
+              surveyYear={meta?.survey_year ?? surveyYear}
+              primaryColor={pc}
+            />
           </div>
         )}
 
