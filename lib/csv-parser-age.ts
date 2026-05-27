@@ -202,29 +202,48 @@ export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
   const results: AgeWageRow[] = []
 
   // -------- フォーマット自動判定 --------
-  // 最初の「年齢数値がある」データ行を探し、
-  // cols[3] が年齢数値 → フォーマットA (labelOffset=2, dataOffset=3)
-  // cols[2] が年齢数値 → フォーマットB (labelOffset=1, dataOffset=2)
+  // ヘッダー行の「区　分」列位置でフォーマットを判定する:
+  //   フォーマットA（2025年〜）: 「区　分」が cols[2] → labelOffset=2, dataOffset=3
+  //   フォーマットB（〜2024年）: 「区　分」が cols[0] → labelOffset=1, dataOffset=2
+  //
+  // 「区　分」が見つからない場合は、データ行の列数で推定:
+  //   cols[0] が空で cols[1] にラベル → フォーマットB
   let dataStart = -1
   let labelOffset = 2
   let dataOffset  = 3
 
+  // ヘッダー行スキャン（先頭15行以内）
+  // 「区　分」がある列でフォーマットを判定する:
+  //   col[0] に「区　分」→ フォーマットB（2024年以前）: labelOffset=1, dataOffset=2
+  //   col[1] に「区　分」→ フォーマットA（2025年〜）:  labelOffset=2, dataOffset=3
+  let formatDetected = false
+  for (let r = 0; r < Math.min(15, logicalRows.length); r++) {
+    const cols = logicalRows[r]
+    if (!cols) continue
+    const n0 = norm(cols[0] ?? '')
+    const n1 = norm(cols[1] ?? '')
+    if (n0 === '区分' || n0.startsWith('区分')) {
+      // 2024年以前: col[0]に「区　分」→ labelOffset=1（データはcol[2]から）
+      labelOffset = 1; dataOffset = 2; formatDetected = true; break
+    }
+    if (n1 === '区分' || n1.startsWith('区分')) {
+      // 2025年〜: col[1]に「区　分」→ labelOffset=2（データはcol[3]から）
+      labelOffset = 2; dataOffset = 3; formatDetected = true; break
+    }
+  }
+
+  // データ開始行検出: dataOffset列目が正の数値（年齢: 10〜80）になる行
   for (let r = 5; r < logicalRows.length; r++) {
     const cols = logicalRows[r]
     if (!cols || cols.length < 10) continue
-
-    const v3 = (cols[3] ?? '').replace(/[\s　,]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    const n3 = parseFloat(v3)
-    if (!isNaN(n3) && n3 > 10 && n3 < 80) {
-      labelOffset = 2; dataOffset = 3; dataStart = r; break
-    }
-
-    const v2 = (cols[2] ?? '').replace(/[\s　,]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    const n2 = parseFloat(v2)
-    if (!isNaN(n2) && n2 > 10 && n2 < 80) {
-      labelOffset = 1; dataOffset = 2; dataStart = r; break
+    const v = (cols[dataOffset] ?? '').replace(/[\s　,]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    const n = parseFloat(v)
+    if (!isNaN(n) && n > 10 && n < 80) {
+      dataStart = r; break
     }
   }
+
+  // フォーマット未検出かつデータ行も見つからない場合は空を返す
   if (dataStart === -1) return []
 
   const BLOCKS = getBlocks(dataOffset)
