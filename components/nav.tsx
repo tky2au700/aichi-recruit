@@ -33,32 +33,16 @@ const industryQuickLinks = [
 ]
 
 type RankingItem = { href: string; label: string; description: string; icon: React.ElementType; color: string; sub?: boolean }
-type RankingGroup = { heading: string; items: RankingItem[] }
 
-const rankingGroups: RankingGroup[] = [
-  {
-    heading: '職種別',
-    items: [
-      { href: '/salary/ranking/occupation',             label: '職種別年収ランキング',   description: '全職種の年収を一覧',             icon: TrendingUp, color: '#1a73e8' },
-      { href: '/salary/ranking/occupation?sex=male',    label: '男性職種別ランキング',   description: '男性労働者の職種別年収',         icon: Users,      color: '#1a73e8', sub: true },
-      { href: '/salary/ranking/occupation?sex=female',  label: '女性職種別ランキング',   description: '女性労働者の職種別年収',         icon: Users,      color: '#e8336d', sub: true },
-      { href: '/salary/ranking/occupation?sort=annual_bonus', label: 'ボーナスランキング', description: '年間賞与額が多い職種',         icon: Award,      color: '#f59e0b' },
-      { href: '/salary/ranking/overtime-wage',          label: '残業・時給ランキング',   description: '残業時間・時給換算のランキング', icon: Clock,      color: '#0ea5e9' },
-      { href: '/salary/ranking/growth',                 label: '年収増加率ランキング',   description: '過去数年で最も伸びた職種',       icon: LineChart,  color: '#16a34a' },
-      { href: '/salary/ranking/high-income-low-overtime',     label: '残業少ない高年収',  description: '月10時間以下残業で高年収',       icon: BarChart2,  color: '#7c3aed' },
-      { href: '/salary/ranking/high-income-large-workforce',  label: '需要×高年収ランキング', description: '労働者数が多く年収も高い職種', icon: Users,     color: '#0891b2' },
-    ],
-  },
-  {
-    heading: '属性別',
-    items: [
-      { href: '/salary/ranking/age-group',   label: '年齢別年収ランキング',   description: '10代〜70代の年齢帯別年収比較',     icon: BarChart3,      color: '#7c3aed' },
-      { href: '/salary/ranking/male',        label: '男性年齢別ランキング',   description: '男性の年齢階級別年収ランキング',   icon: Users,          color: '#1a73e8', sub: true },
-      { href: '/salary/ranking/female',      label: '女性年齢別ランキング',   description: '女性の年齢階級別年収ランキング',   icon: Users,          color: '#e8336d', sub: true },
-      { href: '/salary/ranking/role',        label: '役職別年収ランキング',   description: '部長・課長など役職別の年収比較',   icon: Briefcase,      color: '#7c3aed' },
-      { href: '/salary/ranking/education',   label: '学歴別年収ランキング',   description: '高卒・大卒・大学院卒の年収比較',   icon: GraduationCap,  color: '#16a34a' },
-    ],
-  },
+const rankingItems: RankingItem[] = [
+  { href: '/salary/ranking/occupation',                   label: '職種別年収ランキング',    description: '全職種の年収を一覧',             icon: TrendingUp, color: '#1a73e8' },
+  { href: '/salary/ranking/occupation?sex=male',          label: '男性職種別ランキング',    description: '男性労働者の職種別年収',         icon: Users,      color: '#1a73e8', sub: true },
+  { href: '/salary/ranking/occupation?sex=female',        label: '女性職種別ランキング',    description: '女性労働者の職種別年収',         icon: Users,      color: '#e8336d', sub: true },
+  { href: '/salary/ranking/occupation?sort=annual_bonus', label: 'ボーナスランキング',      description: '年間賞与額が多い職種',           icon: Award,      color: '#f59e0b' },
+  { href: '/salary/ranking/overtime-wage',                label: '残業・時給ランキング',    description: '残業時間・時給換算のランキング', icon: Clock,      color: '#0ea5e9' },
+  { href: '/salary/ranking/growth',                       label: '年収増加率ランキング',    description: '過去数年で最も伸びた職種',       icon: LineChart,  color: '#16a34a' },
+  { href: '/salary/ranking/high-income-low-overtime',     label: '残業少ない高年収',        description: '月10時間以下残業で高年収',       icon: BarChart2,  color: '#7c3aed' },
+  { href: '/salary/ranking/high-income-large-workforce',  label: '需要×高年収ランキング',   description: '労働者数が多く年収も高い職種',   icon: Users,      color: '#0891b2' },
 ]
 
 const categoryItems = [
@@ -183,37 +167,32 @@ function NavInner() {
 
                   <div className="relative bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
 
-                    {/* ランキング一覧（グループ別） */}
-                    <div className="grid grid-cols-2 divide-x divide-gray-100 px-0 pb-3 pt-3">
-                      {rankingGroups.map(group => (
-                        <div key={group.heading} className="px-3">
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2 pb-1.5">{group.heading}</p>
-                          {group.items.map(({ href, label, description, icon: Icon, color, sub }) => (
-                            <Link
-                              key={href}
-                              href={href}
-                              onClick={() => setMegaOpen(false)}
-                              className={`flex items-start gap-2.5 px-2 py-2 rounded-xl transition-colors group ${
-                                fullPath === href ? 'bg-blue-50' : 'hover:bg-gray-50'
-                              } ${sub ? 'ml-3 border-l border-gray-100' : ''}`}
-                            >
-                              <div
-                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                                style={{ background: `${color}18` }}
-                              >
-                                <Icon className="w-3.5 h-3.5" style={{ color }} />
-                              </div>
-                              <div className="min-w-0">
-                                <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
-                                  fullPath === href ? 'text-[#1a73e8]' : 'text-gray-800'
-                                }`}>
-                                  {label}
-                                </p>
-                                <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
+                    {/* ランキング一覧 */}
+                    <div className="grid grid-cols-2 gap-0.5 px-3 pt-3 pb-3">
+                      {rankingItems.map(({ href, label, description, icon: Icon, color, sub }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setMegaOpen(false)}
+                          className={`flex items-start gap-2.5 px-2 py-2 rounded-xl transition-colors group ${
+                            fullPath === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          } ${sub ? 'ml-3 border-l border-gray-100' : ''}`}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                            style={{ background: `${color}18` }}
+                          >
+                            <Icon className="w-3.5 h-3.5" style={{ color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-[12px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
+                              fullPath === href ? 'text-[#1a73e8]' : 'text-gray-800'
+                            }`}>
+                              {label}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{description}</p>
+                          </div>
+                        </Link>
                       ))}
                     </div>
 
@@ -401,25 +380,23 @@ function NavInner() {
               <span className="text-sm text-gray-700 font-medium">年収推移グラフ</span>
             </Link>
           </div>
-          {/* ランキング（グループ別） */}
-          {rankingGroups.map(group => (
-            <div key={group.heading} className="border-t border-gray-100 px-4 pt-3 pb-1">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">{group.heading}</p>
-              {group.items.map(({ href, label, icon: Icon, color, sub }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition-colors ${sub ? 'ml-4 border-l border-gray-100' : ''}`}
-                >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
-                    <Icon className="w-3.5 h-3.5" style={{ color }} />
-                  </div>
-                  <span className="text-sm text-gray-700 font-medium">{label}</span>
-                </Link>
-              ))}
-            </div>
-          ))}
+          {/* ランキング */}
+          <div className="border-t border-gray-100 px-4 pt-3 pb-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">職種別</p>
+            {rankingItems.map(({ href, label, icon: Icon, color, sub }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition-colors ${sub ? 'ml-4 border-l border-gray-100' : ''}`}
+              >
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                </div>
+                <span className="text-sm text-gray-700 font-medium">{label}</span>
+              </Link>
+            ))}
+          </div>
           {/* 産業別ランキング */}
           <div className="border-t border-gray-100 px-4 pt-3 pb-2">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">産業別</p>
