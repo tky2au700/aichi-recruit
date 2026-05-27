@@ -55,6 +55,20 @@ const rankingItems = [
     color: '#e8336d',
   },
   {
+    href: '/salary/ranking/occupation/male',
+    label: '男性職種別ランキング',
+    description: '男性労働者の職種別年収ランキング',
+    icon: Users,
+    color: '#1a73e8',
+  },
+  {
+    href: '/salary/ranking/occupation/female',
+    label: '女性職種別ランキング',
+    description: '女性労働者の職種別年収ランキング',
+    icon: Users,
+    color: '#e8336d',
+  },
+  {
     href: '/salary/ranking/occupation?sort=annual_bonus',
     label: 'ボーナスランキング',
     description: '年間賞与額が多い職種',

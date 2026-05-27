@@ -129,6 +129,7 @@ function RankBadge({ rank }: { rank: number }) {
 // メインコンポーネント
 // ---------------------------------------------------------------------------
 interface Props {
+  fixedSex?:        '男' | '女'
   initialSex?:      string | undefined
   initialSize?:     string | undefined
   initialYear?:     number | null
@@ -138,7 +139,7 @@ interface Props {
   pageDescription?: string
 }
 
-export function OccupationRankingClient({ initialSex, initialSize, initialYear, initialSort, initialDir, pageHeading, pageDescription }: Props = {}) {
+export function OccupationRankingClient({ fixedSex, initialSex, initialSize, initialYear, initialSort, initialDir, pageHeading, pageDescription }: Props = {}) {
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -149,7 +150,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
   const [error, setError]     = useState<string | null>(null)
 
   // propsのURLパラメーター → DB値に変換して初期値にセット
-  const [sex, setSex]               = useState(initialSex ? (PARAM_TO_SEX[initialSex] ?? '計') : '計')
+  const [sex, setSex]               = useState(fixedSex ?? (initialSex ? (PARAM_TO_SEX[initialSex] ?? '計') : '計'))
   const [size, setSize]             = useState(initialSize ? (PARAM_TO_SIZE[initialSize] ?? '企業規模計') : '企業規模計')
   const [surveyYear, setSurveyYear] = useState<number | null>(initialYear ?? null)
 
@@ -322,7 +323,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
   }
 
   const filterDescParts = [
-    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100��999人' : '10〜99人'}）` : null,
+    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100���999人' : '10〜99人'}）` : null,
     currentSexLabel,
   ].filter(Boolean)
   const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear || sortKey !== 'annual_income')
@@ -415,29 +416,32 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
 
           <div style={S.divider} />
 
-          {/* 性別 */}
-          <div style={S.filterGroup}>
-            <span style={S.filterLabel}>性別</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {SEX_OPTIONS.map(o => (
-                <button
-                  key={o.value}
-                  style={sex === o.value
-                    ? { ...S.chipActive,
-                        border: o.value === '男' ? '1.5px solid #1a73e8' : o.value === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8',
-                        color:  o.value === '男' ? '#1a73e8' : o.value === '女' ? '#DB4437' : '#1a73e8',
-                        background: o.value === '男' ? '#EBF3FE' : o.value === '女' ? '#FCECEA' : '#EBF3FE',
-                      }
-                    : S.chip}
-                  onClick={() => { setSex(o.value); pushUrl(o.value, size, surveyYear, sortKey, sortDir) }}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={S.divider} />
+          {/* 性別（fixedSexが指定されている場合は非表示） */}
+          {!fixedSex && (
+            <>
+              <div style={S.filterGroup}>
+                <span style={S.filterLabel}>性別</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {SEX_OPTIONS.map(o => (
+                    <button
+                      key={o.value}
+                      style={sex === o.value
+                        ? { ...S.chipActive,
+                            border: o.value === '男' ? '1.5px solid #1a73e8' : o.value === '女' ? '1.5px solid #DB4437' : '1.5px solid #1a73e8',
+                            color:  o.value === '男' ? '#1a73e8' : o.value === '女' ? '#DB4437' : '#1a73e8',
+                            background: o.value === '男' ? '#EBF3FE' : o.value === '女' ? '#FCECEA' : '#EBF3FE',
+                          }
+                        : S.chip}
+                      onClick={() => { setSex(o.value); pushUrl(o.value, size, surveyYear, sortKey, sortDir) }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={S.divider} />
+            </>
+          )}
 
           {/* 企業規模 */}
           <div style={S.filterGroup}>
