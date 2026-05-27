@@ -179,38 +179,186 @@ export function RankingBarRace({
     if (e.cardX + e.cardW > W - PAD_R)      e.cardX = W - PAD_R - e.cardW
   })
 
-  // 共有ハンドラ
-  const handleShare = useCallback(async () => {
+  // 共有モーダル state
+  const [shareModal, setShareModal] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null)
+  const [videoProgress, setVideoProgress] = useState<number | null>(null) // 0-100 or null
+
+  // モーダルを開く（キャプチャしてプレビュー生成）
+  const openShareModal = useCallback(async () => {
     if (!containerRef.current) return
     setSharing(true)
     try {
-      const canvas = await html2canvas(containerRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
+      const c = await html2canvas(containerRef.current, {
+        backgroundColor: '#ffffff', scale: 2, useCORS: true,
       })
-      canvas.toBlob(async blob => {
-        if (!blob) return
-        const file = new File([blob], 'scatter.png', { type: 'image/png' })
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({
-            title: '職種別 散布図',
-            text: '残業が少なくて年収が高い職種ランキング | AIリクルート',
-            files: [file],
-          })
-        } else {
-          // フォールバック: ダウンロード
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url; a.download = 'scatter.png'; a.click()
-          URL.revokeObjectURL(url)
-        }
-        setSharing(false)
-      }, 'image/png')
-    } catch {
+      setPreviewCanvas(c)
+      setPreviewUrl(c.toDataURL('image/png'))
+      setShareModal(true)
+    } finally {
       setSharing(false)
     }
   }, [])
+
+  // 画像コピー
+  const copyImage = useCallback(async () => {
+    if (!previewCanvas) return
+    previewCanvas.toBlob(async blob => {
+      if (!blob) return
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ])
+      } catch {
+        // フォールバック: ダウンロード
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = 'scatter.png'; a.click()
+        URL.revokeObjectURL(url)
+      }
+    }, 'image/png')
+  }, [previewCanvas])
+
+  // Xで共有
+  const shareToX = useCallback(() => {
+    const text = encodeURIComponent('職種別 散布図 | 残業が少なくて年収が高い職種ランキング #AIリクルート')
+    const url  = encodeURIComponent(window.location.href)
+    window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank')
+  }, [])
+
+  // 動画保存（ドットが順番に出現するアニメーションを録画）
+  const saveVideo = useCallback(async () => {
+    if (!containerRef.current || !wrapRef.current) return
+    setVideoProgress(0)
+
+    const W2 = size.w, H2 = 380
+    const dpr = 2
+    const offscreen = document.createElement('canvas')
+    offscreen.width  = W2 * dpr
+    offscreen.height = H2 * dpr
+    const ctx = offscreen.getContext('2d')!
+    ctx.scale(dpr, dpr)
+
+    const PAD_L2 = 68, PAD_R2 = 20, PAD_T2 = 24, PAD_B2 = 46
+    const cW = W2 - PAD_L2 - PAD_R2, cH = H2 - PAD_T2 - PAD_B2
+
+    // 現在の entries を使って描画
+    const currentEntries = [...entries]
+    const xVals = currentEntries.map(e => e.xv).filter(v => v != null) as number[]
+    const yVals = currentEntries.map(e => e.yv).filter(v => v != null) as number[]
+    const xMin2 = Math.min(...xVals), xMax2 = Math.max(...xVals)
+    const yMin2 = Math.min(...yVals), yMax2 = Math.max(...yVals)
+    const toX2 = (v: number) => PAD_L2 + ((v - xMin2) / (xMax2 - xMin2 || 1)) * cW
+    const toY2 = (v: number) => PAD_T2 + cH - ((v - yMin2) / (yMax2 - yMin2 || 1)) * cH
+
+    const FPS = 30
+    const INTRO_FRAMES  = FPS * 0.5  // 0.5秒: グリッド描画
+    const DOT_INTERVAL  = Math.max(1, Math.floor(FPS / 6)) // ドット1つずつ
+    const DOT_FRAMES    = currentEntries.length * DOT_INTERVAL
+    const CARD_FRAMES   = FPS * 1    // 1秒: カードフェードイン
+    const OUTRO_FRAMES  = FPS * 1.5  // 1.5秒: 静止
+    const TOTAL_FRAMES  = INTRO_FRAMES + DOT_FRAMES + CARD_FRAMES + OUTRO_FRAMES
+
+    const drawFrame = (frame: number) => {
+      ctx.clearRect(0, 0, W2, H2)
+      // 背景
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W2, H2)
+      // グリッド
+      ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
+      for (let i = 0; i <= 5; i++) {
+        const x = PAD_L2 + (cW / 5) * i, y = PAD_T2 + (cH / 4) * i
+        ctx.beginPath(); ctx.moveTo(x, PAD_T2); ctx.lineTo(x, H2 - PAD_B2); ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(PAD_L2, y); ctx.lineTo(W2 - PAD_R2, y); ctx.stroke()
+      }
+      ctx.setLineDash([])
+      // 軸線
+      ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(PAD_L2, PAD_T2); ctx.lineTo(PAD_L2, H2 - PAD_B2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(PAD_L2, H2 - PAD_B2); ctx.lineTo(W2 - PAD_R2, H2 - PAD_B2); ctx.stroke()
+
+      // 調査年透かし
+      if (surveyYear) {
+        ctx.font = `700 48px 'Noto Sans JP',sans-serif`
+        ctx.fillStyle = '#E2E8F0'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
+        ctx.fillText(`${surveyYear}年`, W2 - PAD_R2 - 8, H2 - PAD_B2 - 8)
+      }
+
+      if (frame < INTRO_FRAMES) return
+
+      // ドット出現
+      const dotFrame = frame - INTRO_FRAMES
+      const visibleCount = Math.min(
+        currentEntries.length,
+        Math.floor(dotFrame / DOT_INTERVAL) + 1
+      )
+      for (let i = 0; i < visibleCount; i++) {
+        const e = currentEntries[i]
+        const isLast = i === visibleCount - 1
+        const scale  = isLast ? Math.min(1, (dotFrame % DOT_INTERVAL) / DOT_INTERVAL * 2) : 1
+        const r = DOT_R * scale
+        ctx.beginPath(); ctx.arc(toX2(e.xv), toY2(e.yv), r, 0, Math.PI * 2)
+        ctx.fillStyle = e.color + 'CC'; ctx.fill()
+      }
+
+      if (frame < INTRO_FRAMES + DOT_FRAMES) return
+
+      // カードフェードイン
+      const cardFrame = frame - INTRO_FRAMES - DOT_FRAMES
+      const cardAlpha = Math.min(1, cardFrame / CARD_FRAMES)
+      currentEntries.forEach(e => {
+        // 全ドット（フル）
+        ctx.beginPath(); ctx.arc(toX2(e.xv), toY2(e.yv), DOT_R, 0, Math.PI * 2)
+        ctx.fillStyle = e.color + 'CC'; ctx.fill()
+
+        if (!e.showCard) return
+        const cx = toX2(e.xv), cy = toY2(e.yv)
+        ctx.globalAlpha = cardAlpha
+        // カード
+        ctx.fillStyle = e.color
+        ctx.beginPath(); ctx.roundRect(e.cardX, e.cardY, e.cardW, CARD_H, 10); ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = `600 ${CARD_FS}px 'Noto Sans JP',sans-serif`
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+        ctx.fillText(e.item.name, e.cardX + 8, e.cardY + CARD_H / 2)
+        // 引き出し線
+        ctx.strokeStyle = e.color; ctx.lineWidth = 1; ctx.setLineDash([3, 3])
+        ctx.beginPath()
+        ctx.moveTo(e.goRight ? cx + DOT_R : cx - DOT_R, cy)
+        ctx.lineTo(e.goRight ? e.cardX : e.cardX + e.cardW, e.cardY + CARD_H / 2)
+        ctx.stroke(); ctx.setLineDash([])
+        ctx.globalAlpha = 1
+      })
+    }
+
+    // MediaRecorder で録画
+    const stream = offscreen.captureStream(FPS)
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9' : 'video/webm'
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 })
+    const chunks: Blob[] = []
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'scatter.webm'; a.click()
+      URL.revokeObjectURL(url)
+      setVideoProgress(null)
+    }
+    recorder.start()
+
+    let frame = 0
+    const tick = () => {
+      drawFrame(frame)
+      setVideoProgress(Math.round((frame / TOTAL_FRAMES) * 100))
+      frame++
+      if (frame <= TOTAL_FRAMES) {
+        setTimeout(tick, 1000 / FPS)
+      } else {
+        recorder.stop()
+      }
+    }
+    tick()
+  }, [entries, size, surveyYear])
 
   // AxisSelect コンポーネント
   const AxisSelect = ({ value, onChange, label }: {
@@ -288,15 +436,10 @@ export function RankingBarRace({
           >⇄</button>
           <AxisSelect label="縦軸:" value={yAxis} onChange={a => { setYAxis(a); setHoveredIdx(null) }} />
           <button
-            onClick={handleShare}
+            onClick={openShareModal}
             disabled={sharing}
-            title="画像をキャプチャして共有"
-            style={{
-              ...btnBase,
-              gap: 4,
-              background: sharing ? '#E2E8F0' : '#F8FAFC',
-              color: sharing ? '#94A3B8' : '#475569',
-            }}
+            title="共有"
+            style={{ ...btnBase, gap: 4, background: sharing ? '#E2E8F0' : '#F8FAFC', color: sharing ? '#94A3B8' : '#475569' }}
           >
             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -522,14 +665,156 @@ export function RankingBarRace({
             )
           })()}
 
-          {/* 出典 */}
-          <text
-            x={W - PAD_R} y={H - 2}
-            textAnchor="end" dominantBaseline="auto"
-            fontSize={9} fill="#94A3B8" fontFamily="'Noto Sans JP',sans-serif"
-          >出典: 厚生労働省 賃金構造基本統計調査</text>
-        </svg>
+      {/* 出典 */}
+      <div style={{ textAlign: 'right', marginTop: 4 }}>
+        <span style={{ fontSize: 9, color: '#94A3B8' }}>出典: 厚生労働省 賃金構造基本統計調査</span>
       </div>
+
+      {/* 共有モーダル */}
+      {shareModal && (
+        <div
+          onClick={() => setShareModal(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 16, padding: 24,
+              width: '100%', maxWidth: 540,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              display: 'flex', flexDirection: 'column', gap: 16,
+            }}
+          >
+            {/* モーダルヘッダー */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>散布図を共有</span>
+              <button
+                onClick={() => setShareModal(false)}
+                style={{
+                  width: 28, height: 28, borderRadius: '50%', border: 'none',
+                  background: '#F1F5F9', cursor: 'pointer', fontSize: 16, color: '#64748B',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >✕</button>
+            </div>
+
+            {/* プレビュー */}
+            {previewUrl && (
+              <div style={{
+                border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden',
+                background: '#F8FAFC',
+              }}>
+                <img
+                  src={previewUrl} alt="散布図プレビュー"
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                />
+              </div>
+            )}
+
+            {/* アクションボタン */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+              {/* 画像をコピー */}
+              <button
+                onClick={copyImage}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 16px', borderRadius: 10,
+                  border: '1px solid #E2E8F0', background: '#F8FAFC',
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                }}
+              >
+                <span style={{
+                  width: 36, height: 36, borderRadius: 8, background: '#EFF6FF',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                  </svg>
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>画像をコピー</div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>クリップボードにPNG画像をコピー</div>
+                </div>
+              </button>
+
+              {/* Xで共有 */}
+              <button
+                onClick={shareToX}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 16px', borderRadius: 10,
+                  border: '1px solid #E2E8F0', background: '#F8FAFC',
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                }}
+              >
+                <span style={{
+                  width: 36, height: 36, borderRadius: 8, background: '#000',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
+                  </svg>
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>Xで共有</div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>X (Twitter) に投稿する</div>
+                </div>
+              </button>
+
+              {/* 動画を保存 */}
+              <button
+                onClick={saveVideo}
+                disabled={videoProgress !== null}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 16px', borderRadius: 10,
+                  border: '1px solid #E2E8F0',
+                  background: videoProgress !== null ? '#F1F5F9' : '#F8FAFC',
+                  cursor: videoProgress !== null ? 'default' : 'pointer',
+                  width: '100%', textAlign: 'left',
+                }}
+              >
+                <span style={{
+                  width: 36, height: 36, borderRadius: 8, background: '#FEF3C7',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  position: 'relative', overflow: 'hidden',
+                }}>
+                  {videoProgress !== null ? (
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
+                      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+                    </svg>
+                  ) : (
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                    </svg>
+                  )}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: videoProgress !== null ? '#94A3B8' : '#1E293B' }}>
+                    {videoProgress !== null ? `動画を生成中... ${videoProgress}%` : '動画を保存'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                    {videoProgress !== null
+                      ? <div style={{ height: 4, background: '#E2E8F0', borderRadius: 2, marginTop: 4 }}>
+                          <div style={{ height: '100%', width: `${videoProgress}%`, background: '#D97706', borderRadius: 2, transition: 'width 0.1s' }} />
+                        </div>
+                      : 'アニメーション付きWebM動画をダウンロード'
+                    }
+                  </div>
+                </div>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+
