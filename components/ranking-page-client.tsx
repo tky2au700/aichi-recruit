@@ -269,10 +269,10 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
         )}
 
         {/* 散布図（high-income-low-overtime のみ） */}
-        {config.type === 'high-income-low-overtime' && filtered.length > 0 && (
+        {config.type === 'high-income-low-overtime' && !loading && data.length > 0 && (
           <div style={{ marginTop: 24, marginBottom: 8 }}>
             <RankingBarRace
-              data={filtered.map((r, i) => ({
+              data={data.map((r, i) => ({
                 name:     r.occupation_name,
                 income:   (r.annual_income as number | null) ?? 0,
                 age:      r.age            ?? null,
