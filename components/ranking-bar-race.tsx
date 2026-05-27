@@ -106,6 +106,12 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const [videoProgress, setVideoProgress] = useState<number | null>(null)
   const [videoBlobUrl,  setVideoBlobUrl]  = useState<string | null>(null)
   const [size,          setSize]          = useState({ w: 480 })
+  const [zoom,          setZoom]          = useState(1)
+  const [panX,          setPanX]          = useState(0)
+  const [panY,          setPanY]          = useState(0)
+  const [isDragging,    setIsDragging]    = useState(false)
+  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
 
   const wrapRef      = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -118,6 +124,43 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     })
     ro.observe(el)
     return () => ro.disconnect()
+  }, [])
+
+  const resetZoom = useCallback(() => { setZoom(1); setPanX(0); setPanY(0) }, [])
+
+  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault()
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+    setZoom(z => {
+      const next = Math.min(8, Math.max(1, z * factor))
+      // カーソル位置を中心にズーム
+      const rect = svgRef.current?.getBoundingClientRect()
+      if (!rect) return next
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      setPanX(px => mx - (mx - px) * (next / z))
+      setPanY(py => my - (my - py) * (next / z))
+      return next
+    })
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (zoom <= 1) return
+    setIsDragging(true)
+    dragStart.current = { x: e.clientX, y: e.clientY, px: panX, py: panY }
+  }, [zoom, panX, panY])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging || !dragStart.current) return
+    const dx = e.clientX - dragStart.current.x
+    const dy = e.clientY - dragStart.current.y
+    setPanX(dragStart.current.px + dx)
+    setPanY(dragStart.current.py + dy)
+  }, [isDragging])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+    dragStart.current = null
   }, [])
 
   // 正方形: W = H
@@ -532,27 +575,48 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           </div>
 
           <svg
+            ref={svgRef}
             width={W} height={W}
-            style={{ display: 'block', overflow: 'visible', userSelect: 'none', borderRadius: 8 }}
+            style={{
+              display: 'block', overflow: 'hidden', userSelect: 'none', borderRadius: 8,
+              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+            }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={() => { handleMouseUp(); setHoveredIdx(null) }}
           >
-            {/* 背景 */}
+            {/* 背景（ズーム外） */}
             <rect x={0} y={0} width={W} height={H} fill={BG} rx={8} />
+
+            {/* ズーム・パン対象グループ（clipPathでチャートエリアに制限） */}
+            <defs>
+              <clipPath id="chart-clip">
+                <rect x={PAD_L} y={PAD_T} width={W - PAD_L - PAD_R} height={H - PAD_T - PAD_B} />
+              </clipPath>
+            </defs>
+            <g transform={`translate(${panX}, ${panY}) scale(${zoom})`} style={{ transformOrigin: '0 0' }}>
+              <g clipPath="url(#chart-clip)">
 
             {/* グリッド線 */}
             {yTicks.map(v => (
               <line key={`yg-${v}`} x1={PAD_L} y1={toY(v)} x2={W - PAD_R} y2={toY(v)}
-                stroke={GRID} strokeWidth={1} strokeDasharray="3 4" />
+                stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
             ))}
             {xTicks.map(v => (
               <line key={`xg-${v}`} x1={toX(v)} y1={PAD_T} x2={toX(v)} y2={H - PAD_B}
-                stroke={GRID} strokeWidth={1} strokeDasharray="3 4" />
+                stroke={GRID} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${4 / zoom}`} />
             ))}
 
             {/* 軸線 */}
-            <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1} />
-            <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1} />
+            <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
+            <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={AXIS_C} strokeWidth={1 / zoom} />
 
-            {/* 軸ラベル（目盛り） */}
+              </g>{/* /clipPath */}
+            </g>{/* /zoom-pan */}
+
+            {/* 軸ラベル（目盛り）—ズーム外 */}
             {yTicks.map(v => (
               <text key={`yt-${v}`} x={PAD_L - 6} y={toY(v)}
                 textAnchor="end" dominantBaseline="middle"
@@ -619,32 +683,38 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               )
             })}
 
-            {/* ホバー：ドット拡大 + ツールチップ */}
+            {/* ホバー：ドット拡大（ズーム内）+ ツールチップ（ズーム外スクリーン座標） */}
             {hovered && (() => {
               const e = hovered
+              // スクリーン座標（zoom・pan 変換後）
+              const sx = e.dx * zoom + panX
+              const sy = e.dy * zoom + panY
+              const slx = e.lx * zoom + panX
+              const sly = e.ly * zoom + panY
+
               const tipLines = [
                 e.item.name,
                 `${xAxis.label}: ${xAxis.format(e.xv)}`,
                 `${yAxis.label}: ${yAxis.format(e.yv)}`,
               ]
               const tipW = 210, tipLH = 18, tipH = tipLines.length * tipLH + 14
-              let tx = e.dx + DOT_R + 10, ty = e.dy - tipH / 2
-              if (tx + tipW > W - PAD_R) tx = e.dx - DOT_R - tipW - 10
+              let tx = sx + (DOT_R + 10), ty = sy - tipH / 2
+              if (tx + tipW > W - PAD_R) tx = sx - (DOT_R + 10) - tipW
               if (tx < PAD_L)            tx = PAD_L
               if (ty < PAD_T)            ty = PAD_T
               if (ty + tipH > H - PAD_B) ty = H - PAD_B - tipH
 
               return (
                 <g>
-                  {/* ホバードット */}
-                  <circle cx={e.dx} cy={e.dy} r={DOT_R + 3} fill={e.color} opacity={0.25} />
-                  <circle cx={e.dx} cy={e.dy} r={DOT_R + 1} fill={e.color}
+                  {/* ホバードット（ズーム内に配置） */}
+                  <circle cx={sx} cy={sy} r={(DOT_R + 3)} fill={e.color} opacity={0.25} />
+                  <circle cx={sx} cy={sy} r={(DOT_R + 1)} fill={e.color}
                     stroke="#fff" strokeWidth={1.5}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHoveredIdx(e.i)}
                     onMouseLeave={() => setHoveredIdx(null)} />
-                  {/* ラベル（ホバー時は濃くはっきり） */}
-                  <text x={e.lx} y={e.ly}
+                  {/* ラベル（ホバー時） */}
+                  <text x={slx} y={sly}
                     textAnchor="middle" dominantBaseline="auto"
                     fontSize={LABEL_FS} fontWeight={700}
                     fill="#000000" fillOpacity={1}
@@ -694,6 +764,30 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             )}
           </div>
 
+          {/* ズームコントロール */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button onClick={() => { setZoom(z => Math.min(8, +(z * 1.3).toFixed(2))); }} style={{
+                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#334155',
+              }}>+</button>
+              <button onClick={() => { setZoom(z => { const n = Math.max(1, +(z / 1.3).toFixed(2)); if (n <= 1) { setPanX(0); setPanY(0) } return n }); }} style={{
+                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#334155',
+              }}>−</button>
+              <button onClick={resetZoom} style={{
+                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 9, fontWeight: 600,
+                cursor: 'pointer', border: '1px solid #E2E8F0',
+                background: zoom > 1 ? '#EFF6FF' : '#F8FAFC',
+                color: zoom > 1 ? '#1a73e8' : '#94A3B8',
+              }}>リセット</button>
+            </div>
+            <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center' }}>
+              {zoom > 1 ? `×${zoom.toFixed(1)}　ドラッグで移動` : 'スクロールでズーム'}
+            </div>
+          </div>
+
           {/* 軸設定 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>軸設定</div>
@@ -701,7 +795,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, color: '#64748B', width: 28, flexShrink: 0 }}>横軸</span>
                 <select value={xAxis.key as string}
-                  onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setXAxis(f); setHoveredIdx(null) } }}
+                  onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setXAxis(f); setHoveredIdx(null); resetZoom() } }}
                   style={{ ...selectStyle, flex: 1 }}>
                   {AXIS_OPTIONS.map(a => <option key={a.key as string} value={a.key as string}>{a.label}</option>)}
                 </select>
@@ -710,7 +804,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               {/* 入れ替えボタン */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button
-                  onClick={() => { setXAxis(yAxis); setYAxis(xAxis); setHoveredIdx(null) }}
+                  onClick={() => { setXAxis(yAxis); setYAxis(xAxis); setHoveredIdx(null); resetZoom() }}
                   title="縦横を入れ替え"
                   style={{
                     background: '#F1F5F9', border: '1px solid #E2E8F0',
@@ -723,7 +817,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, color: '#64748B', width: 28, flexShrink: 0 }}>縦軸</span>
                 <select value={yAxis.key as string}
-                  onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setYAxis(f); setHoveredIdx(null) } }}
+                  onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setYAxis(f); setHoveredIdx(null); resetZoom() } }}
                   style={{ ...selectStyle, flex: 1 }}>
                   {AXIS_OPTIONS.map(a => <option key={a.key as string} value={a.key as string}>{a.label}</option>)}
                 </select>
