@@ -738,45 +738,6 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             )}
           </div>
 
-          {/* ズーム��ントロール */}
-          {(() => {
-            const btnBase: React.CSSProperties = {
-              width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
-              background: '#F8FAFC', color: '#334155', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 700, flexShrink: 0,
-            }
-            const STEP = 40
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
-                {/* +/- */}
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={zoomIn}  style={btnBase} title="ズームイン">＋</button>
-                  <button onClick={zoomOut} style={btnBase} title="ズームアウト">－</button>
-                  <button onClick={resetZoom} style={{ ...btnBase, width: 'auto', padding: '0 6px', fontSize: 9, color: zoom > 1 ? '#1a73e8' : '#94A3B8', background: zoom > 1 ? '#EFF6FF' : '#F8FAFC' }} title="リセット">
-                    リセット
-                  </button>
-                </div>
-                {/* 矢印パン（ズーム中のみ有効） */}
-                <div style={{ display: 'grid', gridTemplateColumns: '28px 28px 28px', gridTemplateRows: '28px 28px 28px', gap: 2, opacity: zoom > 1 ? 1 : 0.3 }}>
-                  <span />
-                  <button onClick={() => pan(0,  STEP)} style={btnBase} disabled={zoom <= 1} title="上">↑</button>
-                  <span />
-                  <button onClick={() => pan( STEP, 0)} style={btnBase} disabled={zoom <= 1} title="左">←</button>
-                  <button onClick={resetZoom} style={{ ...btnBase, fontSize: 8, color: '#94A3B8' }} title="中央へ">●</button>
-                  <button onClick={() => pan(-STEP, 0)} style={btnBase} disabled={zoom <= 1} title="右">→</button>
-                  <span />
-                  <button onClick={() => pan(0, -STEP)} style={btnBase} disabled={zoom <= 1} title="下">↓</button>
-                  <span />
-                </div>
-                <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center' }}>
-                  {zoom > 1 ? `×${zoom.toFixed(1)}` : ''}
-                </div>
-              </div>
-            )
-          })()}
-
           {/* 軸設定 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>軸設定</div>
@@ -858,6 +819,41 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               {sharing ? '準備中...' : '共有する'}
             </button>
           </div>
+
+          {/* ズームコントロール */}
+          {(() => {
+            const btnBase: React.CSSProperties = {
+              width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
+              background: '#F8FAFC', color: '#334155', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 700, flexShrink: 0,
+            }
+            const STEP = 40
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, borderTop: '1px solid #F1F5F9' }}>
+                <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={zoomIn}  style={btnBase} title="ズームイン">＋</button>
+                  <button onClick={zoomOut} style={btnBase} title="ズームアウト">－</button>
+                  <button onClick={resetZoom} style={{ ...btnBase, width: 'auto', padding: '0 6px', fontSize: 9, color: zoom > 1 ? '#1a73e8' : '#94A3B8', background: zoom > 1 ? '#EFF6FF' : '#F8FAFC' }} title="リセット">
+                    リセット
+                  </button>
+                  {zoom > 1 && <span style={{ fontSize: 9, color: '#94A3B8', alignSelf: 'center', marginLeft: 2 }}>×{zoom.toFixed(1)}</span>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '28px 28px 28px', gridTemplateRows: '28px 28px 28px', gap: 2, opacity: zoom > 1 ? 1 : 0.3 }}>
+                  <span />
+                  <button onClick={() => pan(0,  STEP)} style={btnBase} disabled={zoom <= 1} title="上">↑</button>
+                  <span />
+                  <button onClick={() => pan( STEP, 0)} style={btnBase} disabled={zoom <= 1} title="左">←</button>
+                  <button onClick={resetZoom} style={{ ...btnBase, fontSize: 8, color: '#94A3B8' }} title="中央へ">●</button>
+                  <button onClick={() => pan(-STEP, 0)} style={btnBase} disabled={zoom <= 1} title="右">→</button>
+                  <span />
+                  <button onClick={() => pan(0, -STEP)} style={btnBase} disabled={zoom <= 1} title="下">↓</button>
+                  <span />
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
 
