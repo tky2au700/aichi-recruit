@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -268,6 +269,28 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
           </div>
         )}
 
+        {/* 散布図 */}
+        {!loading && data.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <RankingBarRace
+              data={data.map((r, i) => ({
+                name:     r.education,
+                income:   r.annual_income ?? 0,
+                age:      r.age,
+                workers:  r.workers,
+                tenure:   r.tenure_years,
+                overtime: r.overtime_hours,
+                bonus:    r.annual_bonus,
+                hourly:   r.hourly_wage,
+                monthly:  r.monthly_wage,
+                rank:     i + 1,
+              }))}
+              surveyYear={surveyYear}
+              primaryColor="#1a73e8"
+            />
+          </div>
+        )}
+
         <div style={S.filterBar}>
           <div style={S.filterGroup}>
             <span style={S.filterLabel}>調査年</span>
@@ -409,7 +432,7 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
                           </span>
                           {sortKey === 'overtime_hours' && <div style={S.barWrap}><div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#FCA5A5', borderRadius: 4 }} /></div>}
                         </td>
-                        {/* 時給換算 */}
+                        {/* 時��換算 */}
                         <td style={S.td}>
                           <span style={{ fontWeight: sortKey === 'hourly_wage' ? 700 : 400, color: sortKey === 'hourly_wage' ? (idx === 0 ? '#D97706' : '#16a34a') : '#475569', fontVariantNumeric: 'tabular-nums' }}>
                             {row.hourly_wage != null ? `${row.hourly_wage.toLocaleString()}円` : '−'}

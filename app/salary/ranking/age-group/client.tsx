@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 interface AgeGroupRow {
   age_group: string
@@ -260,6 +261,28 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
                 <div style={S.kpiSub}>{sub}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 散布図 */}
+        {!loading && data.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <RankingBarRace
+              data={data.map((r, i) => ({
+                name:     r.age_group,
+                income:   r.annual_income ?? 0,
+                age:      r.age,
+                workers:  r.workers,
+                tenure:   r.tenure_years,
+                overtime: r.overtime_hours,
+                bonus:    r.annual_bonus,
+                hourly:   r.hourly_wage,
+                monthly:  r.monthly_wage,
+                rank:     i + 1,
+              }))}
+              surveyYear={surveyYear}
+              primaryColor="#1a73e8"
+            />
           </div>
         )}
 

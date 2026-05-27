@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 interface GenderRow {
   age_group: string
@@ -211,7 +212,7 @@ export function GenderRankingClient({ fixedSex, initialSize, initialYear, initia
   const currentSortLabel = SORT_KEY_LABEL[sortKey]
   const sexLabel         = fixedSex === '男' ? '男性' : '女性'
 
-  const baseTitle = `${sexLabel}の年齢階級別平均${currentSortLabel}ランキング${currentYearStr}`
+  const baseTitle = `${sexLabel}の年齢��級別平均${currentSortLabel}ランキング${currentYearStr}`
   const dynamicHeading = currentSizeLabel ? `${currentSizeLabel}の${baseTitle}` : baseTitle
 
   return (
@@ -240,6 +241,28 @@ export function GenderRankingClient({ fixedSex, initialSize, initialYear, initia
                 <div style={S.kpiSub}>{sub}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 散布図 */}
+        {!loading && data.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <RankingBarRace
+              data={data.map((r, i) => ({
+                name:     r.age_group,
+                income:   r.annual_income ?? 0,
+                age:      r.age,
+                workers:  r.workers,
+                tenure:   r.tenure_years,
+                overtime: r.overtime_hours,
+                bonus:    r.annual_bonus,
+                hourly:   r.hourly_wage,
+                monthly:  r.monthly_wage,
+                rank:     i + 1,
+              }))}
+              surveyYear={surveyYear}
+              primaryColor="#1a73e8"
+            />
           </div>
         )}
 
