@@ -443,6 +443,18 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
         {/* 左: SVG散布図（正方形） */}
         <div ref={wrapRef} style={{ flex: '1 1 0', minWidth: 0 }}>
+
+          {/* 動的タイトル：「縦軸 Y軸名 × X軸名 横軸」 */}
+          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>縦軸</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{yAxis.label}</span>
+              <span style={{ fontSize: 13, color: '#94A3B8', fontWeight: 500, margin: '0 2px' }}>×</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{xAxis.label}</span>
+              <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>横軸</span>
+            </div>
+          </div>
+
           <svg
             width={W} height={W}
             style={{ display: 'block', overflow: 'visible', userSelect: 'none', borderRadius: 8 }}
@@ -468,14 +480,14 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             {yTicks.map(v => (
               <text key={`yt-${v}`} x={PAD_L - 6} y={toY(v)}
                 textAnchor="end" dominantBaseline="middle"
-                fontSize={9} fill={TICK_C} fontFamily="'Noto Sans JP',sans-serif">
+                fontSize={11} fill={TICK_C} fontFamily="'Noto Sans JP',sans-serif">
                 {yAxis.format(v)}
               </text>
             ))}
             {xTicks.map(v => (
               <text key={`xt-${v}`} x={toX(v)} y={H - PAD_B + 7}
                 textAnchor="middle" dominantBaseline="hanging"
-                fontSize={9} fill={TICK_C} fontFamily="'Noto Sans JP',sans-serif">
+                fontSize={11} fill={TICK_C} fontFamily="'Noto Sans JP',sans-serif">
                 {xAxis.format(v)}
               </text>
             ))}
@@ -484,12 +496,12 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             <text
               transform={`translate(13,${PAD_T + (H - PAD_T - PAD_B) / 2}) rotate(-90)`}
               textAnchor="middle" dominantBaseline="middle"
-              fontSize={10} fontWeight={600} fill={LABEL_C} fontFamily="'Noto Sans JP',sans-serif">
+              fontSize={12} fontWeight={600} fill={LABEL_C} fontFamily="'Noto Sans JP',sans-serif">
               {yAxis.label}（{yAxis.unit}）
             </text>
             <text x={PAD_L + (W - PAD_L - PAD_R) / 2} y={H - 5}
               textAnchor="middle" dominantBaseline="auto"
-              fontSize={10} fontWeight={600} fill={LABEL_C} fontFamily="'Noto Sans JP',sans-serif">
+              fontSize={12} fontWeight={600} fill={LABEL_C} fontFamily="'Noto Sans JP',sans-serif">
               {xAxis.label}（{xAxis.unit}）
             </text>
 
@@ -721,7 +733,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             {/* 本体: 左=プレビュー / 右=アクション */}
             <div style={{ display: 'flex', minHeight: 340 }}>
 
-              {/* 左: プレビューエリア */}
+              {/* 左: ���レビューエリア */}
               <div style={{
                 flex: '1 1 0',
                 background: '#F8FAFC',
