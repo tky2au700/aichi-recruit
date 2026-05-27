@@ -240,6 +240,13 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
       <div style={S.hero}>
         <div style={S.heroInner}>
           <h1 style={S.h1}>{pageHeading ?? dynamicHeading}</h1>
+          {(currentSexLabel || currentSizeLabel) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {[currentSexLabel, currentSizeLabel].filter(Boolean).map(tag => (
+                <span key={tag} style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, border: '1.5px solid #CBD5E1', background: '#F1F5F9', color: '#475569' }}>{tag}</span>
+              ))}
+            </div>
+          )}
           <p style={S.subtitle}>
             {meta ? `${meta.survey_group_name}　${meta.survey_year}年調査` : '賃金構造基本統計調査に基づく年齢階級別データ'}
           </p>
