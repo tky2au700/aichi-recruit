@@ -245,10 +245,12 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const allValid = data.filter(d => getVal(d, xAxis.key) != null && getVal(d, yAxis.key) != null)
     const allXVals = allValid.map(d => getVal(d, xAxis.key)!)
     const allYVals = allValid.map(d => getVal(d, yAxis.key)!)
-    const { nMin: xMin2, nMax: xMax2 } = nice(Math.min(...allXVals), Math.max(...allXVals), 6)
-    const { nMin: yMin2, nMax: yMax2 } = nice(Math.min(...allYVals), Math.max(...allYVals), 5)
+    const { nMin: xMin2, nMax: xMax2, tick: xTick2 } = nice(Math.min(...allXVals), Math.max(...allXVals), 6)
+    const { nMin: yMin2, nMax: yMax2, tick: yTick2 } = nice(Math.min(...allYVals), Math.max(...allYVals), 5)
     const toX2 = (v: number) => PL + ((v - xMin2) / (xMax2 - xMin2 || 1)) * cW2
     const toY2 = (v: number) => PT + cH2 - ((v - yMin2) / (yMax2 - yMin2 || 1)) * cH2
+    const xTicks2: number[] = []; for (let v = xMin2; v <= xMax2 + xTick2 * 0.01; v += xTick2) xTicks2.push(v)
+    const yTicks2: number[] = []; for (let v = yMin2; v <= yMax2 + yTick2 * 0.01; v += yTick2) yTicks2.push(v)
 
     // 全データのEntryに相当する座標を計算（動画用・全件）
     const allEntries = allValid.map((item, i) => {
@@ -273,23 +275,54 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const OUTRO  = Math.floor(FPS * 1.5)   // 静止
     const TOTAL  = INTRO + SLIDE + FADEIN + OUTRO
 
-    // 背景・グリッド描画（共通）
+    // 背景・グリッド・軸・目盛り描画（常時）
     const drawBase = () => {
       ctx.clearRect(0, 0, W2, H2)
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W2, H2)
-      ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4])
-      for (let i = 0; i <= 6; i++) {
-        const gx = PL + (cW2 / 6) * i
+
+      // グリッド線
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4])
+      xTicks2.forEach(v => {
+        const gx = toX2(v)
         ctx.beginPath(); ctx.moveTo(gx, PT); ctx.lineTo(gx, H2 - PB); ctx.stroke()
-      }
-      for (let i = 0; i <= 5; i++) {
-        const gy = PT + (cH2 / 5) * i
+      })
+      yTicks2.forEach(v => {
+        const gy = toY2(v)
         ctx.beginPath(); ctx.moveTo(PL, gy); ctx.lineTo(W2 - PR, gy); ctx.stroke()
-      }
+      })
       ctx.setLineDash([])
-      ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1
+
+      // 軸線
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5
       ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, H2 - PB); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(PL, H2 - PB); ctx.lineTo(W2 - PR, H2 - PB); ctx.stroke()
+
+      // 目盛りラベル
+      ctx.fillStyle = '#475569'
+      ctx.font = `500 10px 'Noto Sans JP',sans-serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      xTicks2.forEach(v => {
+        const label = xAxis.unit === '万円' ? `${Math.round(v)}万円` : `${v}${xAxis.unit ?? ''}`
+        ctx.fillText(label, toX2(v), H2 - PB + 6)
+      })
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'
+      yTicks2.forEach(v => {
+        const label = yAxis.unit ? `${v}${yAxis.unit}` : `${v}`
+        ctx.fillText(label, PL - 6, toY2(v))
+      })
+
+      // 軸ラベル
+      ctx.fillStyle = '#334155'; ctx.font = `600 11px 'Noto Sans JP',sans-serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
+      ctx.fillText(xAxis.label, PL + cW2 / 2, H2 - 4)
+      ctx.save()
+      ctx.translate(12, PT + cH2 / 2)
+      ctx.rotate(-Math.PI / 2)
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      ctx.fillText(yAxis.label, 0, 0)
+      ctx.restore()
+
+      // 透かし年
       if (surveyYear) {
         ctx.font = `700 42px 'Noto Sans JP',sans-serif`
         ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
@@ -328,13 +361,14 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       const slideFrame = frame - INTRO
 
       // フェーズ1: 20点を20位→1位の順にスライドイン
-      const visCount = Math.min(sorted20.length, Math.floor(slideFrame / INTV) + 1)
-      for (let i = 0; i < visCount; i++) {
+      // 各点 i は slideFrame = i*INTV から (i+1)*INTV までの間に出現
+      for (let i = 0; i < sorted20.length; i++) {
+        const startF = i * INTV
+        if (slideFrame < startF) break          // まだ出現していない
+        const progress = Math.min(1, (slideFrame - startF) / INTV)
         const e = sorted20[i]
-        const isLatest = i === visCount - 1
-        const progress = isLatest ? Math.min(1, (slideFrame % INTV) / INTV) : 1
         drawDot(e, progress, DOT_R * Math.min(1, progress * 2))
-        const slideX = isLatest ? (1 - progress) * 40 : 0
+        const slideX = (1 - progress) * 40
         drawLabel(e, progress, slideX)
       }
 
@@ -553,7 +587,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           {/* 出典 */}
           <div style={{ textAlign: 'right', marginTop: 6 }}>
             <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              出典: 厚生労働省 賃金構造基本統計調査
+              ���典: 厚生労働省 賃金構造基本統計調査
             </span>
           </div>
         </div>
