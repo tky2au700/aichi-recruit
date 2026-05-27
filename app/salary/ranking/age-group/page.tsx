@@ -29,7 +29,7 @@ export default async function AgeGroupRankingPage({ searchParams }: { searchPara
   const { sex, size, year, sort, dir } = await searchParams
 
   const PARAM_TO_SEX:  Record<string, string> = { male: '男', female: '女' }
-  const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100～999人', small: '10～99人' }
+  const PARAM_TO_SIZE: Record<string, string> = { large: '1,000人以上', medium: '100～999人', small: '10～99人' }
 
   const validSort = (sort && sort in SORT_LABEL ? sort : 'annual_income') as SortKey
   const validDir  = (dir === 'asc' ? 'asc' : 'desc') as SortDir
@@ -38,7 +38,7 @@ export default async function AgeGroupRankingPage({ searchParams }: { searchPara
 
   const sexLabel  = sex  ? (PARAM_TO_SEX[sex]   ?? null) : null
   const sizeLabel = size ? (PARAM_TO_SIZE[size]  ?? null) : null
-  const sizeLabelMap: Record<string, string> = { '1000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
+  const sizeLabelMap: Record<string, string> = { '1,000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
   const sizeName = sizeLabel ? (sizeLabelMap[sizeLabel] ?? null) : null
 
   let pageHeading = `年齢階級別平均${sortLabel}ランキング${yearStr}`

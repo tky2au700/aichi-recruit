@@ -25,8 +25,8 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
 
 export default async function MaleRankingPage({ searchParams }: { searchParams: SearchParams }) {
   const { size, year, sort, dir } = await searchParams
-  const PARAM_TO_SIZE: Record<string, string> = { large: '1000人以上', medium: '100～999人', small: '10～99人' }
-  const sizeLabelMap: Record<string, string> = { '1000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
+  const PARAM_TO_SIZE: Record<string, string> = { large: '1,000人以上', medium: '100～999人', small: '10～99人' }
+  const sizeLabelMap: Record<string, string> = { '1,000人以上': '大企業', '100～999人': '中規模企業', '10～99人': '小規模企業' }
   const validSort = (sort && sort in SORT_LABEL ? sort : 'annual_income') as SortKey
   const validDir  = (dir === 'asc' ? 'asc' : 'desc') as SortDir
   const yearStr   = year ? `${year}年` : '2025年'
