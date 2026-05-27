@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 // ---------------------------------------------------------------------------
 // 型
@@ -244,6 +245,22 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
             <p style={S.subtitle}>{config.description}　調査年: {meta.survey_year}年</p>
           ) : (
             <p style={S.subtitle}>{config.description}</p>
+          )}
+          {/* バーチャートレース */}
+          {!loading && filtered.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <RankingBarRace
+                data={filtered.slice(0, 10).map(r => ({
+                  name:  r.occupation_name,
+                  value: (r[config.sortKey] as number | null) ?? 0,
+                  color: pc,
+                }))}
+                title={config.title}
+                surveyYear={meta?.survey_year ?? surveyYear}
+                unit="万円"
+                primaryColor={pc}
+              />
+            </div>
           )}
         </div>
       </div>
