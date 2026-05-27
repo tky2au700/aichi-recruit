@@ -443,7 +443,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   x={e.lx} y={e.ly}
                   textAnchor="middle" dominantBaseline="auto"
                   fontSize={LABEL_FS} fontWeight={500}
-                  fill="#334155" fillOpacity={0.9}
+                  fill="#000000" fillOpacity={0.85}
                   fontFamily="'Noto Sans JP',sans-serif"
                   style={{ pointerEvents: 'none' }}
                 >
@@ -480,7 +480,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   <text x={e.lx} y={e.ly}
                     textAnchor="middle" dominantBaseline="auto"
                     fontSize={LABEL_FS} fontWeight={700}
-                    fill="#0F172A" fillOpacity={1}
+                    fill="#000000" fillOpacity={1}
                     fontFamily="'Noto Sans JP',sans-serif"
                     style={{ pointerEvents: 'none' }}>
                     {e.item.name}
