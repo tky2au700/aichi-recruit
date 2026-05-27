@@ -91,6 +91,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const [xAxis,         setXAxis]         = useState<AxisDef>(AXIS_OPTIONS[0])
   const [yAxis,         setYAxis]         = useState<AxisDef>(AXIS_OPTIONS[1])
   const [hoveredIdx,    setHoveredIdx]    = useState<number | null>(null)
+  const [displayMode,   setDisplayMode]   = useState<'top20' | 'bottom20' | 'all'>('top20')
   const [sharing,       setSharing]       = useState(false)
   const [shareModal,    setShareModal]    = useState(false)
   const [previewUrl,    setPreviewUrl]    = useState<string | null>(null)
@@ -119,10 +120,20 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
 
   const entries = useMemo<Entry[]>(() => {
-    const items = data.filter(
+    let items = data.filter(
       d => getVal(d, xAxis.key) != null && getVal(d, yAxis.key) != null
     )
     if (items.length === 0) return []
+
+    // displayMode フィルタ（xAxis の値でソート）
+    if (displayMode !== 'all') {
+      const sorted = [...items].sort((a, b) => {
+        const av = getVal(a, xAxis.key) ?? 0
+        const bv = getVal(b, xAxis.key) ?? 0
+        return bv - av  // 降順
+      })
+      items = displayMode === 'top20' ? sorted.slice(0, 20) : sorted.slice(-20)
+    }
 
     const xVals = items.map(d => getVal(d, xAxis.key)!)
     const yVals = items.map(d => getVal(d, yAxis.key)!)
@@ -146,7 +157,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     })
 
     return result
-  }, [data, xAxis, yAxis, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
+  }, [data, xAxis, yAxis, displayMode, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
 
   const { xTicks, yTicks, toX, toY } = useMemo(() => {
     const items = data.filter(
@@ -549,6 +560,30 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   {AXIS_OPTIONS.map(a => <option key={a.key as string} value={a.key as string}>{a.label}</option>)}
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* 表示件数 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>表示</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {([
+                { key: 'top20',    label: '上位20' },
+                { key: 'bottom20', label: '下位20' },
+                { key: 'all',      label: 'すべて'  },
+              ] as const).map(opt => (
+                <button key={opt.key}
+                  onClick={() => { setDisplayMode(opt.key); setHoveredIdx(null) }}
+                  style={{
+                    flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                    cursor: 'pointer',
+                    border: displayMode === opt.key ? '1.5px solid #1a73e8' : '1px solid #E2E8F0',
+                    background: displayMode === opt.key ? '#EFF6FF' : '#F8FAFC',
+                    color: displayMode === opt.key ? '#1a73e8' : '#64748B',
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
