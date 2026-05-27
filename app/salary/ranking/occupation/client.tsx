@@ -392,6 +392,10 @@ export function OccupationRankingClient({ fixedSex, initialSex, initialSize, ini
               primaryColor="#1a73e8"
               defaultXKey="income"
               defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
+              filterTags={[
+                sex !== '計' ? (SEX_OPTIONS.find(o => o.value === sex)?.label ?? sex) : null,
+                size !== '企業規模計' ? (SIZE_OPTIONS.find(o => o.value === size)?.label ?? size) : null,
+              ].filter((t): t is string => !!t)}
             />
           </div>
         )}

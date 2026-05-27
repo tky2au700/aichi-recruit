@@ -22,6 +22,7 @@ interface RankingBarRaceProps {
   primaryColor?:  string
   defaultXKey?:   keyof ScatterItem
   defaultYKey?:   keyof ScatterItem
+  filterTags?:    string[]
 }
 
 interface AxisDef {
@@ -97,7 +98,7 @@ type Entry = {
   lx: number; ly: number; goRight: boolean; showLabel: boolean
 }
 
-export function RankingBarRace({ data, surveyYear, defaultXKey, defaultYKey }: RankingBarRaceProps) {
+export function RankingBarRace({ data, surveyYear, defaultXKey, defaultYKey, filterTags }: RankingBarRaceProps) {
   const initX = AXIS_OPTIONS.find(a => a.key === defaultXKey) ?? AXIS_OPTIONS[0]
   const initY = AXIS_OPTIONS.find(a => a.key === defaultYKey) ?? AXIS_OPTIONS[1]
   const [xAxis,         setXAxis]         = useState<AxisDef>(initX)
@@ -740,6 +741,18 @@ export function RankingBarRace({ data, surveyYear, defaultXKey, defaultYKey }: R
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.4 }}>散布図</div>
             {surveyYear && (
               <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 3 }}>{surveyYear}年調査</div>
+            )}
+            {filterTags && filterTags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {filterTags.map(tag => (
+                  <span key={tag} style={{
+                    fontSize: 10, fontWeight: 600, padding: '2px 7px',
+                    borderRadius: 99, border: '1px solid #E2E8F0',
+                    background: '#F1F5F9', color: '#475569',
+                    whiteSpace: 'nowrap',
+                  }}>{tag}</span>
+                ))}
+              </div>
             )}
           </div>
 

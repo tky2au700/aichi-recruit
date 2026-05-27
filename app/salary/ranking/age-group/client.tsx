@@ -284,6 +284,7 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
               primaryColor="#1a73e8"
               defaultXKey="income"
               defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
+              filterTags={[currentSexLabel, size !== '企業規模計' ? size : null].filter((t): t is string => !!t)}
             />
           </div>
         )}

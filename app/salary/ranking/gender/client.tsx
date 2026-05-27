@@ -264,6 +264,7 @@ export function GenderRankingClient({ fixedSex, initialSize, initialYear, initia
               primaryColor="#1a73e8"
               defaultXKey="income"
               defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
+              filterTags={[sexLabel, size].filter(t => t && t !== '企業規模計')}
             />
           </div>
         )}
