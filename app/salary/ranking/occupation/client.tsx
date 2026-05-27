@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { TrendingUp, Users, Award, BarChart2, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 import { RankingBarRace } from '@/components/ranking-bar-race'
@@ -140,8 +140,9 @@ interface Props {
 }
 
 export function OccupationRankingClient({ fixedSex, initialSex, initialSize, initialYear, initialSort, initialDir, pageHeading, pageDescription }: Props = {}) {
-  const router   = useRouter()
-  const pathname = usePathname()
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
 
   const [data, setData]       = useState<OccupationRow[]>([])
   const [meta, setMeta]       = useState<Meta | null>(null)
@@ -153,6 +154,17 @@ export function OccupationRankingClient({ fixedSex, initialSex, initialSize, ini
   const [sex, setSex]               = useState(fixedSex ?? (initialSex ? (PARAM_TO_SEX[initialSex] ?? '計') : '計'))
   const [size, setSize]             = useState(initialSize ? (PARAM_TO_SIZE[initialSize] ?? '企業規模計') : '企業規模計')
   const [surveyYear, setSurveyYear] = useState<number | null>(initialYear ?? null)
+
+  // URLクエリが変わったとき（メニューリンクなど）にstateを同期
+  useEffect(() => {
+    if (fixedSex) return
+    const sexParam  = searchParams.get('sex')
+    const sizeParam = searchParams.get('size')
+    const yearParam = searchParams.get('year')
+    setSex(sexParam  ? (PARAM_TO_SEX[sexParam]   ?? '計')         : '計')
+    setSize(sizeParam ? (PARAM_TO_SIZE[sizeParam] ?? '企業規模計') : '企業規模計')
+    setSurveyYear(yearParam ? Number(yearParam) : null)
+  }, [searchParams, fixedSex])
 
   // タブ・ソート変更時にURLを更新する共通関数
   const pushUrl = useCallback((
@@ -323,7 +335,7 @@ export function OccupationRankingClient({ fixedSex, initialSex, initialSize, ini
   }
 
   const filterDescParts = [
-    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100���999人' : '10〜99人'}）` : null,
+    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人���上' ? '1000人以上' : size === '100～999人' ? '100���999人' : '10〜99人'}）` : null,
     currentSexLabel,
   ].filter(Boolean)
   const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear || sortKey !== 'annual_income')
