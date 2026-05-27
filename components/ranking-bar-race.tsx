@@ -231,72 +231,113 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     if (entries.length === 0) return
     setVideoProgress(0)
     setVideoBlobUrl(null)
+
     const W2 = size.w, H2 = W2, dpr = 2
     const offscreen = document.createElement('canvas')
     offscreen.width = W2 * dpr; offscreen.height = H2 * dpr
     const ctx = offscreen.getContext('2d')!
     ctx.scale(dpr, dpr)
+
     const PL = 58, PR = 16, PT = 20, PB = 44
     const cW2 = W2 - PL - PR, cH2 = H2 - PT - PB
+
+    // 軸スケールは全件で固定
     const xVals2 = entries.map(e => e.xv), yVals2 = entries.map(e => e.yv)
     const xMin2 = Math.min(...xVals2), xMax2 = Math.max(...xVals2)
     const yMin2 = Math.min(...yVals2), yMax2 = Math.max(...yVals2)
     const toX2 = (v: number) => PL + ((v - xMin2) / (xMax2 - xMin2 || 1)) * cW2
     const toY2 = (v: number) => PT + cH2 - ((v - yMin2) / (yMax2 - yMin2 || 1)) * cH2
-    const FPS = 30
-    const INTRO = Math.floor(FPS * 0.5)
-    const INTV  = Math.max(1, Math.floor(FPS / 8))
-    const DOTS  = entries.length * INTV
-    const LBFS  = Math.floor(FPS * 0.8)
-    const OUTRO = FPS * 1.5
-    const TOTAL = INTRO + DOTS + LBFS + OUTRO
 
-    const drawFrame = (frame: number) => {
+    // スライドイン対象リスト（下位20は昇順、それ以外は降順）
+    const sorted20 = [...entries].sort((a, b) => {
+      return displayMode === 'bottom20' ? a.xv - b.xv : b.xv - a.xv
+    }).slice(0, 20)
+
+    const FPS    = 30
+    const INTRO  = Math.floor(FPS * 0.5)   // グリッド描画
+    const INTV   = Math.max(2, Math.floor(FPS / 5))  // 1点あたりのフレーム数
+    const SLIDE  = sorted20.length * INTV   // 20点スライドイン
+    const FADEIN = Math.floor(FPS * 0.8)   // 全件フェードイン
+    const OUTRO  = Math.floor(FPS * 1.5)   // 静止
+    const TOTAL  = INTRO + SLIDE + FADEIN + OUTRO
+
+    // 背景・グリッド描画（共通）
+    const drawBase = () => {
       ctx.clearRect(0, 0, W2, H2)
-      ctx.fillStyle = BG; ctx.fillRect(0, 0, W2, H2)
-      ctx.strokeStyle = GRID; ctx.lineWidth = 1; ctx.setLineDash([3, 4])
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W2, H2)
+      ctx.strokeStyle = 'rgba(0,0,0,0.07)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4])
       for (let i = 0; i <= 6; i++) {
-        const gx = PL + (cW2 / 6) * i, gy = PT + (cH2 / 5) * i
+        const gx = PL + (cW2 / 6) * i
         ctx.beginPath(); ctx.moveTo(gx, PT); ctx.lineTo(gx, H2 - PB); ctx.stroke()
+      }
+      for (let i = 0; i <= 5; i++) {
+        const gy = PT + (cH2 / 5) * i
         ctx.beginPath(); ctx.moveTo(PL, gy); ctx.lineTo(W2 - PR, gy); ctx.stroke()
       }
       ctx.setLineDash([])
-      ctx.strokeStyle = AXIS_C; ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(PL, PT); ctx.lineTo(PL, H2 - PB); ctx.stroke()
       ctx.beginPath(); ctx.moveTo(PL, H2 - PB); ctx.lineTo(W2 - PR, H2 - PB); ctx.stroke()
       if (surveyYear) {
         ctx.font = `700 42px 'Noto Sans JP',sans-serif`
-        ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
+        ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
         ctx.fillText(`${surveyYear}年`, W2 - PR - 8, H2 - PB - 8)
       }
+    }
+
+    // ドット描画（共通）
+    const drawDot = (e: Entry, alpha = 1, r = DOT_R) => {
+      ctx.globalAlpha = alpha
+      ctx.beginPath(); ctx.arc(toX2(e.xv), toY2(e.yv), r, 0, Math.PI * 2)
+      ctx.fillStyle = e.color; ctx.fill()
+      ctx.globalAlpha = 1
+    }
+
+    // ラベル描画（ドット真下・中央揃え、スライドオフセット付き）
+    const drawLabel = (e: Entry, alpha: number, slideX = 0) => {
+      const ex = toX2(e.xv), ey = toY2(e.yv)
+      const lx = ex + slideX
+      const ly = ey + DOT_R + 4 + LABEL_FS
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = '#000000'
+      ctx.font = `500 ${LABEL_FS}px 'Noto Sans JP',sans-serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+      ctx.fillText(e.item.name, lx, ly)
+      ctx.globalAlpha = 1
+    }
+
+    const drawFrame = (frame: number) => {
+      drawBase()
       if (frame < INTRO) return
-      const dotFrame = frame - INTRO
-      const visCount = Math.min(entries.length, Math.floor(dotFrame / INTV) + 1)
+
+      const slideFrame = frame - INTRO
+
+      // フェーズ1: 20点を順番にスライドイン
+      const visCount = Math.min(sorted20.length, Math.floor(slideFrame / INTV) + 1)
       for (let i = 0; i < visCount; i++) {
-        const e = entries[i]
-        const scale = i === visCount - 1 ? Math.min(1, (dotFrame % INTV) / INTV * 2) : 1
-        ctx.beginPath(); ctx.arc(toX2(e.xv), toY2(e.yv), DOT_R * scale, 0, Math.PI * 2)
-        ctx.fillStyle = e.color; ctx.fill()
+        const e = sorted20[i]
+        const isLatest = i === visCount - 1
+        const progress = isLatest ? Math.min(1, (slideFrame % INTV) / INTV) : 1
+        // ドットはスケールアップで出現
+        drawDot(e, progress, DOT_R * Math.min(1, progress * 2))
+        // ラベルは右からスライドイン
+        const slideX = isLatest ? (1 - progress) * 40 : 0
+        drawLabel(e, progress, slideX)
       }
-      if (frame < INTRO + DOTS) return
-      const lbAlpha = Math.min(1, (frame - INTRO - DOTS) / LBFS)
-      entries.forEach(e => {
-        const ex = toX2(e.xv), ey = toY2(e.yv)
-        ctx.beginPath(); ctx.arc(ex, ey, DOT_R, 0, Math.PI * 2)
-        ctx.fillStyle = e.color; ctx.fill()
-        const goR = ex < (PL + W2 - PR) / 2
-        const lx2 = goR ? ex + DOT_R + LINE_LEN : ex - DOT_R - LINE_LEN - approxTextWidth(e.item.name, LABEL_FS)
-        ctx.globalAlpha = lbAlpha
-        ctx.strokeStyle = e.color + '80'; ctx.lineWidth = 1; ctx.setLineDash([2, 3])
-        ctx.beginPath(); ctx.moveTo(goR ? ex + DOT_R : ex - DOT_R, ey)
-        ctx.lineTo(goR ? lx2 : lx2 + approxTextWidth(e.item.name, LABEL_FS), ey); ctx.stroke()
-        ctx.setLineDash([])
-        ctx.fillStyle = '#fff'
-        ctx.font = `500 ${LABEL_FS}px 'Noto Sans JP',sans-serif`
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-        ctx.fillText(e.item.name, lx2, ey)
-        ctx.globalAlpha = 1
-      })
+
+      if (frame < INTRO + SLIDE) return
+
+      // フェーズ2: 残りの全件をフェードイン
+      const fadeProgress = Math.min(1, (frame - INTRO - SLIDE) / FADEIN)
+      // すでに表示中の20点はそのまま
+      for (const e of sorted20) { drawDot(e); drawLabel(e, 1) }
+      // 残り全件をフェードイン
+      for (const e of entries) {
+        if (sorted20.some(s => s.i === e.i)) continue
+        drawDot(e, fadeProgress)
+        // ラベルは表示しない（showLabelに従う）
+        if (e.showLabel) drawLabel(e, fadeProgress * 0.85)
+      }
     }
 
     const stream = offscreen.captureStream(FPS)
@@ -319,7 +360,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       else recorder.stop()
     }
     tick()
-  }, [entries, size, surveyYear])
+  }, [entries, size, surveyYear, displayMode])
 
   const downloadVideo = useCallback(() => {
     if (!videoBlobUrl) return
