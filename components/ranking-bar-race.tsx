@@ -241,17 +241,29 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const PL = 58, PR = 16, PT = 20, PB = 44
     const cW2 = W2 - PL - PR, cH2 = H2 - PT - PB
 
-    // 軸スケールは全件で固定
-    const xVals2 = entries.map(e => e.xv), yVals2 = entries.map(e => e.yv)
-    const xMin2 = Math.min(...xVals2), xMax2 = Math.max(...xVals2)
-    const yMin2 = Math.min(...yVals2), yMax2 = Math.max(...yVals2)
+    // 軸スケールは data 全件から計算（フィルタに依存しない）
+    const allValid = data.filter(d => getVal(d, xAxis.key) != null && getVal(d, yAxis.key) != null)
+    const allXVals = allValid.map(d => getVal(d, xAxis.key)!)
+    const allYVals = allValid.map(d => getVal(d, yAxis.key)!)
+    const { nMin: xMin2, nMax: xMax2 } = nice(Math.min(...allXVals), Math.max(...allXVals), 6)
+    const { nMin: yMin2, nMax: yMax2 } = nice(Math.min(...allYVals), Math.max(...allYVals), 5)
     const toX2 = (v: number) => PL + ((v - xMin2) / (xMax2 - xMin2 || 1)) * cW2
     const toY2 = (v: number) => PT + cH2 - ((v - yMin2) / (yMax2 - yMin2 || 1)) * cH2
 
-    // スライドイン対象リスト（下位20は昇順、それ以外は降順）
-    const sorted20 = [...entries].sort((a, b) => {
-      return displayMode === 'bottom20' ? a.xv - b.xv : b.xv - a.xv
-    }).slice(0, 20)
+    // 全データのEntryに相当する座標を計算（動画用・全件）
+    const allEntries = allValid.map((item, i) => {
+      const xv = getVal(item, xAxis.key)!
+      const yv = getVal(item, yAxis.key)!
+      return { i, item, xv, yv, color: COLORS[i % COLORS.length] }
+    })
+
+    // スライドイン対象リスト
+    // top20/all: 降順に並べて [19位, 18位, ..., 1位] の順（20位→1位）
+    // bottom20 : 昇順に並べて [下位20位, ..., 下位1位] の順
+    const sorted20 = [...allEntries]
+      .sort((a, b) => displayMode === 'bottom20' ? a.xv - b.xv : b.xv - a.xv)
+      .slice(0, 20)
+      .reverse()  // 最下位（20位 or 下位20位）から出現させる
 
     const FPS    = 30
     const INTRO  = Math.floor(FPS * 0.5)   // グリッド描画
@@ -306,37 +318,34 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       ctx.globalAlpha = 1
     }
 
+    const slideSet = new Set(sorted20.map(e => e.i))
+
     const drawFrame = (frame: number) => {
-      drawBase()
+      drawBase()  // 軸・グリッドは常に最初から表示
+
       if (frame < INTRO) return
 
       const slideFrame = frame - INTRO
 
-      // フェーズ1: 20点を順番にスライドイン
+      // フェーズ1: 20点を20位→1位の順にスライドイン
       const visCount = Math.min(sorted20.length, Math.floor(slideFrame / INTV) + 1)
       for (let i = 0; i < visCount; i++) {
         const e = sorted20[i]
         const isLatest = i === visCount - 1
         const progress = isLatest ? Math.min(1, (slideFrame % INTV) / INTV) : 1
-        // ドットはスケールアップで出現
         drawDot(e, progress, DOT_R * Math.min(1, progress * 2))
-        // ラベルは右からスライドイン
         const slideX = isLatest ? (1 - progress) * 40 : 0
         drawLabel(e, progress, slideX)
       }
 
       if (frame < INTRO + SLIDE) return
 
-      // フェーズ2: 残りの全件をフェードイン
+      // フェーズ2: 残り全件をフェードイン（スライドイン済みの20点も再描画して確定）
       const fadeProgress = Math.min(1, (frame - INTRO - SLIDE) / FADEIN)
-      // すでに表示中の20点はそのまま
       for (const e of sorted20) { drawDot(e); drawLabel(e, 1) }
-      // 残り全件をフェードイン
-      for (const e of entries) {
-        if (sorted20.some(s => s.i === e.i)) continue
+      for (const e of allEntries) {
+        if (slideSet.has(e.i)) continue
         drawDot(e, fadeProgress)
-        // ラベルは表示しない（showLabelに従う）
-        if (e.showLabel) drawLabel(e, fadeProgress * 0.85)
       }
     }
 
@@ -360,7 +369,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       else recorder.stop()
     }
     tick()
-  }, [entries, size, surveyYear, displayMode])
+  }, [entries, data, xAxis, yAxis, size, surveyYear, displayMode])
 
   const downloadVideo = useCallback(() => {
     if (!videoBlobUrl) return
@@ -450,7 +459,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               {xAxis.label}（{xAxis.unit}）
             </text>
 
-            {/* 調査年透かし */}
+            {/* 調査年透��し */}
             {surveyYear && (
               <text x={W - PAD_R - 8} y={H - PAD_B - 8} textAnchor="end" dominantBaseline="auto"
                 fontSize={44} fontWeight={700} fill="rgba(0,0,0,0.05)" fontFamily="'Noto Sans JP',sans-serif">
