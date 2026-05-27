@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Noto_Sans_JP, Geist_Mono } from 'next/font/google'
+import { Footer } from '@/components/footer'
 import './globals.css'
 
 const notoSansJP = Noto_Sans_JP({
@@ -73,6 +74,7 @@ export default function RootLayout({
     <html lang="ja" className={`${notoSansJP.variable} ${geistMono.variable} bg-background`}>
       <body className="font-sans antialiased">
         {children}
+        <Footer />
       </body>
     </html>
   )

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { TrendingUp, Info, Search, X, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -317,6 +318,28 @@ export function GrowthRankingClient({
                 <div style={S.kpiValue}>{value}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 散布図 */}
+        {!loading && data.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <RankingBarRace
+              data={data.map((r, i) => ({
+                name:     r.occupation_name,
+                income:   r.annual_income ?? 0,
+                age:      r.age,
+                workers:  r.workers,
+                tenure:   r.tenure_years,
+                overtime: r.overtime_hours,
+                bonus:    r.annual_bonus,
+                hourly:   r.hourly_wage,
+                monthly:  r.monthly_wage,
+                rank:     i + 1,
+              }))}
+              surveyYear={info?.latest_year ?? null}
+              primaryColor="#1a73e8"
+            />
           </div>
         )}
 

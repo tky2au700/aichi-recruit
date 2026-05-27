@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Clock, Search, X, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
+import { RankingBarRace } from '@/components/ranking-bar-race'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -384,6 +385,28 @@ export function OvertimeWageRankingClient({
             <div style={S.kpiSub}>{currentYearStr}調査</div>
           </div>
         </div>
+
+        {/* 散布図 */}
+        {!loading && data.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <RankingBarRace
+              data={data.map((r, i) => ({
+                name:     r.occupation_name,
+                income:   r.annual_income ?? 0,
+                age:      null,
+                workers:  r.workers,
+                tenure:   null,
+                overtime: r.overtime_hours,
+                bonus:    null,
+                hourly:   r.hourly_wage,
+                monthly:  null,
+                rank:     i + 1,
+              }))}
+              surveyYear={surveyYear}
+              primaryColor="#1a73e8"
+            />
+          </div>
+        )}
 
         {/* フィルターバー */}
         <div style={S.filterBar}>
