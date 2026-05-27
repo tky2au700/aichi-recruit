@@ -347,6 +347,8 @@ export function RoleRankingClient({
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey="monthly"
             />
           </div>
         )}
@@ -473,7 +475,7 @@ export function RoleRankingClient({
             </div>
           ) : filteredData.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>
-              {data.length === 0 ? 'データがありません。管理画面からXLSXをインポートしてください。' : '該当する役職はありません。'}
+              {data.length === 0 ? 'データがありません。管理画面からXLSXをインポートしてくださ���。' : '該当する役職はありません。'}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>

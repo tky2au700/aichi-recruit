@@ -16,10 +16,12 @@ export interface ScatterItem {
 }
 
 interface RankingBarRaceProps {
-  data:          ScatterItem[]
-  title:         string
-  surveyYear:    number | null
-  primaryColor?: string
+  data:           ScatterItem[]
+  title?:         string
+  surveyYear:     number | null
+  primaryColor?:  string
+  defaultXKey?:   keyof ScatterItem
+  defaultYKey?:   keyof ScatterItem
 }
 
 interface AxisDef {
@@ -94,9 +96,11 @@ type Entry = {
   lx: number; ly: number; goRight: boolean; showLabel: boolean
 }
 
-export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
-  const [xAxis,         setXAxis]         = useState<AxisDef>(AXIS_OPTIONS[0])
-  const [yAxis,         setYAxis]         = useState<AxisDef>(AXIS_OPTIONS[1])
+export function RankingBarRace({ data, surveyYear, defaultXKey, defaultYKey }: RankingBarRaceProps) {
+  const initX = AXIS_OPTIONS.find(a => a.key === defaultXKey) ?? AXIS_OPTIONS[0]
+  const initY = AXIS_OPTIONS.find(a => a.key === defaultYKey) ?? AXIS_OPTIONS[1]
+  const [xAxis,         setXAxis]         = useState<AxisDef>(initX)
+  const [yAxis,         setYAxis]         = useState<AxisDef>(initY)
   const [hoveredIdx,    setHoveredIdx]    = useState<number | null>(null)
   const [displayMode,   setDisplayMode]   = useState<'top20' | 'bottom20' | 'all'>('top20')
   const [sharing,       setSharing]       = useState(false)
