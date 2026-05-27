@@ -251,11 +251,16 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
             <div style={{ marginTop: 24 }}>
               <RankingBarRace
                 data={filtered.map((r, i) => ({
-                  name:    r.occupation_name,
-                  income:  (r.annual_income as number | null) ?? 0,
-                  age:     r.age ?? null,
-                  workers: r.workers ?? null,
-                  rank:    i + 1,
+                  name:     r.occupation_name,
+                  income:   (r.annual_income  as number | null) ?? 0,
+                  age:      r.age             ?? null,
+                  workers:  r.workers         ?? null,
+                  tenure:   r.tenure_years    ?? null,
+                  overtime: r.overtime_hours  ?? null,
+                  bonus:    r.annual_bonus != null ? r.annual_bonus / 10000 : null,
+                  hourly:   r.hourly_wage     ?? null,
+                  monthly:  r.monthly_wage != null ? r.monthly_wage / 10000 : null,
+                  rank:     i + 1,
                 }))}
                 title={config.title}
                 surveyYear={meta?.survey_year ?? surveyYear}
