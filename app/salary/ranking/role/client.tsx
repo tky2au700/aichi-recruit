@@ -315,7 +315,7 @@ export function RoleRankingClient({
           <div style={S.kpiGrid}>
             {[
               { icon: <Award    size={15} color="#1a73e8" />, label: '最高年収',    value: fmtWan(meta.max_income),  sub: 'トップ役職' },
-              { icon: <BarChart2 size={15} color="#0F9D58" />, label: '平均年��',   value: fmtWan(meta.avg_income),  sub: `${meta.role_count}役職の平均` },
+              { icon: <BarChart2 size={15} color="#0F9D58" />, label: '平均年齢',   value: fmtWan(meta.avg_income),  sub: `${meta.role_count}役職の平均` },
               { icon: <TrendingUp size={15} color="#F4B400" />, label: '集計役職数', value: `${meta.role_count}役職`, sub: `${meta.survey_year}年調査` },
               { icon: <Users    size={15} color="#DB4437" />, label: '労働者数',    value: meta.total_workers ? `${(meta.total_workers / 10000).toFixed(0)}万人` : '−', sub: '対象労働者の合計' },
             ].map(({ icon, label, value, sub }) => (

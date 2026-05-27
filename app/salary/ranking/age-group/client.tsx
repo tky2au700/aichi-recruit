@@ -306,7 +306,7 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
         <div style={S.tableCard}>
           <div style={S.tableHead}>
             <div style={S.tableTitle}>
-              <span>年齢階級���{currentSortLabel}ランキング</span>
+              <span>年齢階級別平均{currentSortLabel}ランキング</span>
               {!loading && <span style={S.badge}>{sortedData.length}区分</span>}
             </div>
           </div>
