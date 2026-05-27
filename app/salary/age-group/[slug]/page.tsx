@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Nav } from '@/components/nav'
 import { AgeGroupDetailClient } from './client'
+import { AgeGroupJsonLd } from '@/components/json-ld'
 import { query } from '@/lib/db'
 import { buildMetadata } from '@/lib/seo'
 
@@ -50,8 +51,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AgeGroupDetailPage({ params }: Props) {
   const { slug: rawSlug } = await params
+  let slug: string
+  try { slug = decodeURIComponent(rawSlug) } catch { slug = rawSlug }
+
+  let jsonLdData: { annual_income: number | null; scheduled_wage: number | null; annual_bonus: number | null; survey_year: number } | null = null
+  try {
+    const rows = await query(
+      `SELECT aw.annual_income, aw.scheduled_wage, aw.annual_bonus, d.survey_year
+       FROM age_wages aw JOIN datasets d ON aw.dataset_id = d.id
+       WHERE aw.age_group = ? AND aw.education = '学歴計' AND aw.sex = '計' AND aw.enterprise_size = '企業規模計'
+       ORDER BY d.survey_year DESC LIMIT 1`,
+      [slug]
+    ) as Array<{ annual_income: number | null; scheduled_wage: number | null; annual_bonus: number | null; survey_year: number }>
+    jsonLdData = rows[0] ?? null
+  } catch { /* no-op */ }
+
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {jsonLdData && (
+        <AgeGroupJsonLd
+          ageGroup={slug}
+          annualIncomeWan={jsonLdData.annual_income  != null ? Math.round(jsonLdData.annual_income  / 10) : null}
+          monthlyWageWan={jsonLdData.scheduled_wage  != null ? Math.round(jsonLdData.scheduled_wage  / 10) : null}
+          annualBonusWan={jsonLdData.annual_bonus    != null ? Math.round(jsonLdData.annual_bonus    / 10) : null}
+          surveyYear={jsonLdData.survey_year}
+          slug={rawSlug}
+        />
+      )}
       <Nav />
       <AgeGroupDetailClient slug={rawSlug} />
     </div>

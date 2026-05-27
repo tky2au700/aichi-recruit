@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Noto_Sans_JP, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -14,6 +14,13 @@ const geistMono = Geist_Mono({
 })
 
 const BASE_URL = 'https://ai-recruit.jp'
+
+export const viewport: Viewport = {
+  themeColor: '#1a73e8',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -44,11 +51,13 @@ export const metadata: Metadata = {
     siteName: 'AIリクルート 年収データベース',
     title: 'AIリクルート | 年収データベース',
     description: '賃金構造基本統計調査に基づく年収データベース。職種別・産業別・都道府県別・学歴別・年齢別の年収ランキングと推移グラフ。',
+    images: [{ url: `${BASE_URL}/og-default.jpg`, width: 1200, height: 630, alt: 'AIリクルート 年収データベース' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'AIリクルート | 年収データベース',
     description: '賃金構造基本統計調査に基づく年収データベース。職種別・産業別・都道府県別・学歴別の年収ランキング。',
+    images: [`${BASE_URL}/og-default.jpg`],
   },
   alternates: {
     canonical: BASE_URL,

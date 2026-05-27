@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Nav } from '@/components/nav'
 import { RoleDetailClient } from './client'
+import { RoleJsonLd } from '@/components/json-ld'
 import { query } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -63,8 +64,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function RoleDetailPage({ params }: Props) {
   const { slug: rawSlug } = await params
+  let roleName: string
+  try { roleName = decodeURIComponent(rawSlug) } catch { roleName = rawSlug }
+
+  let jsonLdData: { annual_income: number | null; scheduled_wage: number | null; annual_bonus: number | null; survey_year: number } | null = null
+  try {
+    const rows = await query(
+      `SELECT rw.annual_income, rw.scheduled_wage, rw.annual_bonus, d.survey_year
+       FROM role_wages rw JOIN datasets d ON rw.dataset_id = d.id
+       WHERE rw.role_name = ? AND rw.sex = '計' AND rw.enterprise_size = '10人以上'
+         AND rw.education = '学歴計' AND rw.age_group = '学歴計' AND rw.tenure_category = '勤続年数計'
+       ORDER BY d.survey_year DESC LIMIT 1`,
+      [roleName]
+    ) as Array<{ annual_income: number | null; scheduled_wage: number | null; annual_bonus: number | null; survey_year: number }>
+    jsonLdData = rows[0] ?? null
+  } catch { /* no-op */ }
+
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {jsonLdData && (
+        <RoleJsonLd
+          roleName={roleName}
+          annualIncomeWan={jsonLdData.annual_income  != null ? Math.round(Number(jsonLdData.annual_income)  / 10) : null}
+          monthlyWageWan={jsonLdData.scheduled_wage  != null ? Math.round(Number(jsonLdData.scheduled_wage) / 10) : null}
+          annualBonusWan={jsonLdData.annual_bonus    != null ? Math.round(Number(jsonLdData.annual_bonus)   / 10) : null}
+          surveyYear={jsonLdData.survey_year}
+          slug={rawSlug}
+        />
+      )}
       <Nav />
       <RoleDetailClient slug={rawSlug} />
     </div>
