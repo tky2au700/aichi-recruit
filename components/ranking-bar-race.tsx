@@ -95,7 +95,7 @@ export function RankingBarRace({
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, W, H)
 
-    const PAD_L = 68, PAD_R = 28, PAD_T = 20, PAD_B = 46
+    const PAD_L = 68, PAD_R = 20, PAD_T = 24, PAD_B = 46
 
     const xVals = items.map(d => getVal(d, xAxis.key)!)
     const yVals = items.map(d => getVal(d, yAxis.key)!)
@@ -199,8 +199,7 @@ export function RankingBarRace({
       return { dot: { x, y }, card: { cx, cy: y, goRight }, cardW, item, color, xv, yv, i, showCard }
     })
 
-    // 2パス目: カード表示対象のY重なり回避
-    // 左向き・右向き別に処理
+    // 2パス目: カード表示対象のY重なり回避（左右別に処理）
     for (const side of [true, false]) {
       const sideEntries = entries
         .filter(e => e.showCard && e.card.goRight === side)
@@ -213,6 +212,19 @@ export function RankingBarRace({
         }
       }
     }
+
+    // 3パス目: 画面外クランプ（カードが枠を超えないよう補正）
+    entries.forEach(e => {
+      if (!e.showCard) return
+      const { card, cardW } = e
+      // 上下クランプ
+      const halfH = CARD_H / 2
+      if (card.cy - halfH < PAD_T)          card.cy = PAD_T + halfH
+      if (card.cy + halfH > H - PAD_B)       card.cy = H - PAD_B - halfH
+      // 左右クランプ
+      if (card.cx < PAD_L)                   card.cx = PAD_L
+      if (card.cx + cardW > W - PAD_R)       card.cx = W - PAD_R - cardW
+    })
 
     // ホバー判定用に位置を登録
     entries.forEach(e => {
@@ -306,7 +318,7 @@ export function RankingBarRace({
       const e = entries[hovered]
       renderDot(e, true)
       if (e.showCard) renderCard(e, true)
-      renderTooltip(e)
+      renderTooltip(e)  // showCard の有無に関わらず常にツールチップを出す
     }
 
     itemsRef.current = positions
@@ -418,9 +430,20 @@ export function RankingBarRace({
 
         </div>
 
-        {/* 軸セレクタ */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        {/* 軸セレクタ + 入れ替えボタン */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <AxisSelect label="横軸:" value={xAxis} onChange={a => { setXAxis(a); setHoveredIdx(null) }} />
+          <button
+            onClick={() => { setXAxis(yAxis); setYAxis(xAxis); setHoveredIdx(null) }}
+            title="縦横を入れ替え"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 26, height: 26, borderRadius: 6,
+              border: '1px solid #E2E8F0', background: '#F8FAFC',
+              cursor: 'pointer', color: '#64748B', fontSize: 14,
+              flexShrink: 0,
+            }}
+          >⇄</button>
           <AxisSelect label="縦軸:" value={yAxis} onChange={a => { setYAxis(a); setHoveredIdx(null) }} />
         </div>
       </div>
