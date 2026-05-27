@@ -116,7 +116,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const W = size.w
   const H = W
   const PAD_L = 58, PAD_R = 16, PAD_T = 20, PAD_B = 44
-  const MIN_GAP = LABEL_FS + 3
+
 
   const entries = useMemo<Entry[]>(() => {
     const items = data.filter(
@@ -131,7 +131,8 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
     const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
 
-    const LABEL_OFFSET = DOT_R + 2
+    // ラベルはドット真下に固定距離・中央揃え（重なり回避なし）
+    const LABEL_OFFSET = DOT_R + 4
 
     const result: Entry[] = items.map((item, i) => {
       const xv    = getVal(item, xAxis.key)!
@@ -139,46 +140,13 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       const dx    = toX(xv)
       const dy    = toY(yv)
       const color = COLORS[i % COLORS.length]
-      // ラベルはドット真下・中央揃え（初期値）
       const lx    = dx
       const ly    = dy + LABEL_OFFSET + LABEL_FS
       return { i, item, color, dx, dy, xv, yv, lx, ly, goRight: true }
     })
 
-    // Y上下両方向の重なり回避（Beeswarm-style）
-    // ly でソートし、隣同士が近すぎたら交互に上下へ逃がす
-    const STEP = MIN_GAP
-    const yLo = PAD_T + LABEL_FS
-    const yHi = H - PAD_B - 4
-
-    for (let iter = 0; iter < 8; iter++) {
-      result.sort((a, b) => a.ly - b.ly)
-      for (let k = 1; k < result.length; k++) {
-        const prev = result[k - 1]
-        const cur  = result[k]
-        const overlap = STEP - (cur.ly - prev.ly)
-        if (overlap > 0) {
-          // 各点をドット位置との距離で押す方向を決める
-          const pushUp   = prev.ly - prev.dy > cur.ly - cur.dy
-          if (pushUp) {
-            prev.ly -= overlap * 0.6
-            cur.ly  += overlap * 0.4
-          } else {
-            prev.ly -= overlap * 0.4
-            cur.ly  += overlap * 0.6
-          }
-        }
-      }
-    }
-
-    // 画面内クランプ
-    result.forEach(e => {
-      if (e.ly < yLo) e.ly = yLo
-      if (e.ly > yHi) e.ly = yHi
-    })
-
     return result
-  }, [data, xAxis, yAxis, W, H, PAD_L, PAD_R, PAD_T, PAD_B, MIN_GAP])
+  }, [data, xAxis, yAxis, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
 
   const { xTicks, yTicks, toX, toY } = useMemo(() => {
     const items = data.filter(
