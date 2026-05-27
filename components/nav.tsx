@@ -55,14 +55,14 @@ const rankingItems = [
     color: '#e8336d',
   },
   {
-    href: '/salary/ranking/occupation/male',
+    href: '/salary/ranking/occupation?sex=male',
     label: '男性職種別ランキング',
     description: '男性労働者の職種別年収ランキング',
     icon: Users,
     color: '#1a73e8',
   },
   {
-    href: '/salary/ranking/occupation/female',
+    href: '/salary/ranking/occupation?sex=female',
     label: '女性職種別ランキング',
     description: '女性労働者の職種別年収ランキング',
     icon: Users,
@@ -259,7 +259,7 @@ function NavInner() {
                           href={href}
                           onClick={() => setMegaOpen(false)}
                           className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors group ${
-                            pathname === href ? 'bg-blue-50' : 'hover:bg-gray-50'
+                            fullPath === href ? 'bg-blue-50' : 'hover:bg-gray-50'
                           }`}
                         >
                           <div
@@ -270,7 +270,7 @@ function NavInner() {
                           </div>
                           <div className="min-w-0">
                             <p className={`text-[13px] font-medium leading-snug group-hover:text-[#1a73e8] transition-colors ${
-                              pathname === href ? 'text-[#1a73e8]' : 'text-gray-800'
+                              fullPath === href ? 'text-[#1a73e8]' : 'text-gray-800'
                             }`}>
                               {label}
                             </p>
