@@ -77,14 +77,9 @@ function nice(min: number, max: number, steps: number) {
 const approxTextWidth = (text: string, fs: number) => text.length * fs * 0.62
 
 type Entry = {
-  i: number
-  item: ScatterItem
-  color: string
-  dx: number; dy: number
-  xv: number; yv: number
-  // ラベル位置（テキスト直置き、pillなし）
-  lx: number; ly: number   // ラベル左端・中央Y
-  goRight: boolean
+  i: number; item: OccupationWage; color: string
+  dx: number; dy: number; xv: number; yv: number
+  lx: number; ly: number; goRight: boolean; showLabel: boolean
 }
 
 export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
@@ -133,27 +128,29 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
     const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
 
-    // displayMode フィルタ（xAxis の値でソート）
-    let items = allItems
+    // ラベルを表示する職種セットを決定（ドットは常に全件）
+    let labelSet: Set<string> | null = null  // null = すべて表示
     if (displayMode !== 'all') {
       const sorted = [...allItems].sort((a, b) => {
         const av = getVal(a, xAxis.key) ?? 0
         const bv = getVal(b, xAxis.key) ?? 0
-        return bv - av  // 降順
+        return bv - av
       })
-      items = displayMode === 'top20' ? sorted.slice(0, 20) : sorted.slice(-20)
+      const sliced = displayMode === 'top20' ? sorted.slice(0, 20) : sorted.slice(-20)
+      labelSet = new Set(sliced.map(d => d.name))
     }
 
     // ラベルはドット真下に固定距離・中央揃え
     const LABEL_OFFSET = DOT_R + 4
 
-    return items.map((item, i) => {
-      const xv    = getVal(item, xAxis.key)!
-      const yv    = getVal(item, yAxis.key)!
-      const dx    = toX(xv)
-      const dy    = toY(yv)
-      const color = COLORS[i % COLORS.length]
-      return { i, item, color, dx, dy, xv, yv, lx: dx, ly: dy + LABEL_OFFSET + LABEL_FS, goRight: true }
+    return allItems.map((item, i) => {
+      const xv       = getVal(item, xAxis.key)!
+      const yv       = getVal(item, yAxis.key)!
+      const dx       = toX(xv)
+      const dy       = toY(yv)
+      const color    = COLORS[i % COLORS.length]
+      const showLabel = labelSet === null || labelSet.has(item.name)
+      return { i, item, color, dx, dy, xv, yv, lx: dx, ly: dy + LABEL_OFFSET + LABEL_FS, goRight: true, showLabel }
     })
   }, [data, xAxis, yAxis, displayMode, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
 
@@ -432,9 +429,10 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               />
             ))}
 
-            {/* ラベル（全件、非ホバー） */}
+            {/* ラベル（showLabel=trueかつ非ホバーのみ） */}
             {entries.map(e => {
               if (e.i === hoveredIdx) return null
+              if (!e.showLabel) return null
               return (
                 <text key={`lb-${e.i}`}
                   x={e.lx} y={e.ly}
