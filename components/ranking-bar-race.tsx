@@ -75,6 +75,18 @@ function nice(min: number, max: number, steps: number) {
 }
 
 const approxTextWidth = (text: string, fs: number) => text.length * fs * 0.62
+// 全角12文字に切り詰める（全角1文字=1、半角=0.5として計算）
+const truncateLabel = (text: string, maxFullWidth = 12): string => {
+  let w = 0
+  let result = ''
+  for (const ch of text) {
+    const isFullWidth = ch.match(/[^\x00-\x7F]/) !== null
+    w += isFullWidth ? 1 : 0.5
+    if (w > maxFullWidth) return result + '…'
+    result += ch
+  }
+  return result
+}
 
 type Entry = {
   i: number; item: OccupationWage; color: string
@@ -408,7 +420,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       ctx.fillStyle = '#000000'
       ctx.font = `500 ${LABEL_FS}px 'Noto Sans JP',sans-serif`
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
-      ctx.fillText(e.item.name, lx, ly)
+      ctx.fillText(truncateLabel(e.item.name), lx, ly)
       ctx.globalAlpha = 1
     }
 
@@ -508,13 +520,13 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           {/* 動的タイトル：「縦軸 Y軸名 × X軸名 横軸」＋調査年 */}
           <div style={{ textAlign: 'center', marginBottom: 6 }}>
             <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-              <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>縦軸</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{yAxis.label}</span>
-              <span style={{ fontSize: 13, color: '#94A3B8', fontWeight: 500, margin: '0 2px' }}>×</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{xAxis.label}</span>
-              <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>横軸</span>
+              <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>縦軸</span>
+              <span style={{ fontSize: 19, fontWeight: 700, color: '#1E293B' }}>{yAxis.label}</span>
+              <span style={{ fontSize: 15, color: '#94A3B8', fontWeight: 500, margin: '0 3px' }}>×</span>
+              <span style={{ fontSize: 19, fontWeight: 700, color: '#1E293B' }}>{xAxis.label}</span>
+              <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>横軸</span>
               {surveyYear && (
-                <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500, marginLeft: 6 }}>（{surveyYear}年調査）</span>
+                <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, marginLeft: 8 }}>（{surveyYear}年調査）</span>
               )}
             </div>
           </div>
@@ -602,7 +614,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   fontFamily="'Noto Sans JP',sans-serif"
                   style={{ pointerEvents: 'none' }}
                 >
-                  {e.item.name}
+                  {truncateLabel(e.item.name)}
                 </text>
               )
             })}
@@ -638,7 +650,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                     fill="#000000" fillOpacity={1}
                     fontFamily="'Noto Sans JP',sans-serif"
                     style={{ pointerEvents: 'none' }}>
-                    {e.item.name}
+                    {truncateLabel(e.item.name)}
                   </text>
                   {/* ツールチップ */}
                   <rect x={tx} y={ty} width={tipW} height={tipH} rx={8}
