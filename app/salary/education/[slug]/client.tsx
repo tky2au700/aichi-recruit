@@ -142,20 +142,44 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
   const lineLabel = (key: string) => compareMode === 'sex' ? (SEX_LABELS[key] ?? key) : key
 
   const years = [...new Set(timeSeriesAll.map(t => t.survey_year))].sort((a, b) => a - b)
-  console.log('[v0] TrendChart years:', years, 'total rows:', timeSeriesAll.length)
-  console.log('[v0] TrendChart sample:', timeSeriesAll[0])
-  const chartData = years.map(year => {
-    const row: Record<string, number | string> = { year: `${year}年` }
-    lines.forEach(lineKey => {
-      const found = compareMode === 'sex'
-        ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lineKey && t.enterprise_size === '企業規模計')
-        : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lineKey)
-      if (!found) return
-      const raw = (found as any)[metric]
-      if (raw != null) row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
-    })
-    return row
-  })
+  const isMultiYear = years.length > 1
+
+  // 複数年: X軸=年、各バー=男女計/男性/女性（推移グラフ）
+  // 1年のみ: X軸=企業規模 or 性別（比較グラフ）
+  const chartData = isMultiYear
+    ? years.map(year => {
+        const row: Record<string, number | string> = { label: `${year}年` }
+        lines.forEach(lineKey => {
+          const found = compareMode === 'sex'
+            ? timeSeriesAll.find(t => t.survey_year === year && t.sex === lineKey && t.enterprise_size === '企業規模計')
+            : timeSeriesAll.find(t => t.survey_year === year && t.sex === '計' && t.enterprise_size === lineKey)
+          if (!found) return
+          const raw = (found as any)[metric]
+          if (raw != null) row[lineLabel(lineKey)] = Math.round(Number(raw) / metricDef.divisor)
+        })
+        return row
+      })
+    : compareMode === 'sex'
+      ? SEX_LINES.map(sexKey => {
+          const row: Record<string, number | string> = { label: SEX_LABELS[sexKey] ?? sexKey }
+          const found = timeSeriesAll.find(t => t.sex === sexKey && t.enterprise_size === '企業規模計')
+          if (found) {
+            const raw = (found as any)[metric]
+            if (raw != null) row[SEX_LABELS[sexKey] ?? sexKey] = Math.round(Number(raw) / metricDef.divisor)
+          }
+          return row
+        })
+      : SIZE_LINES.map(sizeKey => {
+          const row: Record<string, number | string> = { label: sizeKey }
+          const found = timeSeriesAll.find(t => t.sex === '計' && t.enterprise_size === sizeKey)
+          if (found) {
+            const raw = (found as any)[metric]
+            if (raw != null) row[sizeKey] = Math.round(Number(raw) / metricDef.divisor)
+          }
+          return row
+        })
+
+  const chartBars = isMultiYear ? lines : (compareMode === 'sex' ? SEX_LINES.map(k => SEX_LABELS[k] ?? k) : SIZE_LINES)
 
   const formatTick = (v: number) => {
     if (metricDef.unit === '万円') return `${v.toLocaleString()}万`
@@ -170,6 +194,8 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
     return [`${v}`, name]
   }
 
+  const chartTitle = isMultiYear ? '推移グラフ' : compareMode === 'sex' ? '性別比較グラフ' : '企業規模別比較グラフ'
+
   const TabBtn = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button onClick={onClick} style={{
       padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
@@ -183,7 +209,7 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
   return (
     <section style={{ marginBottom: 36 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #16a34a', paddingLeft: 10, margin: 0 }}>推移グラフ</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', borderLeft: '3px solid #16a34a', paddingLeft: 10, margin: 0 }}>{chartTitle}</h2>
         <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 24, padding: 3, gap: 2 }}>
           {COMPARE_MODES.map(m => <TabBtn key={m.key} active={compareMode === m.key} onClick={() => setCompareMode(m.key)}>{m.label}</TabBtn>)}
         </div>
@@ -201,18 +227,18 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
       </div>
       <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '24px 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="20%" barGap={3}>
+          <BarChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 4 }} barCategoryGap="30%" barGap={3}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748B' }} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#64748B' }} />
             <YAxis tickFormatter={formatTick} tick={{ fontSize: 11, fill: '#64748B' }} width={60} />
             <Tooltip formatter={formatTooltip} labelStyle={{ fontSize: 12, color: '#0F172A', fontWeight: 700 }} contentStyle={{ borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12 }} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-            {lines.map((lineKey, idx) => (
-              <Bar key={lineKey} dataKey={lineLabel(lineKey)} fill={LINE_COLORS[idx % LINE_COLORS.length]} radius={[3, 3, 0, 0]} />
+            {chartBars.map((barKey, idx) => (
+              <Bar key={barKey} dataKey={isMultiYear ? lineLabel(barKey) : barKey} fill={LINE_COLORS[idx % LINE_COLORS.length]} radius={[4, 4, 0, 0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
-        {growthStr !== '−' && metric === 'annual_income' && (
+        {isMultiYear && growthStr !== '−' && metric === 'annual_income' && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#64748B' }}>
             <span>{oldest?.survey_year}年→{latest?.survey_year}年の変化（男女計）:</span>
             <strong style={{ color: growthPositive ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
