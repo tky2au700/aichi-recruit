@@ -120,14 +120,23 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
 
   const entries = useMemo<Entry[]>(() => {
-    let items = data.filter(
+    const allItems = data.filter(
       d => getVal(d, xAxis.key) != null && getVal(d, yAxis.key) != null
     )
-    if (items.length === 0) return []
+    if (allItems.length === 0) return []
+
+    // 軸スケールは常に全データから計算（フィルタで変わらない）
+    const allXVals = allItems.map(d => getVal(d, xAxis.key)!)
+    const allYVals = allItems.map(d => getVal(d, yAxis.key)!)
+    const { nMin: xMin, nMax: xMax } = nice(Math.min(...allXVals), Math.max(...allXVals), 6)
+    const { nMin: yMin, nMax: yMax } = nice(Math.min(...allYVals), Math.max(...allYVals), 5)
+    const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
+    const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
 
     // displayMode フィルタ（xAxis の値でソート）
+    let items = allItems
     if (displayMode !== 'all') {
-      const sorted = [...items].sort((a, b) => {
+      const sorted = [...allItems].sort((a, b) => {
         const av = getVal(a, xAxis.key) ?? 0
         const bv = getVal(b, xAxis.key) ?? 0
         return bv - av  // 降順
@@ -135,28 +144,17 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       items = displayMode === 'top20' ? sorted.slice(0, 20) : sorted.slice(-20)
     }
 
-    const xVals = items.map(d => getVal(d, xAxis.key)!)
-    const yVals = items.map(d => getVal(d, yAxis.key)!)
-    const { nMin: xMin, nMax: xMax } = nice(Math.min(...xVals), Math.max(...xVals), 6)
-    const { nMin: yMin, nMax: yMax } = nice(Math.min(...yVals), Math.max(...yVals), 5)
-    const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
-    const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
-
-    // ラベルはドット真下に固定距離・中央揃え（重なり回避なし）
+    // ラベルはドット真下に固定距離・中央揃え
     const LABEL_OFFSET = DOT_R + 4
 
-    const result: Entry[] = items.map((item, i) => {
+    return items.map((item, i) => {
       const xv    = getVal(item, xAxis.key)!
       const yv    = getVal(item, yAxis.key)!
       const dx    = toX(xv)
       const dy    = toY(yv)
       const color = COLORS[i % COLORS.length]
-      const lx    = dx
-      const ly    = dy + LABEL_OFFSET + LABEL_FS
-      return { i, item, color, dx, dy, xv, yv, lx, ly, goRight: true }
+      return { i, item, color, dx, dy, xv, yv, lx: dx, ly: dy + LABEL_OFFSET + LABEL_FS, goRight: true }
     })
-
-    return result
   }, [data, xAxis, yAxis, displayMode, W, H, PAD_L, PAD_R, PAD_T, PAD_B])
 
   const { xTicks, yTicks, toX, toY } = useMemo(() => {
