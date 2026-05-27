@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info, ChevronRight } from 'lucide-react'
+import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 interface AgeGroupRow {
   age_group: string
@@ -359,12 +359,9 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
                         <td style={{ ...S.td, fontWeight: 600 }}>
                           <Link
                             href={`/salary/age-group/${encodeURIComponent(row.age_group)}`}
-                            style={{ color: '#7c3aed', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                            className="ranking-link"
                           >
                             {row.age_group}
-                            <ChevronRight size={12} color="#94A3B8" />
                           </Link>
                         </td>
                         <td style={{ ...S.td, minWidth: 140 }}>
@@ -405,16 +402,7 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
                           </span>
                           {sortKey === 'hourly_wage' && <div style={S.barWrap}><div style={{ width: `${sortRatio}%`, height: '100%', background: idx === 0 ? '#F4B400' : '#7c3aed', borderRadius: 4 }} /></div>}
                         </td>
-                        <td style={{ ...S.td }}>
-                          <Link
-                            href={`/salary/age-group/${encodeURIComponent(row.age_group)}`}
-                            style={{ color: '#7c3aed', textDecoration: 'none', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
-                          >
-                            詳細 <ChevronRight size={11} />
-                          </Link>
-                        </td>
+
                       </tr>
                     )
                   })}

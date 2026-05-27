@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info, ChevronRight } from 'lucide-react'
+import { TrendingUp, Users, Award, BarChart2, ChevronUp, ChevronDown, ArrowUpDown, Info } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -362,12 +362,9 @@ export function EducationRankingClient({ initialSex, initialSize, initialYear, i
                         <td style={{ ...S.td, fontWeight: 600 }}>
                           <Link
                             href={`/salary/education/${encodeURIComponent(row.education)}`}
-                            style={{ color: '#16a34a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                            className="ranking-link"
                           >
                             {row.education}
-                            <ChevronRight size={12} color="#94A3B8" />
                           </Link>
                         </td>
                         {/* 推定年収 */}

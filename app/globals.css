@@ -101,8 +101,9 @@
   }
 }
 
-/* 職種名リンク: 動的アンダーライン */
-.occupation-link {
+/* ランキング行の名称リンク: 動的アンダーライン（occupation-link は後方互換のため残す） */
+.occupation-link,
+.ranking-link {
   position: relative;
   display: inline-block;
   color: #334155;
@@ -111,7 +112,8 @@
   letter-spacing: 0.01em;
   transition: color 0.18s ease;
 }
-.occupation-link::after {
+.occupation-link::after,
+.ranking-link::after {
   content: '';
   position: absolute;
   left: 0;
@@ -123,10 +125,12 @@
   transform-origin: left center;
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.occupation-link:hover {
+.occupation-link:hover,
+.ranking-link:hover {
   color: #0f172a;
 }
-.occupation-link:hover::after {
+.occupation-link:hover::after,
+.ranking-link:hover::after {
   transform: scaleX(1);
 }
 
