@@ -284,7 +284,7 @@ export function RankingBarRace({
     }
 
     ctx.restore()
-  }, [items, xAxis, yAxis, maxWorkers, primaryColor, surveyYear])
+  }, [items, xAxis, yAxis, primaryColor, surveyYear])
 
   // 軸・データ変化で再描画
   useEffect(() => { draw(hoveredIdx) }, [draw, hoveredIdx])
