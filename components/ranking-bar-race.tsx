@@ -188,16 +188,54 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve(); img.onerror = reject; img.src = url
       })
-      const scale = 2
-      const cvs   = document.createElement('canvas')
-      cvs.width   = svgEl.clientWidth  * scale
-      cvs.height  = svgEl.clientHeight * scale
-      const ctx2  = cvs.getContext('2d')!
+      const scale  = 2
+      const sw     = svgEl.clientWidth
+      const sh     = svgEl.clientHeight
+      const TITLE_H = 36  // タイトル行の高さ
+      const SOURCE_H = 20 // 出典行の高さ
+      const cvs    = document.createElement('canvas')
+      cvs.width    = sw  * scale
+      cvs.height   = (sh + TITLE_H + SOURCE_H) * scale
+      const ctx2   = cvs.getContext('2d')!
       ctx2.scale(scale, scale)
-      ctx2.fillStyle = BG
-      ctx2.fillRect(0, 0, svgEl.clientWidth, svgEl.clientHeight)
-      ctx2.drawImage(img, 0, 0, svgEl.clientWidth, svgEl.clientHeight)
+
+      // 背景
+      ctx2.fillStyle = '#ffffff'
+      ctx2.fillRect(0, 0, sw, sh + TITLE_H + SOURCE_H)
+
+      // タイトル行
+      const titleCx = sw / 2
+      ctx2.textBaseline = 'middle'
+      const ty = TITLE_H / 2
+      ctx2.fillStyle = '#94A3B8'; ctx2.font = `500 9px 'Noto Sans JP',sans-serif`
+      ctx2.textAlign = 'right'
+      ctx2.fillText('縦軸', titleCx - 108, ty)
+      ctx2.fillStyle = '#1E293B'; ctx2.font = `700 13px 'Noto Sans JP',sans-serif`
+      ctx2.textAlign = 'left'
+      ctx2.fillText(yAxis.label, titleCx - 100, ty)
+      const ylw = ctx2.measureText(yAxis.label).width
+      ctx2.fillStyle = '#94A3B8'; ctx2.font = `500 11px 'Noto Sans JP',sans-serif`
+      ctx2.fillText(' × ', titleCx - 100 + ylw, ty)
+      const sepw = ctx2.measureText(' × ').width
+      ctx2.fillStyle = '#1E293B'; ctx2.font = `700 13px 'Noto Sans JP',sans-serif`
+      ctx2.fillText(xAxis.label, titleCx - 100 + ylw + sepw, ty)
+      const xlw = ctx2.measureText(xAxis.label).width
+      ctx2.fillStyle = '#94A3B8'; ctx2.font = `500 9px 'Noto Sans JP',sans-serif`
+      ctx2.fillText('横軸', titleCx - 100 + ylw + sepw + xlw + 4, ty)
+      if (surveyYear) {
+        const xyw = ctx2.measureText('横軸').width
+        ctx2.fillText(`（${surveyYear}年調査）`, titleCx - 100 + ylw + sepw + xlw + 4 + xyw + 4, ty)
+      }
+
+      // SVG本体
+      ctx2.drawImage(img, 0, TITLE_H, sw, sh)
       URL.revokeObjectURL(url)
+
+      // 出典行
+      ctx2.fillStyle = '#94A3B8'; ctx2.font = `500 9px 'Noto Sans JP',sans-serif`
+      ctx2.textAlign = 'right'; ctx2.textBaseline = 'middle'
+      ctx2.fillText('出典：厚生労働省 賃金構造基本統計調査', sw - 8, sh + TITLE_H + SOURCE_H / 2)
+
       setPreviewCanvas(cvs)
       setPreviewUrl(cvs.toDataURL('image/png'))
     } catch {
@@ -205,7 +243,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     } finally {
       setSharing(false)
     }
-  }, [wrapRef])
+  }, [wrapRef, xAxis, yAxis, surveyYear])
 
   const copyImage = useCallback(async () => {
     if (!previewCanvas) return
@@ -328,6 +366,29 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
         ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
         ctx.fillText(`${surveyYear}年`, W2 - PR - 8, H2 - PB - 8)
       }
+
+      // タイトル（上部中央）
+      const titleY = 18
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      ctx.fillStyle = '#94A3B8'; ctx.font = `500 11px 'Noto Sans JP',sans-serif`
+      ctx.fillText('縦軸', PL + cW2 / 2 - 110, titleY)
+      ctx.fillStyle = '#1E293B'; ctx.font = `700 14px 'Noto Sans JP',sans-serif`
+      ctx.fillText(yAxis.label, PL + cW2 / 2 - 60, titleY)
+      ctx.fillStyle = '#94A3B8'; ctx.font = `500 12px 'Noto Sans JP',sans-serif`
+      ctx.fillText('×', PL + cW2 / 2 + 28, titleY)
+      ctx.fillStyle = '#1E293B'; ctx.font = `700 14px 'Noto Sans JP',sans-serif`
+      ctx.fillText(xAxis.label, PL + cW2 / 2 + 70, titleY)
+      ctx.fillStyle = '#94A3B8'; ctx.font = `500 11px 'Noto Sans JP',sans-serif`
+      ctx.fillText('横軸', PL + cW2 / 2 + 130, titleY)
+      if (surveyYear) {
+        ctx.fillStyle = '#94A3B8'; ctx.font = `500 10px 'Noto Sans JP',sans-serif`
+        ctx.fillText(`（${surveyYear}年調査）`, PL + cW2 / 2 + 195, titleY + 2)
+      }
+
+      // 出典（右下）
+      ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px 'Noto Sans JP',sans-serif`
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
+      ctx.fillText('出典：厚生労働省 賃金構造基本統計調査', W2 - PR, H2 - 2)
     }
 
     // ドット描画（共通）
@@ -444,14 +505,17 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
         {/* 左: SVG散布図（正方形） */}
         <div ref={wrapRef} style={{ flex: '1 1 0', minWidth: 0 }}>
 
-          {/* 動的タイトル：「縦軸 Y軸名 × X軸名 横軸」 */}
-          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          {/* 動的タイトル：「縦軸 Y軸名 × X軸名 横軸」＋調査年 */}
+          <div style={{ textAlign: 'center', marginBottom: 6 }}>
             <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
               <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>縦軸</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{yAxis.label}</span>
               <span style={{ fontSize: 13, color: '#94A3B8', fontWeight: 500, margin: '0 2px' }}>×</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#1E293B' }}>{xAxis.label}</span>
               <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>横軸</span>
+              {surveyYear && (
+                <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500, marginLeft: 6 }}>（{surveyYear}年調査）</span>
+              )}
             </div>
           </div>
 
@@ -598,8 +662,8 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
           {/* 出典 */}
           <div style={{ textAlign: 'right', marginTop: 6 }}>
-            <span style={{ fontSize: 9, color: '#94A3B8' }}>
-              ���典: 厚生労働省 賃金構造基本統計調査
+            <span style={{ fontSize: 10, color: '#94A3B8' }}>
+              {'出典：厚生労働省 賃金構造基本統計調査'}
             </span>
           </div>
         </div>
