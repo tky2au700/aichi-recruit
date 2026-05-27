@@ -663,6 +663,9 @@ export function RankingBarRace({
             )
           })()}
 
+        </svg>
+      </div>
+
       {/* 出典 */}
       <div style={{ textAlign: 'right', marginTop: 4 }}>
         <span style={{ fontSize: 9, color: '#94A3B8' }}>出典: 厚生労働省 賃金構造基本統計調査</span>
