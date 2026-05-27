@@ -194,7 +194,7 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
     filterBar:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', flexWrap: 'wrap' as const, gap: 16, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
     filterGroup:{ display: 'flex', alignItems: 'center', gap: 8 },
     filterLabel:{ fontSize: 12, color: '#64748B', fontWeight: 500, whiteSpace: 'nowrap' as const },
-    chipActive: { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #7c3aed', background: '#F5F3FF', color: '#7c3aed', transition: 'all .15s' },
+    chipActive: { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #1a73e8', background: '#EBF3FE', color: '#1a73e8', transition: 'all .15s' },
     chip:       { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569', transition: 'all .15s' },
     divider:    { width: 1, height: 28, background: '#E2E8F0' },
     tableCard:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
@@ -212,11 +212,11 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
   function Th({ label, k }: { label: string; k: SortKey }) {
     const isActive = sortKey === k
     return (
-      <th style={{ ...S.th, color: isActive ? '#7c3aed' : '#64748B' }} onClick={() => handleSort(k)}>
+      <th style={{ ...S.th, color: isActive ? '#1a73e8' : '#64748B' }} onClick={() => handleSort(k)}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {label}
           {isActive
-            ? sortDir === 'desc' ? <ChevronDown size={13} style={{ color: '#7c3aed' }} /> : <ChevronUp size={13} style={{ color: '#7c3aed' }} />
+            ? sortDir === 'desc' ? <ChevronDown size={13} style={{ color: '#1a73e8' }} /> : <ChevronUp size={13} style={{ color: '#1a73e8' }} />
             : <ArrowUpDown size={12} style={{ color: '#CBD5E1', opacity: 0.7 }} />}
         </span>
       </th>

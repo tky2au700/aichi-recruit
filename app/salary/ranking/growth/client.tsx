@@ -114,30 +114,33 @@ function RankBadge({ rank }: { rank: number }) {
 // スタイル定数
 // ---------------------------------------------------------------------------
 const S = {
-  page:      { background: '#F8FAFC', minHeight: '100vh', fontFamily: "'Noto Sans JP', sans-serif" },
-  container: { maxWidth: 1100, margin: '0 auto', padding: '0 24px 56px' },
-  hero:      { background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '32px 0 24px' },
-  heroInner: { maxWidth: 1100, margin: '0 auto', padding: '0 24px' },
-  h1:        { fontSize: 26, fontWeight: 700, color: '#0F172A', margin: 0, letterSpacing: '-0.3px' },
-  subtitle:  { fontSize: 13, color: '#64748B', marginTop: 6 },
-  kpiGrid:   { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, margin: '24px 0' },
-  kpiCard:   { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '18px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  kpiLabel:  { fontSize: 11, color: '#64748B', fontWeight: 600, letterSpacing: '0.04em' },
-  kpiValue:  { fontSize: 22, fontWeight: 700, color: '#0F172A', marginTop: 6, fontVariantNumeric: 'tabular-nums' as const },
-  filterBox: { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '16px 18px', margin: '20px 0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  filterRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, marginBottom: 8 },
-  filterRowLast: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const },
-  filterLbl: { fontSize: 12, color: '#64748B', fontWeight: 600, minWidth: 52 },
-  chip:      { padding: '5px 14px', borderRadius: 20, border: '1px solid #E2E8F0', fontSize: 12, cursor: 'pointer', background: '#fff', color: '#374151', transition: 'all .15s', whiteSpace: 'nowrap' as const },
-  chipActive:{ padding: '5px 14px', borderRadius: 20, border: '1px solid #0F9D58', fontSize: 12, cursor: 'pointer', background: '#0F9D58', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' as const },
-  tableCard: { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
-  tableHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #F1F5F9' },
-  table:     { width: '100%', borderCollapse: 'collapse' as const },
-  th:        { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#64748B', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' as const, whiteSpace: 'nowrap' as const, cursor: 'pointer', userSelect: 'none' as const },
-  thActive:  { padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#0F9D58', background: '#F0FDF4', borderBottom: '2px solid #0F9D58', textAlign: 'left' as const, whiteSpace: 'nowrap' as const, cursor: 'pointer', userSelect: 'none' as const },
-  td:        { padding: '11px 14px', fontSize: 13, borderBottom: '1px solid #F1F5F9', color: '#374151', whiteSpace: 'nowrap' as const },
-  barWrap:   { width: 80, height: 4, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
-  searchBox: { display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 12px', background: '#fff', fontSize: 13, color: '#374151' },
+  page:       { background: '#F8FAFC', minHeight: '100vh', fontFamily: "'Noto Sans JP', 'Google Sans', sans-serif" },
+  container:  { maxWidth: 1100, margin: '0 auto', padding: '0 24px 48px' },
+  hero:       { background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '32px 0 24px' },
+  heroInner:  { maxWidth: 1100, margin: '0 auto', padding: '0 24px' },
+  h1:         { fontSize: 26, fontWeight: 700, color: '#1E293B', margin: 0, letterSpacing: '-0.3px' },
+  subtitle:   { fontSize: 13, color: '#64748B', marginTop: 6 },
+  kpiGrid:    { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, margin: '24px 0' },
+  kpiCard:    { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+  kpiLabel:   { fontSize: 12, color: '#64748B', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 },
+  kpiValue:   { fontSize: 22, fontWeight: 700, color: '#1E293B', marginTop: 8 },
+  kpiSub:     { fontSize: 11, color: '#94A3B8', marginTop: 4 },
+  filterBar:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', flexWrap: 'wrap' as const, gap: 16, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+  filterGroup:{ display: 'flex', alignItems: 'center', gap: 8 },
+  filterLabel:{ fontSize: 12, color: '#64748B', fontWeight: 500, whiteSpace: 'nowrap' as const },
+  chipActive: { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #1a73e8', background: '#EBF3FE', color: '#1a73e8', transition: 'all .15s' },
+  chip:       { padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: '1.5px solid #E2E8F0', background: '#fff', color: '#475569', transition: 'all .15s' },
+  divider:    { width: 1, height: 28, background: '#E2E8F0' },
+  tableCard:  { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+  tableHead:  { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F1F5F9' },
+  tableTitle: { fontSize: 14, fontWeight: 600, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 8 },
+  badge:      { fontSize: 11, color: '#64748B', background: '#F1F5F9', padding: '2px 8px', borderRadius: 20, fontWeight: 500 },
+  table:      { width: '100%', borderCollapse: 'collapse' as const },
+  th:         { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#64748B', textAlign: 'left' as const, background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', whiteSpace: 'nowrap' as const, cursor: 'pointer', userSelect: 'none' as const },
+  td:         { padding: '11px 14px', fontSize: 13, borderBottom: '1px solid #F1F5F9', color: '#374151', whiteSpace: 'nowrap' as const },
+  barWrap:    { width: 80, height: 4, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden', marginTop: 4 },
+  footer:     { padding: '12px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  footerText: { fontSize: 11, color: '#94A3B8' },
 }
 
 // ---------------------------------------------------------------------------
@@ -354,10 +357,10 @@ export function GrowthRankingClient({
         )}
 
         {/* フィルター */}
-        <div style={S.filterBox}>
+        <div style={S.filterBar}>
           {/* 比較期間 */}
-          <div style={S.filterRow}>
-            <span style={S.filterLbl}>比較期間</span>
+          <div style={S.filterGroup}>
+            <span style={S.filterLabel}>比較期間</span>
             {YEARS_OPTIONS.map(o => (
               <button
                 key={o.value}
@@ -372,9 +375,10 @@ export function GrowthRankingClient({
               </button>
             ))}
           </div>
+          <div style={S.divider} />
           {/* 性別 */}
-          <div style={S.filterRow}>
-            <span style={S.filterLbl}>性別</span>
+          <div style={S.filterGroup}>
+            <span style={S.filterLabel}>性別</span>
             {SEX_OPTIONS.map(o => (
               <button
                 key={o.value}
@@ -388,9 +392,10 @@ export function GrowthRankingClient({
               </button>
             ))}
           </div>
+          <div style={S.divider} />
           {/* 企業規模 */}
-          <div style={S.filterRowLast}>
-            <span style={S.filterLbl}>企業規模</span>
+          <div style={S.filterGroup}>
+            <span style={S.filterLabel}>企業規模</span>
             {SIZE_OPTIONS.map(o => (
               <button
                 key={o.value}
@@ -455,7 +460,7 @@ export function GrowthRankingClient({
                     {COLUMNS.map(col => (
                       <th
                         key={col.key}
-                        style={sortKey === col.key ? S.thActive : S.th}
+                        style={{ ...S.th, color: sortKey === col.key ? '#1a73e8' : '#64748B' }}
                         onClick={() => handleSort(col.key)}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center' }}>
