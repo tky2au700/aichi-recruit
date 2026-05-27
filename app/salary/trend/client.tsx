@@ -114,35 +114,87 @@ function TrendLineChart({
   )
 }
 
-// 年別データテーブル
-function YearTable({ data, columns }: {
+// 差分バッジ（前年比・乖離共用）
+function DiffCell({ val, base, showPct = false, bordered = false }: { val: number | null; base: number | null; showPct?: boolean; bordered?: boolean }) {
+  const cls = bordered ? 'border-l border-dashed border-gray-200' : ''
+  if (val == null || base == null) return <td className={`text-right py-2 px-2 text-gray-300 text-[11px] ${cls}`}>−</td>
+  const diff = val - base
+  const pct  = (diff / base) * 100
+  const pos  = diff > 0
+  const zero = Math.abs(diff) < 0.05
+  const colorCls = zero ? 'text-gray-400' : pos ? 'text-emerald-600' : 'text-rose-600'
+  return (
+    <td className={`text-right py-2 px-2 tabular-nums text-[11px] font-medium ${colorCls} ${cls}`}>
+      {zero ? '−' : `${pos ? '+' : ''}${diff.toFixed(1)}万`}
+      {!zero && showPct && (
+        <span className="text-[10px] ml-0.5 opacity-70">({pos ? '+' : ''}{pct.toFixed(1)}%)</span>
+      )}
+    </td>
+  )
+}
+
+// 年別データテーブル（前年比・乖離付き）
+function YearTable({ data, columns, baseKey }: {
   data: Record<string, any>[]
   columns: { key: string; label: string; color: string }[]
+  baseKey?: string // 乖離の基準列キー（未指定なら非表示）
 }) {
+  // baseKey が columns に含まれる場合は乖離対象から除外
+  const compareTargets = baseKey ? columns.filter(c => c.key !== baseKey) : []
+  const baseCol = baseKey ? columns.find(c => c.key === baseKey) : undefined
+
   return (
-    <div className="overflow-x-auto mt-4">
-      <table className="w-full text-xs border-collapse">
+    <div className="overflow-x-auto mt-4 rounded-lg border border-gray-100">
+      <table className="w-full text-xs border-collapse min-w-[540px]">
         <thead>
-          <tr className="border-t border-gray-100">
-            <th className="text-left py-2 px-3 font-semibold text-gray-500 w-16">年</th>
+          <tr className="bg-gray-50">
+            <th className="text-left py-2 px-3 font-semibold text-gray-500 w-16 border-b border-gray-100">年</th>
             {columns.map(c => (
-              <th key={c.key} className="text-right py-2 px-3 font-semibold" style={{ color: c.color }}>
+              <th key={c.key} className="text-right py-2 px-3 font-semibold border-b border-gray-100" style={{ color: c.color }}>
                 {c.label}
+              </th>
+            ))}
+            {/* 前年比ヘッダー */}
+            {columns.map(c => (
+              <th key={`yoy-${c.key}`} className="text-right py-2 px-2 font-semibold text-gray-400 border-b border-gray-100 border-l border-dashed border-gray-200">
+                前年比 <span style={{ color: c.color }}>{c.label}</span>
+              </th>
+            ))}
+            {/* 乖離ヘッダー */}
+            {compareTargets.map(c => (
+              <th key={`dev-${c.key}`} className="text-right py-2 px-2 font-semibold text-gray-400 border-b border-gray-100 border-l border-dashed border-gray-200">
+                <span style={{ color: c.color }}>{c.label}</span>
+                <span className="text-gray-300"> vs </span>
+                <span style={{ color: baseCol?.color }}>{baseCol?.label}</span>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {data.map(row => (
-            <tr key={row.year} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
-              <td className="py-2 px-3 font-semibold text-gray-700">{row.year}年</td>
-              {columns.map(c => (
-                <td key={c.key} className="text-right py-2 px-3 text-gray-700 tabular-nums">
-                  {row[c.key] != null ? `${Number(row[c.key]).toFixed(1)}万円` : '−'}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((row, i) => {
+            const prev = data[i - 1]
+            return (
+              <tr key={row.year} className="border-t border-gray-50 hover:bg-blue-50/30 transition-colors">
+                <td className="py-2 px-3 font-bold text-gray-700">{row.year}年</td>
+                {/* 値列 */}
+                {columns.map(c => (
+                  <td key={c.key} className="text-right py-2 px-3 text-gray-800 tabular-nums font-medium">
+                    {row[c.key] != null ? `${Number(row[c.key]).toFixed(1)}万円` : '−'}
+                  </td>
+                ))}
+                {/* 前年比列 */}
+                {columns.map((c, ci) => (
+                  i === 0
+                    ? <td key={`yoy-${c.key}`} className={`text-right py-2 px-2 text-gray-300 text-[11px] ${ci === 0 ? 'border-l border-dashed border-gray-200' : ''}`}>初年度</td>
+                    : <DiffCell key={`yoy-${c.key}`} val={row[c.key] ?? null} base={prev?.[c.key] ?? null} showPct bordered={ci === 0} />
+                ))}
+                {/* 乖離列 */}
+                {compareTargets.map((c, ci) => (
+                  <DiffCell key={`dev-${c.key}`} val={row[c.key] ?? null} base={row[baseKey!] ?? null} showPct={false} bordered={ci === 0} />
+                ))}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -161,9 +213,10 @@ function KpiCard({ label, value, sub, color }: { label: string; value: string; s
 }
 
 // 展開可能テーブル
-function CollapsibleTable({ data, columns }: {
+function CollapsibleTable({ data, columns, baseKey }: {
   data: Record<string, any>[]
   columns: { key: string; label: string; color: string }[]
+  baseKey?: string
 }) {
   const [open, setOpen] = useState(true)
   return (
@@ -177,7 +230,7 @@ function CollapsibleTable({ data, columns }: {
         </svg>
         年別データ一覧
       </button>
-      {open && <YearTable data={data} columns={columns} />}
+      {open && <YearTable data={data} columns={columns} baseKey={baseKey} />}
     </div>
   )
 }
@@ -209,6 +262,13 @@ export function TrendClient() {
   // 主要年齢帯に絞り込む
   const mainAges = ['20～24歳','25～29歳','30～34歳','35～39歳','40～44歳','45～49歳','50～54歳','55～59歳']
   const ageGroupsToShow = data.ageGroups.filter(ag => mainAges.includes(ag))
+
+  // 年齢別テーブル: 全体平均（学歴計・企業規模計）を基準列として追加
+  const byAgeWithAvg = data.byAge.map(row => {
+    // overall の男女計を「全体平均」として利用
+    const overallRow = overallTableData.find(r => r.year === row.year)
+    return { ...row, '全体平均': overallRow?.['男女計'] ?? null }
+  })
 
   // 全体・男女別のテーブルカラム
   const overallCols = [
@@ -276,7 +336,7 @@ export function TrendClient() {
               { key: '女性',   label: '女性',   color: C.female },
             ]}
           />
-          <CollapsibleTable data={overallTableData} columns={overallCols} />
+          <CollapsibleTable data={overallTableData} columns={overallCols} baseKey="男女計" />
         </SectionCard>
 
         {/* 2. 年齢階級別の年収推移 */}
@@ -288,8 +348,12 @@ export function TrendClient() {
             }))}
           />
           <CollapsibleTable
-            data={data.byAge}
-            columns={ageGroupsToShow.map((ag, i) => ({ key: ag, label: ag, color: C.age[i % C.age.length] }))}
+            data={byAgeWithAvg}
+            columns={[
+              { key: '全体平均', label: '全体平均', color: '#94a3b8' },
+              ...ageGroupsToShow.map((ag, i) => ({ key: ag, label: ag, color: C.age[i % C.age.length] })),
+            ]}
+            baseKey="全体平均"
           />
         </SectionCard>
 
@@ -304,6 +368,7 @@ export function TrendClient() {
           <CollapsibleTable
             data={data.bySize}
             columns={data.sizes.map((s, i) => ({ key: s, label: s, color: C.size[i % C.size.length] }))}
+            baseKey="企業規模計"
           />
         </SectionCard>
 
@@ -318,6 +383,7 @@ export function TrendClient() {
           <CollapsibleTable
             data={data.byEducation}
             columns={data.educations.map((e, i) => ({ key: e, label: e, color: C.edu[i % C.edu.length] }))}
+            baseKey="学歴計"
           />
         </SectionCard>
 
