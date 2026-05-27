@@ -142,6 +142,8 @@ function TrendChart({ timeSeriesAll, growthStr, growthPositive, oldest, latest }
   const lineLabel = (key: string) => compareMode === 'sex' ? (SEX_LABELS[key] ?? key) : key
 
   const years = [...new Set(timeSeriesAll.map(t => t.survey_year))].sort((a, b) => a - b)
+  console.log('[v0] TrendChart years:', years, 'total rows:', timeSeriesAll.length)
+  console.log('[v0] TrendChart sample:', timeSeriesAll[0])
   const chartData = years.map(year => {
     const row: Record<string, number | string> = { year: `${year}年` }
     lines.forEach(lineKey => {
