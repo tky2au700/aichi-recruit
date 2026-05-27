@@ -246,18 +246,19 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           ) : (
             <p style={S.subtitle}>{config.description}</p>
           )}
-          {/* バーチャートレース */}
+          {/* 散布図（推定年収 × 平均年齢） */}
           {!loading && filtered.length > 0 && (
             <div style={{ marginTop: 24 }}>
               <RankingBarRace
-                data={filtered.slice(0, 10).map(r => ({
-                  name:  r.occupation_name,
-                  value: (r[config.sortKey] as number | null) ?? 0,
-                  color: pc,
+                data={filtered.map((r, i) => ({
+                  name:    r.occupation_name,
+                  income:  (r.annual_income as number | null) ?? 0,
+                  age:     r.age ?? null,
+                  workers: r.workers ?? null,
+                  rank:    i + 1,
                 }))}
                 title={config.title}
                 surveyYear={meta?.survey_year ?? surveyYear}
-                unit="万円"
                 primaryColor={pc}
               />
             </div>
