@@ -322,7 +322,7 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
   }
 
   const filterDescParts = [
-    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100〜999人' : '10〜99人'}）` : null,
+    currentSizeLabel ? `${currentSizeLabel}（${size === '1000人以上' ? '1000人以上' : size === '100～999人' ? '100��999人' : '10〜99人'}）` : null,
     currentSexLabel,
   ].filter(Boolean)
   const dynamicDescription = (currentSexLabel || currentSizeLabel || surveyYear || sortKey !== 'annual_income')
@@ -389,6 +389,8 @@ export function OccupationRankingClient({ initialSex, initialSize, initialYear, 
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
             />
           </div>
         )}

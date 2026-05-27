@@ -290,6 +290,8 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
               title={config.title}
               surveyYear={meta?.survey_year ?? surveyYear}
               primaryColor={pc}
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.overtime_hours != null ? 'overtime' : 'workers'}
             />
           </div>
         )}
@@ -321,7 +323,7 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           <div style={S.tableHead}>
             <div style={S.tableTitle}>
               {config.title}
-              {!loading && <span style={S.badge}>{filtered.length}職種</span>}
+              {!loading && <span style={S.badge}>{filtered.length}���種</span>}
             </div>
           </div>
 

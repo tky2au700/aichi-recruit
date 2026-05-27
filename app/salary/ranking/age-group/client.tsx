@@ -282,6 +282,8 @@ export function AgeGroupRankingClient({ initialSex, initialSize, initialYear, in
               }))}
               surveyYear={surveyYear}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
             />
           </div>
         )}

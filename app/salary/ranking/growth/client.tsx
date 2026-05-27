@@ -339,6 +339,8 @@ export function GrowthRankingClient({
               }))}
               surveyYear={info?.latest_year ?? null}
               primaryColor="#1a73e8"
+              defaultXKey="income"
+              defaultYKey={data[0]?.age != null ? 'age' : data[0]?.tenure_years != null ? 'tenure' : 'workers'}
             />
           </div>
         )}
