@@ -97,9 +97,14 @@ export function Footer() {
           <p className="text-[11px] text-gray-400">
             &copy; {year} AIリクルート. データ出典: 厚生労働省 賃金構造基本統計調査
           </p>
-          <p className="text-[11px] text-gray-400">
-            本サービスのデータは統計情報であり、個別企業・個人の年収を保証するものではありません。
-          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/sitemap-page" className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors">
+              サイトマップ
+            </Link>
+            <p className="text-[11px] text-gray-400">
+              本サービスのデータは統計情報であり、個別企業・個人の年収を保証するものではありません。
+            </p>
+          </div>
         </div>
       </div>
     </footer>
