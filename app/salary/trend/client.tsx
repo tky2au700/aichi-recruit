@@ -165,7 +165,7 @@ function CollapsibleTable({ data, columns }: {
   data: Record<string, any>[]
   columns: { key: string; label: string; color: string }[]
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <div className="mt-2">
       <button
