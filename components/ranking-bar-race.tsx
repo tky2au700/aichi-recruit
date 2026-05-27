@@ -71,8 +71,8 @@ export function RankingBarRace({
   primaryColor = '#1a73e8',
 }: RankingBarRaceProps) {
   const canvasRef    = useRef<HTMLCanvasElement>(null)
-  const [xAxis, setXAxis] = useState<AxisDef>(AXIS_OPTIONS[1]) // 平均年齢
-  const [yAxis, setYAxis] = useState<AxisDef>(AXIS_OPTIONS[0]) // 推定年収
+  const [xAxis, setXAxis] = useState<AxisDef>(AXIS_OPTIONS[0]) // 推定年収
+  const [yAxis, setYAxis] = useState<AxisDef>(AXIS_OPTIONS[1]) // 平均年齢
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const itemsRef = useRef<{ x: number; y: number; r: number; item: ScatterItem; i: number }[]>([])
 
@@ -92,8 +92,8 @@ export function RankingBarRace({
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    const W   = canvas.width  / dpr
-    const H   = canvas.height / dpr
+    const W   = parseFloat(canvas.style.width)  || canvas.width  / dpr
+    const H   = parseFloat(canvas.style.height) || canvas.height / dpr
     ctx.save()
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, W, H)
@@ -245,18 +245,26 @@ export function RankingBarRace({
   // 軸・データ変化で再描画
   useEffect(() => { draw(hoveredIdx) }, [draw, hoveredIdx])
 
-  // Canvas DPR リサイズ
+  // Canvas DPR リサイズ（ResizeObserver で正確にサイズ取得）
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = window.devicePixelRatio || 1
-    const W   = canvas.parentElement?.clientWidth ?? 600
-    canvas.width        = W * dpr
-    canvas.height       = 360 * dpr
-    canvas.style.width  = `${W}px`
-    canvas.style.height = '360px'
-    draw(null)
-  }, [xAxis, yAxis]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1
+      const W   = canvas.parentElement?.getBoundingClientRect().width || 600
+      canvas.width        = Math.round(W * dpr)
+      canvas.height       = Math.round(360 * dpr)
+      canvas.style.width  = `${W}px`
+      canvas.style.height = '360px'
+      draw(null)
+    }
+
+    resize()
+    const ro = new ResizeObserver(resize)
+    if (canvas.parentElement) ro.observe(canvas.parentElement)
+    return () => ro.disconnect()
+  }, [xAxis, yAxis, data, draw])
 
   // ホバー判定
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -275,9 +283,9 @@ export function RankingBarRace({
 
   const handleMouseLeave = useCallback(() => setHoveredIdx(null), [])
 
-  if (items.length === 0) return null
+  if (data.length === 0) return null
 
-  // 軸セレクタ UI
+  // 軸セレ��タ UI
   const AxisSelect = ({ value, onChange, label }: {
     value: AxisDef
     onChange: (a: AxisDef) => void

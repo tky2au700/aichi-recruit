@@ -271,19 +271,22 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
         {/* 散布図（high-income-low-overtime のみ） */}
         {config.type === 'high-income-low-overtime' && !loading && data.length > 0 && (
           <div style={{ marginTop: 24, marginBottom: 8 }}>
-            <RankingBarRace
-              data={data.map((r, i) => ({
-                name:     r.occupation_name,
-                income:   (r.annual_income as number | null) ?? 0,
-                age:      r.age            ?? null,
-                workers:  r.workers        ?? null,
-                tenure:   r.tenure_years   ?? null,
-                overtime: r.overtime_hours ?? null,
-                bonus:    r.annual_bonus   != null ? r.annual_bonus   / 10000 : null,
-                hourly:   r.hourly_wage    ?? null,
-                monthly:  r.monthly_wage   != null ? r.monthly_wage   / 10000 : null,
-                rank:     i + 1,
-              }))}
+              <RankingBarRace
+                data={data.map((r, i) => {
+                  const pf = (v: unknown) => { const n = parseFloat(String(v ?? '')); return isNaN(n) ? null : n }
+                  return {
+                    name:     r.occupation_name,
+                    income:   pf(r.annual_income) ?? 0,
+                    age:      pf(r.age),
+                    workers:  pf(r.workers),
+                    tenure:   pf(r.tenure_years),
+                    overtime: pf(r.overtime_hours),
+                    bonus:    pf(r.annual_bonus) != null ? pf(r.annual_bonus)! / 10000 : null,
+                    hourly:   pf(r.hourly_wage),
+                    monthly:  pf(r.monthly_wage) != null ? pf(r.monthly_wage)! / 10000 : null,
+                    rank:     i + 1,
+                  }
+                })}
               title={config.title}
               surveyYear={meta?.survey_year ?? surveyYear}
               primaryColor={pc}
