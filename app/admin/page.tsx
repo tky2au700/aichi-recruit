@@ -731,6 +731,39 @@ function DataTab() {
   const [importMsg, setImportMsg]         = useState<{ ok: boolean; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // e-Stat API 取込
+  const [estatImportingId, setEstatImportingId] = useState<number | null>(null)
+  const [estatMsg, setEstatMsg]                 = useState<{ ok: boolean; text: string; dsId: number } | null>(null)
+  const [estatStatsId, setEstatStatsId]         = useState<Record<number, string>>({})  // dsId → statsDataId
+
+  async function handleEstatImport(ds: Dataset) {
+    if (!window.confirm(`${ds.survey_year}年のデータをe-Stat APIから取り込みますか？\n既存データは上書きされます。`)) return
+    setEstatImportingId(ds.id)
+    setEstatMsg(null)
+    try {
+      const res = await fetch('/api/admin/estat-import-age', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataset_id:    ds.id,
+          survey_year:   ds.survey_year,
+          stats_data_id: estatStatsId[ds.id] || undefined,
+        }),
+      })
+      const j = await res.json()
+      if (j.success) {
+        setEstatMsg({ ok: true, text: `${j.inserted}件取込完了（statsDataId: ${j.stats_data_id}）`, dsId: ds.id })
+        if (selectedGroupId) await loadDatasets(selectedGroupId)
+      } else {
+        setEstatMsg({ ok: false, text: j.message ?? '取込失敗', dsId: ds.id })
+      }
+    } catch (e) {
+      setEstatMsg({ ok: false, text: String(e), dsId: ds.id })
+    } finally {
+      setEstatImportingId(null)
+    }
+  }
+
   // XLSX 専用
   interface XlsxSheet {
     sheet_name:    string
@@ -1326,7 +1359,30 @@ function DataTab() {
                             {ds.imported_at ? ds.imported_at.slice(0, 16).replace('T', ' ') : '-'}
                           </td>
                           <td className="py-2 px-2">
-                            <div className="flex items-center gap-2 justify-end">
+                            <div className="flex items-center gap-2 justify-end flex-wrap">
+                              {/* e-Stat API 取込ボタン（age_wages グループのみ） */}
+                              {selectedGroup?.target_table === 'age_wages' && (
+                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    placeholder="statsDataId（省略可）"
+                                    value={estatStatsId[ds.id] ?? ''}
+                                    onChange={e => setEstatStatsId(p => ({ ...p, [ds.id]: e.target.value }))}
+                                    className="w-32 bg-background border border-border rounded px-1.5 py-0.5 text-[10px] font-mono placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary"
+                                  />
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleEstatImport(ds) }}
+                                    disabled={estatImportingId === ds.id}
+                                    className="flex items-center gap-1 bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-semibold hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
+                                    title="e-Stat APIからデータを取込"
+                                  >
+                                    {estatImportingId === ds.id
+                                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                                      : <RefreshCw className="w-3 h-3" />}
+                                    e-Stat取込
+                                  </button>
+                                </div>
+                              )}
                               <button onClick={e => { e.stopPropagation(); openEditDs(ds) }}
                                 className="text-muted-foreground hover:text-primary transition-colors">
                                 <Pencil className="w-3.5 h-3.5" />
@@ -1336,6 +1392,14 @@ function DataTab() {
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
+                            {/* e-Stat 結果メッセージ */}
+                            {estatMsg?.dsId === ds.id && (
+                              <div className={`mt-1 text-[10px] px-2 py-1 rounded ${
+                                estatMsg.ok ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'
+                              }`}>
+                                {estatMsg.text}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
