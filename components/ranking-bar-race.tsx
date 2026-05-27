@@ -160,136 +160,154 @@ export function RankingBarRace({
     ctx.stroke()
 
     // ---- ドット + 横長カード方式 ----
-    const DOT_R  = 5
-    const CARD_H = 22
-    const CARD_FONT_SIZE = 10
-    const LINE_LEN = 16  // ドットからカードまでの線の長さ
+    const DOT_R        = 6
+    const CARD_H       = 20
+    const CARD_FS      = 10
+    const LINE_LEN     = 20
+    const LABEL_LIMIT  = 15   // 常時カード表示する上位N件
+    const MIN_GAP      = CARD_H + 3
 
     const positions: typeof itemsRef.current = []
 
-    // 1パス目: 全ドットの座標を計算
     type CardEntry = {
-      dot: { x: number; y: number }
-      card: { cx: number; cy: number; w: number }  // cx=カード左端, cy=カード中央Y
-      item: ScatterItem
+      dot:   { x: number; y: number }
+      card:  { cx: number; cy: number; goRight: boolean }
+      cardW: number
+      item:  ScatterItem
       color: string
       xv: number; yv: number
       i: number
+      showCard: boolean
     }
 
-    ctx.font = `600 ${CARD_FONT_SIZE}px 'Noto Sans JP',sans-serif`
+    // 1パス目: 座標計算 + カード幅計算
+    ctx.font = `600 ${CARD_FS}px 'Noto Sans JP',sans-serif`
     const entries: CardEntry[] = items.map((item, i) => {
       const xv = getVal(item, xAxis.key)!
       const yv = getVal(item, yAxis.key)!
       const { x, y } = toXY(xv, yv)
       const color = COLORS[i % COLORS.length]
-      // カードのテキスト幅計算
       const nameW  = ctx.measureText(item.name).width
-      const valueW = ctx.measureText(xAxis.format(xv)).width
-      const cardW  = nameW + valueW + 28  // padding + 区切り分
-      return { dot: { x, y }, card: { cx: x + DOT_R + LINE_LEN, cy: y }, item, color, xv, yv, i }
+      ctx.font = `500 ${CARD_FS}px 'Noto Sans JP',sans-serif`
+      const valW   = ctx.measureText(xAxis.format(xv)).width
+      ctx.font = `600 ${CARD_FS}px 'Noto Sans JP',sans-serif`
+      const cardW  = nameW + valW + 28
+      // 右半分の点は左向きにカードを伸ばす
+      const goRight = x < (PAD_L + W - PAD_R) / 2
+      const cx = goRight ? x + DOT_R + LINE_LEN : x - DOT_R - LINE_LEN - cardW
+      const showCard = item.rank <= LABEL_LIMIT
+      return { dot: { x, y }, card: { cx, cy: y, goRight }, cardW, item, color, xv, yv, i, showCard }
     })
 
-    // 2パス目: カードY座標の重なり回避（Y近傍の点をずらす）
-    const MIN_GAP = CARD_H + 2
-    // Y昇順でソートして隣接を調整
-    const sorted = [...entries].sort((a, b) => a.dot.y - b.dot.y)
-    for (let k = 1; k < sorted.length; k++) {
-      const prev = sorted[k - 1].card
-      const cur  = sorted[k].card
-      if (Math.abs(cur.cy - prev.cy) < MIN_GAP) {
-        cur.cy = prev.cy + MIN_GAP
-      }
-    }
-
-    // positionsをホバー判定用に登録
-    entries.forEach(e => {
-      positions.push({ x: e.dot.x, y: e.dot.y, r: DOT_R + 4, item: e.item, i: e.i })
-    })
-
-    // 描画関数
-    const renderEntry = (e: CardEntry, isHovered: boolean) => {
-      const { dot, card, item, color, xv, yv, i } = e
-
-      // ドット
-      ctx.beginPath(); ctx.arc(dot.x, dot.y, DOT_R, 0, Math.PI * 2)
-      ctx.fillStyle = isHovered ? color : color + 'DD'
-      ctx.fill()
-      if (isHovered || item.rank <= 5) {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5
-        ctx.beginPath(); ctx.arc(dot.x, dot.y, DOT_R, 0, Math.PI * 2); ctx.stroke()
-      }
-
-      // ドット → カードへの細い引き出し線
-      ctx.strokeStyle = color + '80'; ctx.lineWidth = 1; ctx.setLineDash([])
-      ctx.beginPath()
-      ctx.moveTo(dot.x + DOT_R, dot.y)
-      ctx.lineTo(card.cx, card.cy)
-      ctx.stroke()
-
-      // 横長カード
-      const nameText  = item.name
-      const valueText = xAxis.format(xv)
-
-      ctx.font = `600 ${CARD_FONT_SIZE}px 'Noto Sans JP',sans-serif`
-      const nameW  = ctx.measureText(nameText).width
-      ctx.font = `500 ${CARD_FONT_SIZE}px 'Noto Sans JP',sans-serif`
-      const valW   = ctx.measureText(valueText).width
-      const cardW  = nameW + valW + 26
-      const cardX  = card.cx
-      const cardY  = card.cy - CARD_H / 2
-
-      // カード背景
-      ctx.fillStyle = isHovered ? color : color + 'CC'
-      ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, CARD_H, 11); ctx.fill()
-
-      // 職種名（白・太字）
-      ctx.fillStyle = '#fff'
-      ctx.font = `600 ${CARD_FONT_SIZE}px 'Noto Sans JP',sans-serif`
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-      ctx.fillText(nameText, cardX + 8, card.cy)
-
-      // 区切り線
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(cardX + 8 + nameW + 5, cardY + 4)
-      ctx.lineTo(cardX + 8 + nameW + 5, cardY + CARD_H - 4)
-      ctx.stroke()
-
-      // 数値（白・細字）
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'
-      ctx.font = `500 ${CARD_FONT_SIZE}px 'Noto Sans JP',sans-serif`
-      ctx.fillText(valueText, cardX + 8 + nameW + 12, card.cy)
-
-      // ホバー時の詳細ツールチップ（カードの右に追加表示）
-      if (isHovered) {
-        const yLabel  = yAxis.format(yv)
-        const tipText = `${yAxis.label}: ${yLabel}`
-        ctx.font = `500 10px 'Noto Sans JP',sans-serif`
-        const tipW = ctx.measureText(tipText).width + 16
-        const tipX = cardX + cardW + 6
-        let tipY = card.cy - 14
-
-        // 画面外チェック
-        if (tipX + tipW > W - PAD_R) {
-          // カードの左に表示
-          const altX = cardX - tipW - 6
-          ctx.fillStyle = 'rgba(15,23,42,0.92)'
-          ctx.beginPath(); ctx.roundRect(altX, tipY, tipW, 28, 6); ctx.fill()
-          ctx.fillStyle = '#86EFAC'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-          ctx.fillText(tipText, altX + 8, tipY + 14)
-        } else {
-          ctx.fillStyle = 'rgba(15,23,42,0.92)'
-          ctx.beginPath(); ctx.roundRect(tipX, tipY, tipW, 28, 6); ctx.fill()
-          ctx.fillStyle = '#86EFAC'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-          ctx.fillText(tipText, tipX + 8, tipY + 14)
+    // 2パス目: カード表示対象のY重なり回避
+    // 左向き・右向き別に処理
+    for (const side of [true, false]) {
+      const sideEntries = entries
+        .filter(e => e.showCard && e.card.goRight === side)
+        .sort((a, b) => a.dot.y - b.dot.y)
+      for (let k = 1; k < sideEntries.length; k++) {
+        const prev = sideEntries[k - 1].card
+        const cur  = sideEntries[k].card
+        if (cur.cy - prev.cy < MIN_GAP) {
+          cur.cy = prev.cy + MIN_GAP
         }
       }
     }
 
-    // ホバー以外 → ホバーの順に描画
-    entries.forEach(e => { if (e.i !== hovered) renderEntry(e, false) })
-    if (hovered !== null && entries[hovered]) renderEntry(entries[hovered], true)
+    // ホバー判定用に位置を登録
+    entries.forEach(e => {
+      positions.push({ x: e.dot.x, y: e.dot.y, r: DOT_R + 6, item: e.item, i: e.i })
+    })
+
+    // ドット描画
+    const renderDot = (e: CardEntry, isHovered: boolean) => {
+      const { dot, item, color } = e
+      ctx.beginPath(); ctx.arc(dot.x, dot.y, DOT_R, 0, Math.PI * 2)
+      ctx.fillStyle = isHovered ? color : color + 'CC'
+      ctx.fill()
+      if (isHovered || item.rank <= 5) {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
+        ctx.stroke()
+      }
+    }
+
+    // カード描画（引き出し線 + pill）
+    const renderCard = (e: CardEntry, isHovered: boolean) => {
+      const { dot, card, cardW, item, color, xv } = e
+      const { cx, cy, goRight } = card
+      const cardY = cy - CARD_H / 2
+
+      // 引き出し線: ドットの端 → カードの端
+      const lineStartX = goRight ? dot.x + DOT_R : dot.x - DOT_R
+      const lineEndX   = goRight ? cx             : cx + cardW
+      ctx.strokeStyle = color + '70'; ctx.lineWidth = 1; ctx.setLineDash([3, 3])
+      ctx.beginPath(); ctx.moveTo(lineStartX, dot.y); ctx.lineTo(lineEndX, cy); ctx.stroke()
+      ctx.setLineDash([])
+
+      // カード背景
+      const alpha = isHovered ? 'EE' : 'CC'
+      ctx.fillStyle = color + alpha
+      ctx.beginPath(); ctx.roundRect(cx, cardY, cardW, CARD_H, 10); ctx.fill()
+
+      // 職種名
+      ctx.fillStyle = '#fff'
+      ctx.font = `600 ${CARD_FS}px 'Noto Sans JP',sans-serif`
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+      const nameText = item.name
+      const nameW = ctx.measureText(nameText).width
+      ctx.fillText(nameText, cx + 8, cy)
+
+      // 区切り
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1
+      const sepX = cx + 8 + nameW + 5
+      ctx.beginPath(); ctx.moveTo(sepX, cardY + 4); ctx.lineTo(sepX, cardY + CARD_H - 4); ctx.stroke()
+
+      // 数値
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'
+      ctx.font = `500 ${CARD_FS}px 'Noto Sans JP',sans-serif`
+      ctx.fillText(xAxis.format(xv), cx + 8 + nameW + 12, cy)
+    }
+
+    // ホバー時ツールチップ（カード非表示の点にも出す）
+    const renderTooltip = (e: CardEntry) => {
+      const { dot, card, cardW, item, color, xv, yv } = e
+      const lines = [
+        item.name,
+        `${xAxis.label}: ${xAxis.format(xv)}`,
+        `${yAxis.label}: ${yAxis.format(yv)}`,
+      ]
+      const lineH = 18
+      const tipW  = 200
+      const tipH  = lines.length * lineH + 14
+      // カード表示済みの場合はカードの下/右にヒント、未表示ならドット近くに
+      let tx = e.showCard
+        ? (card.goRight ? card.cx + cardW + 6 : card.cx - tipW - 6)
+        : dot.x + DOT_R + 8
+      let ty = (e.showCard ? card.cy : dot.y) - tipH / 2
+      if (tx + tipW > W - PAD_R) tx = dot.x - tipW - 8
+      if (tx < PAD_L)            tx = PAD_L
+      if (ty < PAD_T)            ty = PAD_T
+      if (ty + tipH > H - PAD_B) ty = H - PAD_B - tipH
+
+      ctx.fillStyle = 'rgba(15,23,42,0.94)'
+      ctx.beginPath(); ctx.roundRect(tx, ty, tipW, tipH, 8); ctx.fill()
+      lines.forEach((line, li) => {
+        ctx.fillStyle = li === 0 ? '#fff' : li === 1 ? '#93C5FD' : '#86EFAC'
+        ctx.font = li === 0 ? `700 11px 'Noto Sans JP',sans-serif` : `500 10px 'Noto Sans JP',sans-serif`
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+        ctx.fillText(line, tx + 10, ty + 7 + li * lineH)
+      })
+    }
+
+    // 描画順: ドット全件 → カード（非ホバー） → ホバーのドット+カード+ツールチップ
+    entries.forEach(e => { if (e.i !== hovered) renderDot(e, false) })
+    entries.forEach(e => { if (e.i !== hovered && e.showCard) renderCard(e, false) })
+    if (hovered !== null && entries[hovered]) {
+      const e = entries[hovered]
+      renderDot(e, true)
+      if (e.showCard) renderCard(e, true)
+      renderTooltip(e)
+    }
 
     itemsRef.current = positions
 
