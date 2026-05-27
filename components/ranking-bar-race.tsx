@@ -165,69 +165,116 @@ export function RankingBarRace({
     // バブル描画（ホバー以外を先に、ホバーを最後に描く）
     const positions: typeof itemsRef.current = []
 
+    // 外部ラベル用の配置リスト（後でまとめて描画）
+    type OuterLabel = { x: number; y: number; lx: number; ly: number; text: string; color: string; lineColor: string }
+    const outerLabels: OuterLabel[] = []
+
     const renderBubble = (item: ScatterItem, i: number, isHovered: boolean) => {
       const xv = getVal(item, xAxis.key)!
       const yv = getVal(item, yAxis.key)!
       const { x, y } = toXY(xv, yv)
       const r     = bubbleR(item.workers)
       const color = COLORS[i % COLORS.length]
-      const isTop = item.rank <= 3
+      const isTop = item.rank <= 5
 
       positions.push({ x, y, r, item, i })
 
-      if (isHovered || isTop) {
-        ctx.shadowColor = color + '50'; ctx.shadowBlur = isHovered ? 18 : 10
-        ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 2
+      // バブル
+      if (isHovered) {
+        ctx.shadowColor = color + '60'; ctx.shadowBlur = 20
+        ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 3
       }
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.fillStyle = color + (isHovered ? 'EE' : 'BB')
+      ctx.fillStyle = color + (isHovered ? 'EE' : 'CC')
       ctx.fill()
       ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
 
+      // 枠線（上位・ホバー）
       if (isTop || isHovered) {
-        ctx.strokeStyle = color; ctx.lineWidth = isHovered ? 2.5 : 1.5
-        ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, Math.PI * 2); ctx.stroke()
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = isHovered ? 2.5 : 1.5
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke()
       }
 
-      // ランク番号
-      const fs = Math.max(9, Math.min(r * 0.7, 14))
-      ctx.font = `700 ${fs}px 'Noto Sans JP',sans-serif`
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      if (r > 9) ctx.fillText(`${item.rank}`, x, y)
-
-      // 常時ラベル（TOP3 or ホバー）
-      if (isTop || isHovered) {
-        const shortName  = item.name.length > 14 ? item.name.slice(0, 14) + '…' : item.name
-        const xLabel     = xAxis.format(xv)
-        const yLabel     = yAxis.format(yv)
-        const boxW = 148, boxH = isHovered ? 62 : 42
-        let bx = x + r + 8, by = y - boxH / 2
-        if (bx + boxW > W - PAD_R) bx = x - r - boxW - 8
-        if (by < PAD_T) by = PAD_T
-        if (by + boxH > H - PAD_B) by = H - PAD_B - boxH
-
-        ctx.fillStyle = 'rgba(15,23,42,0.88)'
-        ctx.beginPath()
-        ctx.roundRect(bx, by, boxW, boxH, 7)
-        ctx.fill()
-
-        ctx.fillStyle = '#fff'; ctx.font = `600 10.5px 'Noto Sans JP',sans-serif`
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-        ctx.fillText(shortName, bx + 8, by + 8)
-
-        ctx.fillStyle = '#93C5FD'; ctx.font = `700 12px 'Noto Sans JP',sans-serif`
-        ctx.fillText(yLabel, bx + 8, by + 24)
-
-        if (isHovered) {
-          ctx.fillStyle = '#86EFAC'; ctx.font = `500 10.5px 'Noto Sans JP',sans-serif`
-          ctx.fillText(`${xAxis.label}: ${xLabel}`, bx + 8, by + 42)
+      // バブル内テキスト
+      const INNER_LABEL_R = 18 // この半径以上なら内側に名前を書く
+      if (r >= INNER_LABEL_R) {
+        // バブル内に収まる文字数を計算（半径に応じて）
+        const maxChars = Math.max(2, Math.floor(r / 6))
+        const label = item.name.length <= maxChars
+          ? item.name
+          : item.name.slice(0, maxChars - 1) + '…'
+        const fs = Math.max(8, Math.min(r * 0.35, 12))
+        ctx.font = `700 ${fs}px 'Noto Sans JP',sans-serif`
+        ctx.fillStyle = '#fff'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        // テキストが円に収まるか確認
+        const tw = ctx.measureText(label).width
+        if (tw < r * 1.6) {
+          ctx.fillText(label, x, y)
+        } else {
+          // 収まらなければ1行目・2行目に分割
+          const half = Math.ceil(label.length / 2)
+          const line1 = label.slice(0, half)
+          const line2 = label.slice(half)
+          ctx.fillText(line1, x, y - fs * 0.6)
+          ctx.fillText(line2, x, y + fs * 0.6)
         }
+      } else {
+        // 小さいバブル → 外部ラベルとして後で描画
+        // 引き出し先の座標（バブル中心から放射方向）
+        const angle = Math.atan2(y - H / 2, x - W / 2)
+        const lx = x + Math.cos(angle) * (r + 28)
+        const ly = y + Math.sin(angle) * (r + 20)
+        const shortName = item.name.length > 8 ? item.name.slice(0, 7) + '…' : item.name
+        outerLabels.push({ x, y, lx, ly, text: shortName, color, lineColor: color })
+      }
+
+      // ホバー時ツールチップ
+      if (isHovered) {
+        const xLabel  = xAxis.format(xv)
+        const yLabel  = yAxis.format(yv)
+        const lines   = [item.name, `${xAxis.label}: ${xLabel}`, `${yAxis.label}: ${yLabel}`]
+        const boxW    = 180
+        const lineH   = 18
+        const boxH    = lines.length * lineH + 16
+        let bx = x + r + 10, by = y - boxH / 2
+        if (bx + boxW > W - PAD_R) bx = x - r - boxW - 10
+        if (by < PAD_T + 4) by = PAD_T + 4
+        if (by + boxH > H - PAD_B - 4) by = H - PAD_B - boxH - 4
+
+        ctx.fillStyle = 'rgba(15,23,42,0.93)'
+        ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 8); ctx.fill()
+
+        lines.forEach((line, li) => {
+          ctx.fillStyle = li === 0 ? '#fff' : li === 1 ? '#93C5FD' : '#86EFAC'
+          ctx.font = li === 0 ? `700 11px 'Noto Sans JP',sans-serif` : `500 10.5px 'Noto Sans JP',sans-serif`
+          ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+          ctx.fillText(line, bx + 10, by + 8 + li * lineH)
+        })
       }
     }
 
     // ホバー以外 → ホバー の順に描画
     items.forEach((item, i) => { if (i !== hovered) renderBubble(item, i, false) })
     if (hovered !== null && items[hovered]) renderBubble(items[hovered], hovered, true)
+
+    // 外部ラベルをまとめて描画（バブルの上に重ねる）
+    outerLabels.forEach(({ x, y, lx, ly, text, color, lineColor }) => {
+      // 引き出し線
+      ctx.strokeStyle = lineColor + '99'; ctx.lineWidth = 1; ctx.setLineDash([2, 2])
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lx, ly); ctx.stroke()
+      ctx.setLineDash([])
+      // ラベル背景
+      ctx.font = `600 9px 'Noto Sans JP',sans-serif`
+      const tw = ctx.measureText(text).width
+      const bw = tw + 8, bh = 15
+      const tx = lx - bw / 2, ty = ly - bh / 2
+      ctx.fillStyle = color + 'DD'
+      ctx.beginPath(); ctx.roundRect(tx, ty, bw, bh, 4); ctx.fill()
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(text, lx, ly)
+    })
 
     itemsRef.current = positions
 
