@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+
 import {
   Activity, BarChart2, TrendingUp, Building2, MapPin, GraduationCap,
   Users, Briefcase, ChevronRight, ExternalLink,
@@ -58,40 +59,24 @@ function StaticLinks({ links }: { links: { href: string; label: string; badge?: 
   )
 }
 
-// 動的リンクグリッド（多数ページ用）
+// 動的リンクグリッド（全件表示）
 function DynamicLinks({ items, buildHref, formatLabel }: {
   items: string[]
   buildHref: (item: string) => string
   formatLabel?: (item: string) => string
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const LIMIT = 20
-  const visible = expanded ? items : items.slice(0, LIMIT)
-  const hasMore = items.length > LIMIT
-
   return (
-    <div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
-        {visible.map(item => (
-          <Link
-            key={item}
-            href={buildHref(item)}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors group text-sm text-gray-700 hover:text-gray-900 truncate"
-          >
-            <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-gray-500 shrink-0" />
-            <span className="truncate">{formatLabel ? formatLabel(item) : item}</span>
-          </Link>
-        ))}
-      </div>
-      {hasMore && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="mt-3 text-[12px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+      {items.map(item => (
+        <Link
+          key={item}
+          href={buildHref(item)}
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors group text-sm text-gray-700 hover:text-gray-900"
         >
-          {expanded ? '折りたたむ' : `残り ${items.length - LIMIT} 件を表示`}
-          <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-        </button>
-      )}
+          <ChevronRight className="w-3 h-3 text-gray-300 group-hover:text-gray-500 shrink-0" />
+          <span className="truncate">{formatLabel ? formatLabel(item) : item}</span>
+        </Link>
+      ))}
     </div>
   )
 }
