@@ -109,8 +109,6 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const [zoom,          setZoom]          = useState(1)
   const [panX,          setPanX]          = useState(0)
   const [panY,          setPanY]          = useState(0)
-  const [isDragging,    setIsDragging]    = useState(false)
-  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
   const wrapRef      = useRef<HTMLDivElement>(null)
@@ -128,39 +126,32 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
   const resetZoom = useCallback(() => { setZoom(1); setPanX(0); setPanY(0) }, [])
 
-  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
-    e.preventDefault()
-    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+  const zoomIn  = useCallback(() => {
+    const cx = W / 2, cy = H / 2
     setZoom(z => {
-      const next = Math.min(8, Math.max(1, z * factor))
-      // カーソル位置を中心にズーム
-      const rect = svgRef.current?.getBoundingClientRect()
-      if (!rect) return next
-      const mx = e.clientX - rect.left
-      const my = e.clientY - rect.top
-      setPanX(px => mx - (mx - px) * (next / z))
-      setPanY(py => my - (my - py) * (next / z))
+      const next = Math.min(8, +(z * 1.5).toFixed(2))
+      setPanX(px => cx - (cx - px) * (next / z))
+      setPanY(py => cy - (cy - py) * (next / z))
       return next
     })
-  }, [])
+  }, [W, H])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (zoom <= 1) return
-    setIsDragging(true)
-    dragStart.current = { x: e.clientX, y: e.clientY, px: panX, py: panY }
-  }, [zoom, panX, panY])
+  const zoomOut = useCallback(() => {
+    setZoom(z => {
+      const cx = W / 2, cy = H / 2
+      const next = Math.max(1, +(z / 1.5).toFixed(2))
+      if (next <= 1) { setPanX(0); setPanY(0) }
+      else {
+        setPanX(px => cx - (cx - px) * (next / z))
+        setPanY(py => cy - (cy - py) * (next / z))
+      }
+      return next
+    })
+  }, [W, H])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isDragging || !dragStart.current) return
-    const dx = e.clientX - dragStart.current.x
-    const dy = e.clientY - dragStart.current.y
-    setPanX(dragStart.current.px + dx)
-    setPanY(dragStart.current.py + dy)
-  }, [isDragging])
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-    dragStart.current = null
+  const pan = useCallback((dx: number, dy: number) => {
+    setPanX(px => px + dx)
+    setPanY(py => py + dy)
   }, [])
 
   // 正方形: W = H
@@ -577,15 +568,8 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           <svg
             ref={svgRef}
             width={W} height={W}
-            style={{
-              display: 'block', overflow: 'hidden', userSelect: 'none', borderRadius: 8,
-              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-            }}
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={() => { handleMouseUp(); setHoveredIdx(null) }}
+            style={{ display: 'block', overflow: 'hidden', userSelect: 'none', borderRadius: 8 }}
+            onMouseLeave={() => setHoveredIdx(null)}
           >
             {/* 背景（ズーム外） */}
             <rect x={0} y={0} width={W} height={H} fill={BG} rx={8} />
@@ -755,36 +739,43 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
           </div>
 
           {/* ズームコントロール */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <button onClick={() => {
-                const cx = W / 2, cy = H / 2
-                setZoom(z => {
-                  const next = Math.min(8, +(z * 1.3).toFixed(2))
-                  setPanX(px => cx - (cx - px) * (next / z))
-                  setPanY(py => cy - (cy - py) * (next / z))
-                  return next
-                })
-              }} style={{
-                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#334155',
-              }}>+</button>
-              <button onClick={() => { setZoom(z => { const n = Math.max(1, +(z / 1.3).toFixed(2)); if (n <= 1) { setPanX(0); setPanY(0) } return n }); }} style={{
-                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#334155',
-              }}>−</button>
-              <button onClick={resetZoom} style={{
-                flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 9, fontWeight: 600,
-                cursor: 'pointer', border: '1px solid #E2E8F0',
-                background: zoom > 1 ? '#EFF6FF' : '#F8FAFC',
-                color: zoom > 1 ? '#1a73e8' : '#94A3B8',
-              }}>リセット</button>
-            </div>
-            <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center' }}>
-              {zoom > 1 ? `×${zoom.toFixed(1)}　ドラッグで移動` : 'スクロールでズーム'}
-            </div>
-          </div>
+          {(() => {
+            const btnBase: React.CSSProperties = {
+              width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
+              background: '#F8FAFC', color: '#334155', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 700, flexShrink: 0,
+            }
+            const STEP = 40
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>ズーム</div>
+                {/* +/- */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={zoomIn}  style={btnBase} title="ズームイン">＋</button>
+                  <button onClick={zoomOut} style={btnBase} title="ズームアウト">－</button>
+                  <button onClick={resetZoom} style={{ ...btnBase, width: 'auto', padding: '0 6px', fontSize: 9, color: zoom > 1 ? '#1a73e8' : '#94A3B8', background: zoom > 1 ? '#EFF6FF' : '#F8FAFC' }} title="リセット">
+                    リセット
+                  </button>
+                </div>
+                {/* 矢印パン（ズーム中のみ有効） */}
+                <div style={{ display: 'grid', gridTemplateColumns: '28px 28px 28px', gridTemplateRows: '28px 28px 28px', gap: 2, opacity: zoom > 1 ? 1 : 0.3 }}>
+                  <span />
+                  <button onClick={() => pan(0,  STEP)} style={btnBase} disabled={zoom <= 1} title="上">↑</button>
+                  <span />
+                  <button onClick={() => pan( STEP, 0)} style={btnBase} disabled={zoom <= 1} title="左">←</button>
+                  <button onClick={resetZoom} style={{ ...btnBase, fontSize: 8, color: '#94A3B8' }} title="中央へ">●</button>
+                  <button onClick={() => pan(-STEP, 0)} style={btnBase} disabled={zoom <= 1} title="右">→</button>
+                  <span />
+                  <button onClick={() => pan(0, -STEP)} style={btnBase} disabled={zoom <= 1} title="下">↓</button>
+                  <span />
+                </div>
+                <div style={{ fontSize: 9, color: '#94A3B8', textAlign: 'center' }}>
+                  {zoom > 1 ? `×${zoom.toFixed(1)}` : ''}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* 軸設定 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
