@@ -538,126 +538,187 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       {/* 共有モーダル */}
       {shareModal && (
         <div onClick={() => setShareModal(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)',
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, padding: 16,
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: '#F8FAFC', borderRadius: 20, width: '100%', maxWidth: 520,
-            boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+            background: '#fff', borderRadius: 20, width: '100%', maxWidth: 780,
+            boxShadow: '0 28px 80px rgba(0,0,0,0.32)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
           }}>
-            {/* モーダルヘッダー */}
+
+            {/* ヘッダー */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px', background: '#fff', borderBottom: '1px solid #E2E8F0',
+              padding: '14px 20px', borderBottom: '1px solid #F1F5F9',
             }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>共有</span>
               <button onClick={() => setShareModal(false)} style={{
                 width: 28, height: 28, borderRadius: '50%', border: 'none',
-                background: '#F1F5F9', cursor: 'pointer', fontSize: 14, color: '#64748B',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: '#F1F5F9', cursor: 'pointer', color: '#64748B',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
               }}>✕</button>
             </div>
 
-            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* プレビュータブ：画像 / 動画 */}
+            {/* 本体: 左=プレビュー / 右=アクション */}
+            <div style={{ display: 'flex', minHeight: 320 }}>
+
+              {/* 左: プレビューエリア */}
               <div style={{
-                borderRadius: 12, overflow: 'hidden', border: '1px solid #E2E8F0',
-                background: '#fff', position: 'relative',
+                flex: '1 1 0', background: '#F8FAFC',
+                display: 'flex', flexDirection: 'column',
+                borderRight: '1px solid #F1F5F9',
               }}>
-                {/* 画像プレビュー */}
-                {previewUrl && !videoBlobUrl && (
-                  <img src={previewUrl} alt="散布図プレビュー" style={{ width: '100%', height: 'auto', display: 'block' }} />
-                )}
-                {/* 動画プレビュー */}
-                {videoBlobUrl && (
-                  <video src={videoBlobUrl} controls autoPlay loop muted
-                    style={{ width: '100%', height: 'auto', display: 'block' }} />
-                )}
-                {/* 動画生成中オーバーレイ */}
-                {videoProgress !== null && (
-                  <div style={{
-                    position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.65)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>動画を生成中... {videoProgress}%</span>
-                    <div style={{ width: 200, height: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>
-                      <div style={{ height: '100%', width: `${videoProgress}%`, background: '#F4B400', borderRadius: 3, transition: 'width 0.1s' }} />
-                    </div>
-                  </div>
-                )}
-                {/* プレビュー左上バッジ */}
+                {/* プレビュータブ */}
                 <div style={{
-                  position: 'absolute', top: 8, left: 8,
-                  background: 'rgba(15,23,42,0.55)', borderRadius: 6,
-                  padding: '2px 8px', fontSize: 10, fontWeight: 600, color: '#fff',
+                  display: 'flex', borderBottom: '1px solid #F1F5F9',
                 }}>
-                  {videoBlobUrl ? '動画プレビュー' : '画像プレビュー'}
+                  {(['image', 'video'] as const).map(tab => (
+                    <button key={tab}
+                      onClick={() => {}}
+                      style={{
+                        flex: 1, padding: '10px 0', border: 'none', cursor: 'default',
+                        background: (tab === 'image' && !videoBlobUrl) || (tab === 'video' && !!videoBlobUrl)
+                          ? '#fff' : '#F8FAFC',
+                        fontSize: 11, fontWeight: 600,
+                        color: (tab === 'image' && !videoBlobUrl) || (tab === 'video' && !!videoBlobUrl)
+                          ? '#1E293B' : '#94A3B8',
+                        borderBottom: (tab === 'image' && !videoBlobUrl) || (tab === 'video' && !!videoBlobUrl)
+                          ? '2px solid #1a73e8' : '2px solid transparent',
+                      }}
+                    >{tab === 'image' ? '画像プレビュー' : '動画プレビュー'}</button>
+                  ))}
+                </div>
+
+                {/* プレビュー本体 */}
+                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  {/* 画像 */}
+                  {previewUrl && !videoBlobUrl && (
+                    <img src={previewUrl} alt="散布図プレビュー"
+                      style={{ width: '100%', height: 'auto', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', display: 'block' }} />
+                  )}
+                  {/* 動画 */}
+                  {videoBlobUrl && (
+                    <video src={videoBlobUrl} controls autoPlay loop muted
+                      style={{ width: '100%', height: 'auto', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', display: 'block' }} />
+                  )}
+                  {/* 動画未生成時のプレースホルダー */}
+                  {!videoBlobUrl && videoProgress === null && (
+                    <div style={{
+                      position: 'absolute', bottom: 24, right: 24,
+                      background: 'rgba(15,23,42,0.5)', borderRadius: 8,
+                      padding: '4px 10px', fontSize: 10, color: '#fff', fontWeight: 600,
+                    }}>PNG</div>
+                  )}
+                  {/* 動画生成中オーバーレイ */}
+                  {videoProgress !== null && (
+                    <div style={{
+                      position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.7)',
+                      borderRadius: 10, margin: 16,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12,
+                    }}>
+                      {/* スピナー */}
+                      <svg width={36} height={36} viewBox="0 0 36 36" className="animate-spin">
+                        <circle cx={18} cy={18} r={15} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={3} />
+                        <path d="M18 3 a15 15 0 0 1 15 15" fill="none" stroke="#F4B400" strokeWidth={3} strokeLinecap="round" />
+                      </svg>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>動画を生成中... {videoProgress}%</span>
+                      <div style={{ width: 180, height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>
+                        <div style={{ height: '100%', width: `${videoProgress}%`, background: '#F4B400', borderRadius: 3, transition: 'width 0.1s' }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* アクションボタン群 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* 右: アクションボタン */}
+              <div style={{ width: 260, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ fontSize: 11, color: '#94A3B8', margin: '0 0 4px', fontWeight: 500 }}>共有方法を選択</p>
 
                 {/* 画像をコピー */}
                 <button onClick={copyImage} style={actionRowStyle}>
                   <span style={iconBoxStyle('#EFF6FF')}>
-                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2"/>
                       <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                     </svg>
                   </span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>画像をコピー</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>クリップボードにPNG画像をコピー</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>画像をコピー</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>クリップボードにPNG</div>
                   </div>
                 </button>
 
                 {/* Xで共有 */}
                 <button onClick={shareToX} style={actionRowStyle}>
                   <span style={iconBoxStyle('#000')}>
-                    <svg width={16} height={16} viewBox="0 0 24 24" fill="#fff">
+                    <svg width={15} height={15} viewBox="0 0 24 24" fill="#fff">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
                     </svg>
                   </span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>Xで共有</div>
-                    <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>X (Twitter) に投稿する</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>Xで共有</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>X (Twitter) に投稿</div>
                   </div>
                 </button>
 
-                {/* 動画：生成 or ダウンロード */}
+                {/* 仕切り */}
+                <div style={{ height: 1, background: '#F1F5F9', margin: '4px 0' }} />
+
+                {/* 動画生成 / ダウンロード */}
                 {!videoBlobUrl ? (
                   <button onClick={generateVideo} disabled={videoProgress !== null} style={{
-                    ...actionRowStyle, background: videoProgress !== null ? '#F8FAFC' : '#fff',
-                    cursor: videoProgress !== null ? 'default' : 'pointer', opacity: videoProgress !== null ? 0.7 : 1,
+                    ...actionRowStyle,
+                    opacity: videoProgress !== null ? 0.6 : 1,
+                    cursor: videoProgress !== null ? 'default' : 'pointer',
                   }}>
                     <span style={iconBoxStyle('#FEF3C7')}>
-                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
                       </svg>
                     </span>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>動画を生成する</div>
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>ドット出現アニメーション付きWebM</div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>
+                        {videoProgress !== null ? `生成中 ${videoProgress}%` : '動画を生成する'}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>アニメーション付きWebM</div>
                     </div>
                   </button>
                 ) : (
                   <button onClick={downloadVideo} style={actionRowStyle}>
                     <span style={iconBoxStyle('#F0FDF4')}>
-                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                       </svg>
                     </span>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1E293B' }}>動画をダウンロード</div>
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>WebMファイルとして保存</div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#16A34A' }}>動画をダウンロード</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>WebMファイルとして保存</div>
                     </div>
                   </button>
                 )}
+
+                {/* 動画生成後に画像コピーに戻れるヒント */}
+                {videoBlobUrl && (
+                  <p style={{ fontSize: 10, color: '#94A3B8', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    左のプレビューで動画を確認できます
+                  </p>
+                )}
               </div>
+            </div>
+
+            {/* フッター */}
+            <div style={{
+              padding: '10px 20px', borderTop: '1px solid #F1F5F9',
+              display: 'flex', justifyContent: 'flex-end',
+            }}>
+              <button onClick={() => setShareModal(false)} style={{
+                padding: '6px 16px', borderRadius: 8,
+                border: '1px solid #E2E8F0', background: '#F8FAFC',
+                fontSize: 12, fontWeight: 600, color: '#64748B', cursor: 'pointer',
+              }}>閉じる</button>
             </div>
           </div>
         </div>
