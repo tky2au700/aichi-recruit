@@ -250,14 +250,13 @@ export function RankingPageClient({ config }: { config: RankingPageConfig }) {
           {!loading && filtered.length > 0 && (
             <div style={{ marginTop: 24 }}>
               <RankingBarRace
-                data={filtered.slice(0, 10).map(r => ({
+                data={filtered.map(r => ({
                   name:  r.occupation_name,
                   value: (r[config.sortKey] as number | null) ?? 0,
-                  color: pc,
                 }))}
                 title={config.title}
                 surveyYear={meta?.survey_year ?? surveyYear}
-                unit="万円"
+                unit={config.sortKey === 'hourly_wage' ? '円/h' : '万円'}
                 primaryColor={pc}
               />
             </div>
