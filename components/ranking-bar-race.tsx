@@ -78,11 +78,8 @@ export function RankingBarRace({
 
   // 有効データ（両軸が存在するもの）
   const items = data.filter(d => getVal(d, xAxis.key) != null && getVal(d, yAxis.key) != null)
-  const maxWorkers = Math.max(...data.map(d => d.workers ?? 1), 1)
-
-  function bubbleR(workers: number | null | undefined) {
-    if (!workers || workers <= 0) return 8
-    return 7 + Math.sqrt(workers / maxWorkers) * 24
+  function bubbleR(_workers?: number | null) {
+    return 28
   }
 
   const draw = useCallback((hovered: number | null) => {
@@ -382,7 +379,7 @@ export function RankingBarRace({
               background: '#F1F5F9', padding: '2px 8px', borderRadius: 20,
             }}>{surveyYear}年調査</span>
           )}
-          <span style={{ fontSize: 10, color: '#CBD5E1' }}>●サイズ = 労働者数</span>
+
         </div>
 
         {/* 軸セレクタ */}
