@@ -62,8 +62,9 @@ const LABEL_C = '#475569'
 
 function getVal(item: ScatterItem, key: keyof ScatterItem): number | null {
   const v = item[key]
-  if (v == null || typeof v !== 'number') return null
-  return v
+  if (v == null) return null
+  const n = typeof v === 'number' ? v : parseFloat(v as string)
+  return isNaN(n) ? null : n
 }
 
 function nice(min: number, max: number, steps: number) {
