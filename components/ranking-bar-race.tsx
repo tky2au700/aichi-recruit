@@ -127,18 +127,18 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const resetZoom = useCallback(() => { setZoom(1); setPanX(0); setPanY(0) }, [])
 
   const zoomIn  = useCallback(() => {
-    const cx = W / 2, cy = H / 2
+    const cx = size.w / 2, cy = size.w / 2
     setZoom(z => {
       const next = Math.min(8, +(z * 1.5).toFixed(2))
       setPanX(px => cx - (cx - px) * (next / z))
       setPanY(py => cy - (cy - py) * (next / z))
       return next
     })
-  }, [W, H])
+  }, [size.w])
 
   const zoomOut = useCallback(() => {
+    const cx = size.w / 2, cy = size.w / 2
     setZoom(z => {
-      const cx = W / 2, cy = H / 2
       const next = Math.max(1, +(z / 1.5).toFixed(2))
       if (next <= 1) { setPanX(0); setPanY(0) }
       else {
@@ -147,7 +147,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       }
       return next
     })
-  }, [W, H])
+  }, [size.w])
 
   const pan = useCallback((dx: number, dy: number) => {
     setPanX(px => px + dx)
@@ -738,7 +738,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             )}
           </div>
 
-          {/* ズームコントロール */}
+          {/* ズーム��ントロール */}
           {(() => {
             const btnBase: React.CSSProperties = {
               width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
