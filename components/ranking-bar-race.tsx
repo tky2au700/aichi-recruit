@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import html2canvas from 'html2canvas'
 
 export interface ScatterItem {
   name:      string
@@ -77,7 +78,10 @@ export function RankingBarRace({
   const [xAxis, setXAxis] = useState<AxisDef>(AXIS_OPTIONS[0])
   const [yAxis, setYAxis] = useState<AxisDef>(AXIS_OPTIONS[1])
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
-  const wrapRef  = useRef<HTMLDivElement>(null)
+  const [labelMode, setLabelMode] = useState<'top10' | 'bottom10'>('top10')
+  const [sharing, setSharing] = useState(false)
+  const wrapRef      = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 700, h: 380 })
 
   // コンテナ幅を監視
@@ -143,7 +147,9 @@ export function RankingBarRace({
     const cx = goRight ? dx + DOT_R + LINE_LEN : dx - DOT_R - LINE_LEN - cardW
     return {
       i, item, color, dx, dy, xv, yv,
-      showCard: item.rank <= LABEL_LIMIT,
+      showCard: labelMode === 'top10'
+        ? item.rank <= 10
+        : item.rank > (items.length - 10),
       cardX: cx, cardY: dy - CARD_H / 2,
       cardW, goRight,
     }
@@ -173,6 +179,39 @@ export function RankingBarRace({
     if (e.cardX + e.cardW > W - PAD_R)      e.cardX = W - PAD_R - e.cardW
   })
 
+  // 共有ハンドラ
+  const handleShare = useCallback(async () => {
+    if (!containerRef.current) return
+    setSharing(true)
+    try {
+      const canvas = await html2canvas(containerRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+      })
+      canvas.toBlob(async blob => {
+        if (!blob) return
+        const file = new File([blob], 'scatter.png', { type: 'image/png' })
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            title: '職種別 散布図',
+            text: '残業が少なくて年収が高い職種ランキング | AIリクルート',
+            files: [file],
+          })
+        } else {
+          // フォールバック: ダウンロード
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url; a.download = 'scatter.png'; a.click()
+          URL.revokeObjectURL(url)
+        }
+        setSharing(false)
+      }, 'image/png')
+    } catch {
+      setSharing(false)
+    }
+  }, [])
+
   // AxisSelect コンポーネント
   const AxisSelect = ({ value, onChange, label }: {
     value: AxisDef; onChange: (a: AxisDef) => void; label: string
@@ -200,34 +239,71 @@ export function RankingBarRace({
 
   const hovered = hoveredIdx !== null ? entries.find(e => e.i === hoveredIdx) ?? null : null
 
+  const btnBase: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    height: 26, borderRadius: 6, border: '1px solid #E2E8F0',
+    background: '#F8FAFC', cursor: 'pointer', color: '#64748B',
+    fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, padding: '0 8px',
+  }
+
   return (
-    <div style={{
+    <div ref={containerRef} style={{
       background: '#fff', border: '1px solid #E8EFF5', borderRadius: 12,
       padding: '16px 16px 12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
     }}>
       {/* ヘッダー */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* 左: タイトル + 年 + ラベルトグル */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>散布図</span>
           {surveyYear && (
             <span style={{ fontSize: 10, background: '#F1F5F9', color: '#64748B', borderRadius: 4, padding: '2px 6px' }}>
               {surveyYear}年調査
             </span>
           )}
+          {/* 上位/下位トグル */}
+          <div style={{ display: 'flex', border: '1px solid #E2E8F0', borderRadius: 6, overflow: 'hidden' }}>
+            {(['top10', 'bottom10'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setLabelMode(mode)}
+                style={{
+                  ...btnBase,
+                  border: 'none', borderRadius: 0,
+                  background: labelMode === mode ? '#1a73e8' : '#F8FAFC',
+                  color: labelMode === mode ? '#fff' : '#64748B',
+                  padding: '0 10px',
+                }}
+              >{mode === 'top10' ? '上位10件' : '下位10件'}</button>
+            ))}
+          </div>
         </div>
+        {/* 右: 軸セレクタ + 入替 + 共有 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <AxisSelect label="横軸:" value={xAxis} onChange={a => { setXAxis(a); setHoveredIdx(null) }} />
           <button
             onClick={() => { setXAxis(yAxis); setYAxis(xAxis); setHoveredIdx(null) }}
             title="縦横を入れ替え"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26, borderRadius: 6,
-              border: '1px solid #E2E8F0', background: '#F8FAFC',
-              cursor: 'pointer', color: '#64748B', fontSize: 14, flexShrink: 0,
-            }}
+            style={{ ...btnBase, width: 26, padding: 0, fontSize: 14 }}
           >⇄</button>
           <AxisSelect label="縦軸:" value={yAxis} onChange={a => { setYAxis(a); setHoveredIdx(null) }} />
+          <button
+            onClick={handleShare}
+            disabled={sharing}
+            title="画像をキャプチャして共有"
+            style={{
+              ...btnBase,
+              gap: 4,
+              background: sharing ? '#E2E8F0' : '#F8FAFC',
+              color: sharing ? '#94A3B8' : '#475569',
+            }}
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            {sharing ? '処理中...' : '共有'}
+          </button>
         </div>
       </div>
 
