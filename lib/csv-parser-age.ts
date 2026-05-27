@@ -2,12 +2,17 @@
  * 賃金構造基本統計調査 年齢階級別×学歴別CSVパーサー
  * 対象: (1-1-1)aa1n11 系 第１表
  *
- * フォーマット A（2025年〜）: 先頭2列が空
- *   col[2]: ラベル、col[3]〜: データ
- * フォーマット B（〜2024年）: 先頭1列が空
- *   col[1]: ラベル、col[2]〜: データ
+ * フォーマット A（2025年〜）:
+ *   - 集計行: cols[1] に "男　女　計\n学　歴　計" 形式（全角スペース）、cols[2] は空、cols[3]〜 が数値
+ *   - 学歴行: cols[1] は空、cols[2] に "中　学" 等（全角スペース）、cols[3]〜 が数値
+ *   - 年齢行: cols[1] は空、cols[2] に "　　～１９歳" 等、cols[3]〜 が数値
+ *   → labelOffset=2 (学歴/年齢), sexEduOffset=1 (集計行), dataOffset=3
  *
- * パーサーはデータ開始行の列位置を自動判定し両フォーマットに対応する。
+ * フォーマット B（〜2024年）:
+ *   - 集計行: cols[0] は空、cols[1] に "男女計\n学歴計" 形式（スペースなし）、cols[2]〜 が数値
+ *   - 学歴行: cols[0] は空、cols[1] に "中学" 等、cols[2]〜 が数値
+ *   - 年齢行: cols[0] は空、cols[1] に "　　～１９歳" 等、cols[2]〜 が数値
+ *   → labelOffset=1, dataOffset=2
  */
 
 export interface AgeWageRow {
@@ -29,7 +34,6 @@ export interface AgeWageRow {
 // -------------------- ユーティリティ --------------------
 
 function parseNum(s: string): number | null {
-  // スペース（全角・半角）と , を除去してparseFloat
   const cleaned = (s ?? '').replace(/[\s　,]/g, '').trim()
   if (!cleaned || cleaned === '-' || cleaned === '…' || cleaned === '**') return null
   const n = parseFloat(cleaned)
@@ -74,63 +78,59 @@ function parseFullCsv(text: string): string[][] {
 
 const SEX_MAP: Record<string, '計' | '男' | '女'> = {
   '男女計': '計',
-  '男女': '計',
-  '男性': '男',
-  '女性': '女',
-  '男': '男',
-  '女': '女',
+  '男女':   '計',
+  '男性':   '男',
+  '女性':   '女',
+  '男':     '男',
+  '女':     '女',
 }
 
 const EDU_MAP: Record<string, string> = {
-  '学歴計': '学歴計',
-  '中学': '中学',
-  '高校': '高校',
+  '学歴計':   '学歴計',
+  '中学':     '中学',
+  '高校':     '高校',
   '専門学校': '専門学校',
   '高専短大': '高専・短大',
   '高専・短大': '高専・短大',
-  '大学': '大学',
-  '大学院': '大学院',
-  '不明': '不明',
+  '大学':     '大学',
+  '大学院':   '大学院',
+  '不明':     '不明',
 }
 
 type ParsedLabel = {
-  sex: '計' | '男' | '女' | null
+  sex:       '計' | '男' | '女' | null
   education: string | null
-  ageGroup: string | null
+  ageGroup:  string | null
 }
 
-function parseLabel(raw: string): ParsedLabel {
+function parseLabelParts(raw: string): ParsedLabel {
   const result: ParsedLabel = { sex: null, education: null, ageGroup: null }
-
-  // セル内改行で分割して各部分を解析
   const parts = raw.split('\n').map(p => p.trim()).filter(p => p !== '')
 
   for (const part of parts) {
     const n = norm(part)
 
-    // 性別チェック
+    // 性別
     if (result.sex === null) {
       for (const [key, val] of Object.entries(SEX_MAP)) {
         if (n === key) { result.sex = val; break }
       }
     }
 
-    // 学歴チェック
+    // 学歴
     if (result.education === null) {
       const edu = EDU_MAP[n]
       if (edu) result.education = edu
     }
 
-    // 年齢階級チェック: 先頭スペースがある or 数字を含む
+    // 年齢階級: 全角数字→半角、年齢パターン検出
     if (result.ageGroup === null) {
-      // 全角数字→半角変換して年齢パターンを検出
       const ageNorm = part
         .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-        .replace(/〜|~/g, '～')
+        .replace(/〜/g, '～')
         .replace(/[　\s]+/g, '')
         .trim()
-      // ～数字歳、数字～数字歳、数字以上 のパターン
-      if (/^[～～]?[0-9]+/.test(ageNorm) && (ageNorm.includes('歳') || ageNorm.includes('～') || /[0-9]+$/.test(ageNorm))) {
+      if (/^[～]?[0-9]+/.test(ageNorm) && (ageNorm.includes('歳') || ageNorm.includes('～'))) {
         result.ageGroup = ageNorm
       }
     }
@@ -143,13 +143,11 @@ function parseLabel(raw: string): ParsedLabel {
 
 type EnterpriseSize = AgeWageRow['enterprise_size']
 
-// フォーマット A（2025年〜）: labelOffset=2, dataOffset=3
-// フォーマット B（〜2024年）: labelOffset=1, dataOffset=2
 function getBlocks(dataOffset: number): Array<{ label: EnterpriseSize; start: number }> {
   const d = dataOffset
   return [
-    { label: '企業規模計',   start: d      },
-    { label: '1,000人以上', start: d + 8  },
+    { label: '企業規模計',   start: d },
+    { label: '1,000人以上', start: d + 8 },
     { label: '100～999人',  start: d + 16 },
     { label: '10～99人',    start: d + 24 },
   ]
@@ -190,40 +188,41 @@ function buildRow(
   }
 }
 
+function isPositiveNum(s: string): boolean {
+  const cleaned = (s ?? '').replace(/[\s　,]/g, '').trim()
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+  const n = parseFloat(cleaned)
+  return !isNaN(n) && n > 0
+}
+
 // -------------------- メインパーサー --------------------
 
 export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
   const logicalRows = parseFullCsv(csvText)
   const results: AgeWageRow[] = []
 
-  // フォーマット自動判定:
-  // 最初の数値データ行を探し、ラベルがcol[2]にあるか col[1]にあるかで判定
+  // -------- フォーマット自動判定 --------
+  // 最初の「年齢数値がある」データ行を探し、
+  // cols[3] が年齢数値 → フォーマットA (labelOffset=2, dataOffset=3)
+  // cols[2] が年齢数値 → フォーマットB (labelOffset=1, dataOffset=2)
   let dataStart = -1
-  let labelOffset = 2  // デフォルト: フォーマットA（2025年〜）
-  let dataOffset = 3
+  let labelOffset = 2
+  let dataOffset  = 3
 
   for (let r = 5; r < logicalRows.length; r++) {
     const cols = logicalRows[r]
     if (!cols || cols.length < 10) continue
 
-    // フォーマットA: col[3]が年齢数値
-    const col3 = (cols[3] ?? '').replace(/[\s　,]/g, '').trim()
-    const num3 = parseFloat(col3.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)))
-    if (!isNaN(num3) && num3 > 10 && num3 < 80) {
-      labelOffset = 2
-      dataOffset = 3
-      dataStart = r
-      break
+    const v3 = (cols[3] ?? '').replace(/[\s　,]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    const n3 = parseFloat(v3)
+    if (!isNaN(n3) && n3 > 10 && n3 < 80) {
+      labelOffset = 2; dataOffset = 3; dataStart = r; break
     }
 
-    // フォーマットB: col[2]が年齢数値
-    const col2 = (cols[2] ?? '').replace(/[\s　,]/g, '').trim()
-    const num2 = parseFloat(col2.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)))
-    if (!isNaN(num2) && num2 > 10 && num2 < 80) {
-      labelOffset = 1
-      dataOffset = 2
-      dataStart = r
-      break
+    const v2 = (cols[2] ?? '').replace(/[\s　,]/g, '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    const n2 = parseFloat(v2)
+    if (!isNaN(n2) && n2 > 10 && n2 < 80) {
+      labelOffset = 1; dataOffset = 2; dataStart = r; break
     }
   }
   if (dataStart === -1) return []
@@ -237,24 +236,28 @@ export function parseAgeWageCsv(csvText: string): AgeWageRow[] {
     const cols = logicalRows[i]
     if (!cols || cols.length < 10) continue
 
-    const rawLabel = cols[labelOffset] ?? ''
+    // データ列（dataOffset）が正の数値でなければスキップ
+    if (!isPositiveNum(cols[dataOffset] ?? '')) continue
+
+    // フォーマットAの特殊ケース:
+    // 集計行（性別+学歴）は cols[1] にラベルがあり cols[2] は空
+    // → cols[labelOffset] が空のとき cols[labelOffset-1] も確認する
+    let rawLabel = cols[labelOffset] ?? ''
+    if (!rawLabel.trim() && labelOffset > 0) {
+      rawLabel = cols[labelOffset - 1] ?? ''
+    }
     if (!rawLabel.trim()) continue
 
-    // データ行確認: dataOffset列目が正の数値
-    const colD = (cols[dataOffset] ?? '').replace(/[\s　,]/g, '').trim()
-    const colDNorm = colD.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    const isDataRow = !isNaN(parseFloat(colDNorm)) && parseFloat(colDNorm) > 0
-    if (!isDataRow) continue
+    const parsed = parseLabelParts(rawLabel)
 
-    const parsed = parseLabel(rawLabel)
-
-    if (parsed.sex !== null) currentSex = parsed.sex
+    if (parsed.sex !== null)       currentSex = parsed.sex
     if (parsed.education !== null) currentEducation = parsed.education
 
     let finalAgeGroup: string
     if (parsed.ageGroup !== null) {
       finalAgeGroup = parsed.ageGroup
-    } else if (parsed.education !== null) {
+    } else if (parsed.education !== null || parsed.sex !== null) {
+      // 学歴行 or 性別+学歴集計行 → 学歴計
       finalAgeGroup = '学歴計'
     } else {
       continue
