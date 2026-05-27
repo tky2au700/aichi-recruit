@@ -131,7 +131,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
     const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
 
-    const LABEL_OFFSET = DOT_R + 3  // ドット下端からラベル上端までの余白
+    const LABEL_OFFSET = DOT_R + 2
 
     const result: Entry[] = items.map((item, i) => {
       const xv    = getVal(item, xAxis.key)!
@@ -139,23 +139,42 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       const dx    = toX(xv)
       const dy    = toY(yv)
       const color = COLORS[i % COLORS.length]
-      // ラベルはドット中央X・ドット真下
+      // ラベルはドット真下・中央揃え（初期値）
       const lx    = dx
       const ly    = dy + LABEL_OFFSET + LABEL_FS
       return { i, item, color, dx, dy, xv, yv, lx, ly, goRight: true }
     })
 
-    // Y重なり回避（同じX付近の点が下方向に積み上がる）
-    const sorted = [...result].sort((a, b) => a.ly - b.ly)
-    for (let k = 1; k < sorted.length; k++) {
-      if (sorted[k].ly - sorted[k - 1].ly < MIN_GAP) {
-        sorted[k].ly = sorted[k - 1].ly + MIN_GAP
+    // Y上下両方向の重なり回避（Beeswarm-style）
+    // ly でソートし、隣同士が近すぎたら交互に上下へ逃がす
+    const STEP = MIN_GAP
+    const yLo = PAD_T + LABEL_FS
+    const yHi = H - PAD_B - 4
+
+    for (let iter = 0; iter < 8; iter++) {
+      result.sort((a, b) => a.ly - b.ly)
+      for (let k = 1; k < result.length; k++) {
+        const prev = result[k - 1]
+        const cur  = result[k]
+        const overlap = STEP - (cur.ly - prev.ly)
+        if (overlap > 0) {
+          // 各点をドット位置との距離で押す方向を決める
+          const pushUp   = prev.ly - prev.dy > cur.ly - cur.dy
+          if (pushUp) {
+            prev.ly -= overlap * 0.6
+            cur.ly  += overlap * 0.4
+          } else {
+            prev.ly -= overlap * 0.4
+            cur.ly  += overlap * 0.6
+          }
+        }
       }
     }
 
-    // 画面外クランプ（Y下端のみ）
+    // 画面内クランプ
     result.forEach(e => {
-      if (e.ly > H - PAD_B - 2) e.ly = H - PAD_B - 2
+      if (e.ly < yLo) e.ly = yLo
+      if (e.ly > yHi) e.ly = yHi
     })
 
     return result
@@ -352,6 +371,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     fontSize: 11, fontWeight: 600, color: '#334155',
     background: '#F8FAFC', border: '1px solid #E2E8F0',
     borderRadius: 6, padding: '4px 8px', cursor: 'pointer', outline: 'none',
+    colorScheme: 'light',
   }
 
   return (
