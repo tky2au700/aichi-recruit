@@ -52,11 +52,11 @@ const LABEL_FS = 10.5
 const LINE_LEN = 12
 
 // 背景・グリッド色
-const BG      = '#16192a'
-const GRID    = 'rgba(255,255,255,0.07)'
-const AXIS_C  = 'rgba(255,255,255,0.2)'
-const TICK_C  = 'rgba(255,255,255,0.35)'
-const LABEL_C = 'rgba(255,255,255,0.55)'
+const BG      = '#ffffff'
+const GRID    = 'rgba(0,0,0,0.07)'
+const AXIS_C  = 'rgba(0,0,0,0.18)'
+const TICK_C  = '#64748B'
+const LABEL_C = '#475569'
 
 function getVal(item: ScatterItem, key: keyof ScatterItem): number | null {
   const v = item[key]
@@ -131,36 +131,31 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
     const toX = (v: number) => PAD_L + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD_L - PAD_R)
     const toY = (v: number) => H - PAD_B - ((v - yMin) / (yMax - yMin || 1)) * (H - PAD_T - PAD_B)
 
+    const LABEL_OFFSET = DOT_R + 3  // ドット下端からラベル上端までの余白
+
     const result: Entry[] = items.map((item, i) => {
-      const xv      = getVal(item, xAxis.key)!
-      const yv      = getVal(item, yAxis.key)!
-      const dx      = toX(xv)
-      const dy      = toY(yv)
-      const color   = COLORS[i % COLORS.length]
-      const goRight = dx < (PAD_L + W - PAD_R) / 2
-      const lx      = goRight ? dx + DOT_R + LINE_LEN : dx - DOT_R - LINE_LEN - approxTextWidth(item.name, LABEL_FS)
-      return { i, item, color, dx, dy, xv, yv, lx, ly: dy, goRight }
+      const xv    = getVal(item, xAxis.key)!
+      const yv    = getVal(item, yAxis.key)!
+      const dx    = toX(xv)
+      const dy    = toY(yv)
+      const color = COLORS[i % COLORS.length]
+      // ラベルはドット中央X・ドット真下
+      const lx    = dx
+      const ly    = dy + LABEL_OFFSET + LABEL_FS
+      return { i, item, color, dx, dy, xv, yv, lx, ly, goRight: true }
     })
 
-    // Y重なり回避（左右別）
-    for (const side of [true, false]) {
-      const group = result
-        .filter(e => e.goRight === side)
-        .sort((a, b) => a.dy - b.dy)
-      for (let k = 1; k < group.length; k++) {
-        if (group[k].ly - group[k - 1].ly < MIN_GAP) {
-          group[k].ly = group[k - 1].ly + MIN_GAP
-        }
+    // Y重なり回避（同じX付近の点が下方向に積み上がる）
+    const sorted = [...result].sort((a, b) => a.ly - b.ly)
+    for (let k = 1; k < sorted.length; k++) {
+      if (sorted[k].ly - sorted[k - 1].ly < MIN_GAP) {
+        sorted[k].ly = sorted[k - 1].ly + MIN_GAP
       }
     }
 
-    // 画面外クランプ
+    // 画面外クランプ（Y下端のみ）
     result.forEach(e => {
-      const tW = approxTextWidth(e.item.name, LABEL_FS)
-      if (e.ly < PAD_T + LABEL_FS / 2)            e.ly = PAD_T + LABEL_FS / 2
-      if (e.ly > H - PAD_B - LABEL_FS / 2)        e.ly = H - PAD_B - LABEL_FS / 2
-      if (e.lx < PAD_L)                            e.lx = PAD_L
-      if (e.lx + tW > W - PAD_R)                   e.lx = W - PAD_R - tW
+      if (e.ly > H - PAD_B - 2) e.ly = H - PAD_B - 2
     })
 
     return result
@@ -345,7 +340,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   const actionRowStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 12,
     padding: '11px 14px', borderRadius: 10,
-    border: '1px solid #2a2f45', background: '#1e2338',
+    border: '1px solid #E2E8F0', background: '#F8FAFC',
     cursor: 'pointer', width: '100%', textAlign: 'left' as const,
   }
   const iconBoxStyle = (bg: string): React.CSSProperties => ({
@@ -354,15 +349,16 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
   })
 
   const selectStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: '#CBD5E1',
-    background: '#1e2338', border: '1px solid #2a3050',
+    fontSize: 11, fontWeight: 600, color: '#334155',
+    background: '#F8FAFC', border: '1px solid #E2E8F0',
     borderRadius: 6, padding: '4px 8px', cursor: 'pointer', outline: 'none',
   }
 
   return (
     <div ref={containerRef} style={{
       background: BG, borderRadius: 16,
-      padding: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+      padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+      border: '1px solid #E2E8F0',
     }}>
       {/* 外側: 左=チャート正方形 / 右=コントロール */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
@@ -422,24 +418,12 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
             {/* 調査年透かし */}
             {surveyYear && (
               <text x={W - PAD_R - 8} y={H - PAD_B - 8} textAnchor="end" dominantBaseline="auto"
-                fontSize={44} fontWeight={700} fill="rgba(255,255,255,0.04)" fontFamily="'Noto Sans JP',sans-serif">
+                fontSize={44} fontWeight={700} fill="rgba(0,0,0,0.05)" fontFamily="'Noto Sans JP',sans-serif">
                 {surveyYear}年
               </text>
             )}
 
-            {/* 引き出し線（全件、非ホバー） */}
-            {entries.map(e => {
-              if (e.i === hoveredIdx) return null
-              const startX = e.goRight ? e.dx + DOT_R : e.dx - DOT_R
-              const endX   = e.goRight ? e.lx : e.lx + approxTextWidth(e.item.name, LABEL_FS)
-              // ドットとラベルが十分離れている時だけ線を引く
-              if (Math.abs(endX - startX) < 4) return null
-              return (
-                <line key={`ln-${e.i}`}
-                  x1={startX} y1={e.dy} x2={endX} y2={e.ly}
-                  stroke={e.color} strokeWidth={0.8} strokeOpacity={0.45} strokeDasharray="2 3" />
-              )
-            })}
+
 
             {/* ドット（非ホバー） */}
             {entries.map(e => e.i === hoveredIdx ? null : (
@@ -457,11 +441,11 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               return (
                 <text key={`lb-${e.i}`}
                   x={e.lx} y={e.ly}
-                  textAnchor="start" dominantBaseline="middle"
+                  textAnchor="middle" dominantBaseline="auto"
                   fontSize={LABEL_FS} fontWeight={500}
-                  fill="#fff" fillOpacity={0.82}
+                  fill="#334155" fillOpacity={0.9}
                   fontFamily="'Noto Sans JP',sans-serif"
-                  style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                  style={{ pointerEvents: 'none' }}
                 >
                   {e.item.name}
                 </text>
@@ -492,11 +476,11 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHoveredIdx(e.i)}
                     onMouseLeave={() => setHoveredIdx(null)} />
-                  {/* ラベル（ホバー時は白くはっきり） */}
+                  {/* ラベル（ホバー時は濃くはっきり） */}
                   <text x={e.lx} y={e.ly}
-                    textAnchor="start" dominantBaseline="middle"
+                    textAnchor="middle" dominantBaseline="auto"
                     fontSize={LABEL_FS} fontWeight={700}
-                    fill="#fff" fillOpacity={1}
+                    fill="#0F172A" fillOpacity={1}
                     fontFamily="'Noto Sans JP',sans-serif"
                     style={{ pointerEvents: 'none' }}>
                     {e.item.name}
@@ -523,7 +507,7 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
           {/* 出典 */}
           <div style={{ textAlign: 'right', marginTop: 6 }}>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+            <span style={{ fontSize: 9, color: '#94A3B8' }}>
               出典: 厚生労働省 賃金構造基本統計調査
             </span>
           </div>
@@ -531,24 +515,24 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
         {/* 右: コントロールパネル */}
         <div style={{
-          width: 200, flexShrink: 0,
+          width: 190, flexShrink: 0,
           display: 'flex', flexDirection: 'column', gap: 16,
           paddingTop: 4,
         }}>
           {/* タイトル */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.4 }}>散布図</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.4 }}>散布図</div>
             {surveyYear && (
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>{surveyYear}年調査</div>
+              <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 3 }}>{surveyYear}年調査</div>
             )}
           </div>
 
           {/* 軸設定 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.05em' }}>軸設定</div>
+            <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.05em' }}>軸設定</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', width: 28, flexShrink: 0 }}>横軸</span>
+                <span style={{ fontSize: 10, color: '#64748B', width: 28, flexShrink: 0 }}>横軸</span>
                 <select value={xAxis.key as string}
                   onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setXAxis(f); setHoveredIdx(null) } }}
                   style={{ ...selectStyle, flex: 1 }}>
@@ -562,15 +546,15 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   onClick={() => { setXAxis(yAxis); setYAxis(xAxis); setHoveredIdx(null) }}
                   title="縦横を入れ替え"
                   style={{
-                    background: '#1e2338', border: '1px solid #2a3050',
+                    background: '#F1F5F9', border: '1px solid #E2E8F0',
                     borderRadius: 6, width: 28, height: 24, cursor: 'pointer',
-                    color: 'rgba(255,255,255,0.5)', fontSize: 13, display: 'flex',
+                    color: '#64748B', fontSize: 13, display: 'flex',
                     alignItems: 'center', justifyContent: 'center',
                   }}>⇄</button>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', width: 28, flexShrink: 0 }}>縦軸</span>
+                <span style={{ fontSize: 10, color: '#64748B', width: 28, flexShrink: 0 }}>縦軸</span>
                 <select value={yAxis.key as string}
                   onChange={e => { const f = AXIS_OPTIONS.find(a => a.key === e.target.value); if (f) { setYAxis(f); setHoveredIdx(null) } }}
                   style={{ ...selectStyle, flex: 1 }}>
@@ -587,9 +571,9 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 width: '100%', padding: '9px 0', borderRadius: 8,
-                background: sharing ? '#1e2338' : 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                color: sharing ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.8)',
+                background: sharing ? '#F1F5F9' : '#1a73e8',
+                border: 'none',
+                color: sharing ? '#94A3B8' : '#fff',
                 fontSize: 12, fontWeight: 600, cursor: sharing ? 'default' : 'pointer',
               }}>
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -606,27 +590,27 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
       {/* 共有モーダル */}
       {shareModal && (
         <div onClick={() => setShareModal(false)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999, padding: 16,
         }}>
           <div onClick={ev => ev.stopPropagation()} style={{
-            background: '#1a1f2e', borderRadius: 20, width: '100%', maxWidth: 820,
-            boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: '#fff', borderRadius: 20, width: '100%', maxWidth: 820,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+            border: '1px solid #E2E8F0',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
           }}>
 
             {/* モーダルヘッダー */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+              padding: '14px 20px', borderBottom: '1px solid #F1F5F9',
             }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>共有</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>共有</span>
               <button onClick={() => setShareModal(false)} style={{
                 width: 28, height: 28, borderRadius: '50%', border: 'none',
-                background: 'rgba(255,255,255,0.08)', cursor: 'pointer',
-                color: 'rgba(255,255,255,0.6)',
+                background: '#F1F5F9', cursor: 'pointer',
+                color: '#64748B',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
               }}>✕</button>
             </div>
@@ -637,21 +621,21 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
               {/* 左: プレビューエリア */}
               <div style={{
                 flex: '1 1 0',
-                background: '#111420',
+                background: '#F8FAFC',
                 display: 'flex', flexDirection: 'column',
-                borderRight: '1px solid rgba(255,255,255,0.07)',
+                borderRight: '1px solid #F1F5F9',
               }}>
                 {/* プレビュータブ */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ display: 'flex', borderBottom: '1px solid #F1F5F9' }}>
                   {(['image', 'video'] as const).map(tab => {
                     const active = (tab === 'image' && !videoBlobUrl) || (tab === 'video' && !!videoBlobUrl)
                     return (
                       <button key={tab} style={{
                         flex: 1, padding: '10px 0', border: 'none', cursor: 'default',
-                        background: active ? '#1a1f2e' : 'transparent',
+                        background: active ? '#fff' : 'transparent',
                         fontSize: 11, fontWeight: 600,
-                        color: active ? '#fff' : 'rgba(255,255,255,0.35)',
-                        borderBottom: active ? '2px solid #4FC3F7' : '2px solid transparent',
+                        color: active ? '#1E293B' : '#94A3B8',
+                        borderBottom: active ? '2px solid #1a73e8' : '2px solid transparent',
                       }}>
                         {tab === 'image' ? '画像プレビュー' : '動画プレビュー'}
                       </button>
@@ -667,39 +651,39 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   {previewUrl && !videoBlobUrl && (
                     <img src={previewUrl} alt="散布図プレビュー"
                       style={{ width: '100%', height: 'auto', borderRadius: 10, display: 'block',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} />
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0' }} />
                   )}
                   {videoBlobUrl && (
                     <video src={videoBlobUrl} controls autoPlay loop muted
                       style={{ width: '100%', height: 'auto', borderRadius: 10, display: 'block',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }} />
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.1)' }} />
                   )}
                   {!previewUrl && !videoBlobUrl && videoProgress === null && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1.5}>
+                      <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth={1.5}>
                         <rect x="3" y="3" width="18" height="18" rx="3"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                       </svg>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>プレビューを準備中...</span>
+                      <span style={{ fontSize: 11, color: '#94A3B8' }}>プレビューを準備中...</span>
                     </div>
                   )}
                   {/* 動画生成中オーバーレイ */}
                   {videoProgress !== null && (
                     <div style={{
                       position: 'absolute', inset: 0,
-                      background: 'rgba(10,13,28,0.85)',
+                      background: 'rgba(248,250,252,0.9)',
                       display: 'flex', flexDirection: 'column',
                       alignItems: 'center', justifyContent: 'center', gap: 14,
                     }}>
                       <svg width={40} height={40} viewBox="0 0 36 36" className="animate-spin">
-                        <circle cx={18} cy={18} r={15} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={3} />
-                        <path d="M18 3 a15 15 0 0 1 15 15" fill="none" stroke="#4FC3F7" strokeWidth={3} strokeLinecap="round" />
+                        <circle cx={18} cy={18} r={15} fill="none" stroke="#E2E8F0" strokeWidth={3} />
+                        <path d="M18 3 a15 15 0 0 1 15 15" fill="none" stroke="#1a73e8" strokeWidth={3} strokeLinecap="round" />
                       </svg>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>動画を生成中... {videoProgress}%</span>
-                      <div style={{ width: 200, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>動画を生成中... {videoProgress}%</span>
+                      <div style={{ width: 200, height: 4, background: '#E2E8F0', borderRadius: 2 }}>
                         <div style={{
                           height: '100%', width: `${videoProgress}%`,
-                          background: '#4FC3F7', borderRadius: 2, transition: 'width 0.1s'
+                          background: '#1a73e8', borderRadius: 2, transition: 'width 0.1s'
                         }} />
                       </div>
                     </div>
@@ -708,8 +692,8 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                   {previewUrl && !videoBlobUrl && (
                     <div style={{
                       position: 'absolute', bottom: 28, right: 28,
-                      background: 'rgba(0,0,0,0.5)', borderRadius: 6,
-                      padding: '2px 8px', fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700,
+                      background: 'rgba(15,23,42,0.45)', borderRadius: 6,
+                      padding: '2px 8px', fontSize: 9, color: '#fff', fontWeight: 700,
                     }}>PNG × 2x</div>
                   )}
                 </div>
@@ -717,38 +701,38 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
               {/* 右: アクションボタン */}
               <div style={{ width: 260, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '0 0 6px', fontWeight: 600, letterSpacing: '0.05em' }}>
+                <p style={{ fontSize: 10, color: '#94A3B8', margin: '0 0 6px', fontWeight: 600, letterSpacing: '0.05em' }}>
                   共有方法を選択
                 </p>
 
                 {/* 画像をコピー */}
                 <button onClick={copyImage} style={actionRowStyle}>
-                  <span style={iconBoxStyle('rgba(79,195,247,0.15)')}>
-                    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#4FC3F7" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <span style={iconBoxStyle('#EFF6FF')}>
+                    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2"/>
                       <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                     </svg>
                   </span>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>画像をコピー</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>クリップボードにPNG</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>画像をコピー</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>クリップボードにPNG</div>
                   </div>
                 </button>
 
                 {/* Xで共有 */}
                 <button onClick={shareToX} style={actionRowStyle}>
-                  <span style={iconBoxStyle('rgba(255,255,255,0.1)')}>
-                    <svg width={15} height={15} viewBox="0 0 24 24" fill="rgba(255,255,255,0.8)">
+                  <span style={iconBoxStyle('#000')}>
+                    <svg width={15} height={15} viewBox="0 0 24 24" fill="#fff">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
                     </svg>
                   </span>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>Xで共有</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>X (Twitter) に投稿</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>Xで共有</div>
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>X (Twitter) に投稿</div>
                   </div>
                 </button>
 
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+                <div style={{ height: 1, background: '#F1F5F9', margin: '4px 0' }} />
 
                 {/* 動画生成 / ダウンロード */}
                 {!videoBlobUrl ? (
@@ -756,37 +740,37 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
                     ...actionRowStyle, opacity: videoProgress !== null ? 0.5 : 1,
                     cursor: videoProgress !== null ? 'default' : 'pointer',
                   }}>
-                    <span style={iconBoxStyle('rgba(129,199,132,0.15)')}>
-                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#81C784" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <span style={iconBoxStyle('#FEF3C7')}>
+                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="23 7 16 12 23 17 23 7"/>
                         <rect x="1" y="5" width="15" height="14" rx="2"/>
                       </svg>
                     </span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1E293B' }}>
                         {videoProgress !== null ? `生成中... ${videoProgress}%` : '動画を生成する'}
                       </div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>アニメーション付きWebM</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>アニメーション付きWebM</div>
                     </div>
                   </button>
                 ) : (
                   <button onClick={downloadVideo} style={actionRowStyle}>
-                    <span style={iconBoxStyle('rgba(129,199,132,0.2)')}>
-                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#81C784" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <span style={iconBoxStyle('#F0FDF4')}>
+                      <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
                       </svg>
                     </span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#81C784' }}>動画をダウンロード</div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>WebMファイルとして保存</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#16A34A' }}>動画をダウンロード</div>
+                      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>WebMファイルとして保存</div>
                     </div>
                   </button>
                 )}
 
                 {videoBlobUrl && (
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 10, color: '#94A3B8', margin: '4px 0 0', lineHeight: 1.5 }}>
                     左のプレビューで動画を確認できます
                   </p>
                 )}
@@ -795,14 +779,14 @@ export function RankingBarRace({ data, surveyYear }: RankingBarRaceProps) {
 
             {/* フッター */}
             <div style={{
-              padding: '10px 20px', borderTop: '1px solid rgba(255,255,255,0.07)',
+              padding: '10px 20px', borderTop: '1px solid #F1F5F9',
               display: 'flex', justifyContent: 'flex-end',
             }}>
               <button onClick={() => setShareModal(false)} style={{
                 padding: '6px 16px', borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.05)',
-                fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
+                border: '1px solid #E2E8F0',
+                background: '#F8FAFC',
+                fontSize: 12, fontWeight: 600, color: '#64748B', cursor: 'pointer',
               }}>閉じる</button>
             </div>
           </div>
